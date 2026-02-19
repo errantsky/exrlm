@@ -40,6 +40,9 @@ rlm_umbrella/
 │       │           ├── glob.ex
 │       │           ├── ls.ex
 │       │           └── rlm_query.ex    # Bridge: agent → RLM engine
+│       ├── priv/
+│       │   ├── system_prompt.md        # RLM engine system prompt
+│       │   └── soul.md                 # Agent identity + behavioural guidelines
 │       └── test/
 └── config/config.exs
 ```

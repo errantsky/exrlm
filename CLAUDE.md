@@ -48,7 +48,8 @@ rlm_umbrella/
 │       │       ├── live_api_test.exs
 │       │       └── worker_test.exs
 │       └── priv/
-│           └── agent_system_prompt.md
+│           ├── system_prompt.md       # RLM engine system prompt
+│           └── soul.md                # Agent identity + behavioural guidelines
 ├── config/
 │   └── config.exs
 └── mix.exs
@@ -156,7 +157,7 @@ Default models:
 | `RLM.Agent.LLM` | Anthropic tool_use API client; parses SSE response body |
 | `RLM.Agent.Message` | Message constructors and API serialisation helpers |
 | `RLM.Agent.Session` | GenServer; multi-turn tool-use loop with PubSub events |
-| `RLM.Agent.Prompt` | Composable system prompt builder (`build/1`) |
+| `RLM.Agent.Prompt` | Composable system prompt builder (`build/1`); prepends `priv/soul.md` |
 | `RLM.Agent.Tool` | `@behaviour` with `spec/0` and `execute/1` callbacks |
 | `RLM.Agent.ToolRegistry` | Lists all tools; provides `specs/0`, `execute/2` |
 | `RLM.Agent.IEx` | `start/1`, `chat/3`, `start_chat/2`, `watch/2`, `history/1`, `status/1` |
