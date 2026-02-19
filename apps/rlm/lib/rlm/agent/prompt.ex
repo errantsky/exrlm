@@ -20,6 +20,8 @@ defmodule RLM.Agent.Prompt do
     extra = Keyword.get(opts, :extra, nil)
 
     base = """
+    #{soul()}
+
     You are an expert Elixir coding agent. You help users understand and modify
     codebases by reading files, writing code, running commands, and reasoning about
     the results.
@@ -55,6 +57,15 @@ defmodule RLM.Agent.Prompt do
       base <> "\n## Additional instructions\n\n#{extra}\n"
     else
       base
+    end
+  end
+
+  defp soul do
+    path = Application.app_dir(:rlm, "priv/soul.md")
+
+    case File.read(path) do
+      {:ok, content} -> String.trim(content)
+      {:error, _} -> ""
     end
   end
 

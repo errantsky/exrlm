@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `priv/soul.md` — identity and behavioural guidelines file loaded into the coding agent
+  as the opening section of its system prompt. Defines tone, priorities, and boundaries
+  for the agent's persona. `RLM.Agent.Prompt.build/1` now prepends this content via a
+  private `soul/0` helper that reads the file at runtime and falls back to an empty
+  string if the file is absent.
+
+---
+
 ## [0.2.0] — 2026-02-19
 
 ### Added
