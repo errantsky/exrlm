@@ -15,12 +15,17 @@ defmodule RLM.IntegrationTest do
 
       handler_id = "test-handler-#{inspect(ref)}"
 
-      :telemetry.attach_many(handler_id, [
-        [:rlm, :node, :start],
-        [:rlm, :node, :stop],
-        [:rlm, :iteration, :start],
-        [:rlm, :iteration, :stop]
-      ], handler, nil)
+      :telemetry.attach_many(
+        handler_id,
+        [
+          [:rlm, :node, :start],
+          [:rlm, :node, :stop],
+          [:rlm, :iteration, :start],
+          [:rlm, :iteration, :stop]
+        ],
+        handler,
+        nil
+      )
 
       RLM.Test.MockLLM.program_responses(self(), [
         "```elixir\nfinal_answer = 42\n```"
@@ -139,35 +144,39 @@ defmodule RLM.IntegrationTest do
 
       RLM.Test.MockLLM.program_responses(self(), [parent_code])
 
-      result = RLM.run("parent context", "Test subcalls",
-        llm_module: RLM.Test.MockLLM,
-        max_depth: 3
-      )
-
-      assert {:ok, "parent got: default mock answer"} = result
+      assert {:ok, "parent got: default mock answer", _run_id} =
+               RLM.run("parent context", "Test subcalls",
+                 llm_module: RLM.Test.MockLLM,
+                 max_depth: 3
+               )
     end
   end
 
   describe "sandbox helpers" do
     test "chunks helper is available in sandbox code" do
-      code = "```elixir\nresult = chunks(context, 5) |> Enum.to_list()\nfinal_answer = length(result)\n```"
+      code =
+        "```elixir\nresult = chunks(context, 5) |> Enum.to_list()\nfinal_answer = length(result)\n```"
+
       RLM.Test.MockLLM.program_responses(self(), [code])
 
-      assert {:ok, 3} = RLM.run("hello world!!!", "chunk it", llm_module: RLM.Test.MockLLM)
+      assert {:ok, 3, _} = RLM.run("hello world!!!", "chunk it", llm_module: RLM.Test.MockLLM)
     end
 
     test "grep helper is available in sandbox code" do
       code = "```elixir\nmatches = grep(\"hello\", context)\nfinal_answer = length(matches)\n```"
       RLM.Test.MockLLM.program_responses(self(), [code])
 
-      assert {:ok, 2} = RLM.run("hello\nworld\nhello again", "grep it", llm_module: RLM.Test.MockLLM)
+      assert {:ok, 2, _} =
+               RLM.run("hello\nworld\nhello again", "grep it", llm_module: RLM.Test.MockLLM)
     end
 
     test "preview helper is available in sandbox code" do
       code = "```elixir\np = preview(context, 10)\nfinal_answer = p\n```"
       RLM.Test.MockLLM.program_responses(self(), [code])
 
-      {:ok, result} = RLM.run("a very long string here", "preview it", llm_module: RLM.Test.MockLLM)
+      assert {:ok, result, _} =
+               RLM.run("a very long string here", "preview it", llm_module: RLM.Test.MockLLM)
+
       assert is_binary(result)
     end
 
@@ -175,7 +184,7 @@ defmodule RLM.IntegrationTest do
       code = "```elixir\nbindings = list_bindings()\nfinal_answer = length(bindings)\n```"
       RLM.Test.MockLLM.program_responses(self(), [code])
 
-      {:ok, count} = RLM.run("test", "list bindings", llm_module: RLM.Test.MockLLM)
+      assert {:ok, count, _} = RLM.run("test", "list bindings", llm_module: RLM.Test.MockLLM)
       assert count >= 3
     end
   end

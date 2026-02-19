@@ -122,15 +122,20 @@ defmodule RLM.Worker do
         {:ok, response, usage} ->
           llm_duration = System.monotonic_time(:millisecond) - llm_start
 
-          emit_telemetry([:rlm, :llm, :request, :stop], %{
-            duration_ms: llm_duration,
-            prompt_tokens: usage.prompt_tokens || 0,
-            completion_tokens: usage.completion_tokens || 0,
-            total_tokens: usage.total_tokens || 0
-          }, state, %{
-            response_preview: String.slice(response, 0, 500),
-            code_extracted: match?({:ok, _}, RLM.LLM.extract_code(response))
-          })
+          emit_telemetry(
+            [:rlm, :llm, :request, :stop],
+            %{
+              duration_ms: llm_duration,
+              prompt_tokens: usage.prompt_tokens || 0,
+              completion_tokens: usage.completion_tokens || 0,
+              total_tokens: usage.total_tokens || 0
+            },
+            state,
+            %{
+              response_preview: String.slice(response, 0, 500),
+              code_extracted: match?({:ok, _}, RLM.LLM.extract_code(response))
+            }
+          )
 
           case RLM.LLM.extract_code(response) do
             {:ok, code} ->
@@ -138,10 +143,16 @@ defmodule RLM.Worker do
 
             {:error, :no_code_block} ->
               assistant_msg = %{role: :assistant, content: response}
-              feedback = %{role: :user, content: "No code block found. Please wrap your code in ```elixir blocks."}
-              state = %{state |
-                history: state.history ++ [assistant_msg, feedback],
-                iteration: state.iteration + 1
+
+              feedback = %{
+                role: :user,
+                content: "No code block found. Please wrap your code in ```elixir blocks."
+              }
+
+              state = %{
+                state
+                | history: state.history ++ [assistant_msg, feedback],
+                  iteration: state.iteration + 1
               }
 
               iter_duration = System.monotonic_time(:millisecond) - iter_start
@@ -154,9 +165,14 @@ defmodule RLM.Worker do
         {:error, reason} ->
           llm_duration = System.monotonic_time(:millisecond) - llm_start
 
-          emit_telemetry([:rlm, :llm, :request, :exception], %{
-            duration_ms: llm_duration
-          }, state, %{error: reason})
+          emit_telemetry(
+            [:rlm, :llm, :request, :exception],
+            %{
+              duration_ms: llm_duration
+            },
+            state,
+            %{error: reason}
+          )
 
           complete(state, {:error, "LLM call failed: #{reason}"})
       end
@@ -175,25 +191,28 @@ defmodule RLM.Worker do
           stdout_bytes: byte_size(stdout)
         })
 
-        truncated = RLM.Truncate.truncate(stdout,
-          head: state.config.truncation_head,
-          tail: state.config.truncation_tail
-        )
+        truncated =
+          RLM.Truncate.truncate(stdout,
+            head: state.config.truncation_head,
+            tail: state.config.truncation_tail
+          )
 
         feedback = RLM.Prompt.build_feedback_message(truncated, :ok)
         final_answer = Keyword.get(new_bindings, :final_answer)
 
-        state = %{state |
-          history: state.history ++ [ctx.assistant_msg, feedback],
-          bindings: new_bindings,
-          iteration: state.iteration + 1,
-          prev_codes: Enum.take([ctx.code | state.prev_codes], 3),
-          eval_context: nil
+        state = %{
+          state
+          | history: state.history ++ [ctx.assistant_msg, feedback],
+            bindings: new_bindings,
+            iteration: state.iteration + 1,
+            prev_codes: Enum.take([ctx.code | state.prev_codes], 3),
+            eval_context: nil
         }
 
         state = maybe_nudge(state)
 
         iter_duration = System.monotonic_time(:millisecond) - ctx.iter_start
+
         emit_telemetry([:rlm, :iteration, :stop], %{duration_ms: iter_duration}, state, %{
           iteration: state.iteration - 1,
           code: ctx.code,
@@ -223,22 +242,25 @@ defmodule RLM.Worker do
           stdout_bytes: byte_size(error_msg)
         })
 
-        truncated = RLM.Truncate.truncate(error_msg,
-          head: state.config.truncation_head,
-          tail: state.config.truncation_tail
-        )
+        truncated =
+          RLM.Truncate.truncate(error_msg,
+            head: state.config.truncation_head,
+            tail: state.config.truncation_tail
+          )
 
         feedback = RLM.Prompt.build_feedback_message(truncated, :error)
 
-        state = %{state |
-          history: state.history ++ [ctx.assistant_msg, feedback],
-          bindings: original_bindings,
-          iteration: state.iteration + 1,
-          prev_codes: Enum.take([ctx.code | state.prev_codes], 3),
-          eval_context: nil
+        state = %{
+          state
+          | history: state.history ++ [ctx.assistant_msg, feedback],
+            bindings: original_bindings,
+            iteration: state.iteration + 1,
+            prev_codes: Enum.take([ctx.code | state.prev_codes], 3),
+            eval_context: nil
         }
 
         iter_duration = System.monotonic_time(:millisecond) - ctx.iter_start
+
         emit_telemetry([:rlm, :iteration, :stop], %{duration_ms: iter_duration}, state, %{
           iteration: state.iteration - 1,
           code: ctx.code,
@@ -267,13 +289,18 @@ defmodule RLM.Worker do
         {:noreply, state}
 
       {from, remaining} ->
-        emit_telemetry([:rlm, :subcall, :result], %{
-          duration_ms: 0
-        }, state, %{
-          child_span_id: child_span_id,
-          status: elem(result, 0),
-          result_preview: result |> inspect() |> String.slice(0, 500)
-        })
+        emit_telemetry(
+          [:rlm, :subcall, :result],
+          %{
+            duration_ms: 0
+          },
+          state,
+          %{
+            child_span_id: child_span_id,
+            status: elem(result, 0),
+            result_preview: result |> inspect() |> String.slice(0, 500)
+          }
+        )
 
         GenServer.reply(from, result)
         {:noreply, %{state | pending_subcalls: remaining}}
@@ -287,38 +314,45 @@ defmodule RLM.Worker do
         do: state.config.model_large,
         else: state.config.model_small
 
-    if state.depth >= state.config.max_depth do
-      {:reply, {:error, "Maximum recursion depth (#{state.config.max_depth}) exceeded"}, state}
-    else
-      child_span_id = RLM.Span.generate_id()
+    cond do
+      state.depth >= state.config.max_depth ->
+        {:reply, {:error, "Maximum recursion depth (#{state.config.max_depth}) exceeded"}, state}
 
-      emit_telemetry([:rlm, :subcall, :spawn], %{}, state, %{
-        child_span_id: child_span_id,
-        child_depth: state.depth + 1,
-        context_bytes: byte_size(text),
-        model_size: model_size
-      })
+      map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls ->
+        {:reply,
+         {:error, "Max concurrent subcalls (#{state.config.max_concurrent_subcalls}) reached"},
+         state}
 
-      child_opts = [
-        span_id: child_span_id,
-        context: text,
-        query: text,
-        model: model,
-        config: state.config,
-        depth: state.depth + 1,
-        parent_span_id: state.span_id,
-        run_id: state.run_id,
-        caller: self()
-      ]
+      true ->
+        child_span_id = RLM.Span.generate_id()
 
-      case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, child_opts}) do
-        {:ok, _child_pid} ->
-          pending = Map.put(state.pending_subcalls, child_span_id, from)
-          {:noreply, %{state | pending_subcalls: pending}}
+        emit_telemetry([:rlm, :subcall, :spawn], %{}, state, %{
+          child_span_id: child_span_id,
+          child_depth: state.depth + 1,
+          context_bytes: byte_size(text),
+          model_size: model_size
+        })
 
-        {:error, reason} ->
-          {:reply, {:error, "Failed to spawn subcall: #{inspect(reason)}"}, state}
-      end
+        child_opts = [
+          span_id: child_span_id,
+          context: text,
+          query: text,
+          model: model,
+          config: state.config,
+          depth: state.depth + 1,
+          parent_span_id: state.span_id,
+          run_id: state.run_id,
+          caller: self()
+        ]
+
+        case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, child_opts}) do
+          {:ok, _child_pid} ->
+            pending = Map.put(state.pending_subcalls, child_span_id, from)
+            {:noreply, %{state | pending_subcalls: pending}}
+
+          {:error, reason} ->
+            {:reply, {:error, "Failed to spawn subcall: #{inspect(reason)}"}, state}
+        end
     end
   end
 
@@ -337,11 +371,13 @@ defmodule RLM.Worker do
 
     # Spawn eval asynchronously so the Worker can handle subcall requests
     spawn(fn ->
-      result = RLM.Eval.run(code, state.bindings,
-        timeout: state.config.eval_timeout,
-        worker_pid: worker_pid,
-        bindings_info: RLM.Helpers.list_bindings(state.bindings)
-      )
+      result =
+        RLM.Eval.run(code, state.bindings,
+          timeout: state.config.eval_timeout,
+          worker_pid: worker_pid,
+          bindings_info: RLM.Helpers.list_bindings(state.bindings)
+        )
+
       send(worker_pid, {:eval_complete, result})
     end)
 
@@ -367,13 +403,18 @@ defmodule RLM.Worker do
         {:error, reason} -> inspect(reason) |> String.slice(0, 500)
       end
 
-    emit_telemetry([:rlm, :node, :stop], %{
-      duration_ms: duration,
-      total_iterations: state.iteration
-    }, state, %{
-      status: status,
-      result_preview: result_preview
-    })
+    emit_telemetry(
+      [:rlm, :node, :stop],
+      %{
+        duration_ms: duration,
+        total_iterations: state.iteration
+      },
+      state,
+      %{
+        status: status,
+        result_preview: result_preview
+      }
+    )
 
     if state.caller do
       send(state.caller, {:rlm_result, state.span_id, result})
@@ -416,16 +457,22 @@ defmodule RLM.Worker do
           tail: state.config.truncation_tail
         )
 
-      emit_telemetry([:rlm, :compaction, :run], %{
-        before_tokens: estimated_tokens,
-        after_tokens: 0
-      }, state, %{history_bytes_compacted: byte_size(serialized)})
+      emit_telemetry(
+        [:rlm, :compaction, :run],
+        %{
+          before_tokens: estimated_tokens,
+          after_tokens: 0
+        },
+        state,
+        %{history_bytes_compacted: byte_size(serialized)}
+      )
 
       addendum = RLM.Prompt.build_compaction_addendum(preview)
 
-      %{state |
-        history: [system_msg, %{role: :user, content: addendum}],
-        bindings: Keyword.put(state.bindings, :compacted_history, combined)
+      %{
+        state
+        | history: [system_msg, %{role: :user, content: addendum}],
+          bindings: Keyword.put(state.bindings, :compacted_history, combined)
       }
     else
       state

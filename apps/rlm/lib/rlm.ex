@@ -14,11 +14,13 @@ defmodule RLM do
       {:ok, run_id, pid} = RLM.run_async(context, query)
   """
 
-  @spec run(String.t(), String.t(), keyword()) :: {:ok, any()} | {:error, any()}
+  @spec run(String.t(), String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
   def run(context, query, opts \\ []) do
     config = RLM.Config.load(opts)
     span_id = RLM.Span.generate_id()
     run_id = RLM.Span.generate_run_id()
+    # Generous overall timeout: two full eval cycles worth
+    total_timeout = config.eval_timeout * 2
 
     worker_opts = [
       span_id: span_id,
@@ -32,9 +34,28 @@ defmodule RLM do
     ]
 
     case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts}) do
-      {:ok, _pid} ->
+      {:ok, pid} ->
+        ref = Process.monitor(pid)
+
         receive do
-          {:rlm_result, ^span_id, result} -> result
+          {:rlm_result, ^span_id, {:ok, answer}} ->
+            Process.demonitor(ref, [:flush])
+            {:ok, answer, run_id}
+
+          {:rlm_result, ^span_id, {:error, reason}} ->
+            Process.demonitor(ref, [:flush])
+            {:error, reason}
+
+          {:DOWN, ^ref, :process, ^pid, :normal} ->
+            {:error, "Worker exited normally without sending a result"}
+
+          {:DOWN, ^ref, :process, ^pid, reason} ->
+            {:error, "Worker crashed: #{inspect(reason)}"}
+        after
+          total_timeout ->
+            Process.demonitor(ref, [:flush])
+            DynamicSupervisor.terminate_child(RLM.WorkerSup, pid)
+            {:error, "RLM.run timed out after #{total_timeout}ms"}
         end
 
       {:error, reason} ->

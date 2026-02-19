@@ -6,7 +6,9 @@ defmodule RLM.Helpers do
   @spec chunks(String.t(), pos_integer()) :: Enumerable.t()
   def chunks(string, size) when is_binary(string) and is_integer(size) and size > 0 do
     Stream.unfold(string, fn
-      "" -> nil
+      "" ->
+        nil
+
       remaining ->
         {String.slice(remaining, 0, size), String.slice(remaining, size..-1//1)}
     end)
