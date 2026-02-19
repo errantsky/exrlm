@@ -34,7 +34,9 @@ defmodule RLM.Eval do
         result =
           try do
             # Code.eval_string is the intentional REPL mechanism for RLM
-            {value, new_bindings} = Code.eval_string(wrapped_code, bindings, file: "rlm_repl", line: 0)
+            {value, new_bindings} =
+              Code.eval_string(wrapped_code, bindings, file: "rlm_repl", line: 0)
+
             stdout = StringIO.flush(string_io)
             {:ok, stdout, value, new_bindings}
           rescue

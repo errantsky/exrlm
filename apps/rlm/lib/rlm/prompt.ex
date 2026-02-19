@@ -38,7 +38,8 @@ defmodule RLM.Prompt do
 
   @spec build_feedback_message(String.t(), String.t()) :: map()
   def build_feedback_message(truncated_stdout, eval_status) do
-    status_text = if eval_status == :ok, do: "Code executed successfully.", else: "Code execution failed."
+    status_text =
+      if eval_status == :ok, do: "Code executed successfully.", else: "Code execution failed."
 
     content = """
     #{status_text}

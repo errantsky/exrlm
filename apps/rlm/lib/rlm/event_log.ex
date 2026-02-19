@@ -25,10 +25,7 @@ defmodule RLM.EventLog do
     Agent.update(via(run_id), fn log ->
       event = Map.put(event, :timestamp_us, System.monotonic_time(:microsecond))
 
-      %{log |
-        events: [event | log.events],
-        tree: update_tree(log.tree, event)
-      }
+      %{log | events: [event | log.events], tree: update_tree(log.tree, event)}
     end)
   rescue
     _ -> :ok
@@ -44,6 +41,12 @@ defmodule RLM.EventLog do
     Agent.get(via(run_id), fn log -> Enum.reverse(log.events) end)
   rescue
     _ -> []
+  end
+
+  def get_started_at(run_id) do
+    Agent.get(via(run_id), & &1.started_at)
+  rescue
+    _ -> nil
   end
 
   def to_jsonl(run_id) do

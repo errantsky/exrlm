@@ -49,7 +49,8 @@ defmodule RLM.HelpersTest do
     test "truncates long strings" do
       long = String.duplicate("x", 1000)
       result = RLM.Helpers.preview(long, 50)
-      assert String.length(result) <= 54  # 50 + "..."
+      # 50 + "..."
+      assert String.length(result) <= 54
       assert String.ends_with?(result, "...")
     end
   end

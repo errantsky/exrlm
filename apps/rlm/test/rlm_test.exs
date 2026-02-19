@@ -10,8 +10,10 @@ defmodule RLMTest do
         "```elixir\nfinal_answer = String.length(context)\n```"
       ])
 
-      result = RLM.run("Hello World", "Count the characters", llm_module: RLM.Test.MockLLM)
-      assert {:ok, 11} = result
+      assert {:ok, 11, run_id} =
+               RLM.run("Hello World", "Count the characters", llm_module: RLM.Test.MockLLM)
+
+      assert is_binary(run_id)
     end
 
     test "context is available in bindings" do
@@ -19,8 +21,8 @@ defmodule RLMTest do
         "```elixir\nfinal_answer = context\n```"
       ])
 
-      result = RLM.run("my input data", "Return context", llm_module: RLM.Test.MockLLM)
-      assert {:ok, "my input data"} = result
+      assert {:ok, "my input data", _run_id} =
+               RLM.run("my input data", "Return context", llm_module: RLM.Test.MockLLM)
     end
   end
 
@@ -31,8 +33,8 @@ defmodule RLMTest do
         "```elixir\nfinal_answer = line_count\n```"
       ])
 
-      result = RLM.run("line 1\nline 2\nline 3", "Count the lines", llm_module: RLM.Test.MockLLM)
-      assert {:ok, 3} = result
+      assert {:ok, 3, _run_id} =
+               RLM.run("line 1\nline 2\nline 3", "Count the lines", llm_module: RLM.Test.MockLLM)
     end
 
     test "bindings persist across iterations" do
@@ -41,8 +43,8 @@ defmodule RLMTest do
         "```elixir\nfinal_answer = my_var * 2\n```"
       ])
 
-      result = RLM.run("test", "Test binding persistence", llm_module: RLM.Test.MockLLM)
-      assert {:ok, 84} = result
+      assert {:ok, 84, _run_id} =
+               RLM.run("test", "Test binding persistence", llm_module: RLM.Test.MockLLM)
     end
   end
 
@@ -53,21 +55,20 @@ defmodule RLMTest do
         "```elixir\nfinal_answer = \"recovered\"\n```"
       ])
 
-      result = RLM.run("test", "Test error recovery", llm_module: RLM.Test.MockLLM)
-      assert {:ok, "recovered"} = result
+      assert {:ok, "recovered", _run_id} =
+               RLM.run("test", "Test error recovery", llm_module: RLM.Test.MockLLM)
     end
 
     test "respects max_iterations limit" do
       responses = List.duplicate("```elixir\nIO.puts(\"still going\")\n```", 5)
       RLM.Test.MockLLM.program_responses(self(), responses)
 
-      result =
-        RLM.run("test", "Never finishes",
-          llm_module: RLM.Test.MockLLM,
-          max_iterations: 3
-        )
+      assert {:error, msg} =
+               RLM.run("test", "Never finishes",
+                 llm_module: RLM.Test.MockLLM,
+                 max_iterations: 3
+               )
 
-      assert {:error, msg} = result
       assert msg =~ "Maximum iterations"
     end
 
@@ -77,8 +78,8 @@ defmodule RLMTest do
         "```elixir\nfinal_answer = \"got it\"\n```"
       ])
 
-      result = RLM.run("test", "Test no code block handling", llm_module: RLM.Test.MockLLM)
-      assert {:ok, "got it"} = result
+      assert {:ok, "got it", _run_id} =
+               RLM.run("test", "Test no code block handling", llm_module: RLM.Test.MockLLM)
     end
   end
 end
