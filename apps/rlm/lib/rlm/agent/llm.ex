@@ -132,34 +132,39 @@ defmodule RLM.Agent.LLM do
     }
   end
 
+  # Req 0.5's `into:` option conflicts with the Finch adapter's expected return
+  # contract. Instead, we let Req buffer the full SSE body as a binary and then
+  # parse the SSE lines ourselves. Anthropic closes the connection after the
+  # final `message_stop` event, so this blocks until the stream is complete.
+  # `on_chunk` callbacks are fired during parsing — after the HTTP response is
+  # fully received rather than in true real-time, which is sufficient for tests
+  # and correctness; a future LiveView integration can add true async streaming.
   defp call_streaming(url, headers, body, config, on_chunk) do
-    result =
-      Req.post(url,
-        json: body,
-        headers: headers,
-        receive_timeout: config.llm_timeout,
-        into: fn {:data, chunk}, acc ->
-          # Req may pass nil as the initial accumulator — normalise on first call
-          acc = if is_map(acc), do: acc, else: initial_streaming_acc()
-          {events, new_buffer} = flush_sse_buffer(acc.buffer <> chunk)
+    case Req.post(url,
+           json: body,
+           headers: headers,
+           receive_timeout: config.llm_timeout
+         ) do
+      {:ok, %{status: 200, body: resp_body}} when is_binary(resp_body) ->
+        {events, remainder} = flush_sse_buffer(resp_body)
+        # Also parse any trailing data not terminated by \n\n
+        tail_events = if remainder != "", do: parse_sse_block(remainder), else: []
 
-          new_acc =
-            Enum.reduce(events, %{acc | buffer: new_buffer}, &process_sse_event(&1, &2, on_chunk))
+        acc =
+          Enum.reduce(
+            events ++ tail_events,
+            initial_streaming_acc(),
+            &process_sse_event(&1, &2, on_chunk)
+          )
 
-          {:cont, new_acc}
-        end,
-        raw: true
-      )
+        build_streaming_response(acc)
 
-    case result do
-      {:ok, %{status: 200, body: final_acc}} ->
-        build_streaming_response(final_acc)
+      {:ok, %{status: 200, body: resp_body}} when is_map(resp_body) ->
+        # Anthropic returned JSON (non-streaming fallback) — parse synchronously
+        parse_sync_response(resp_body)
 
-      {:ok, %{status: _status, body: %{"error" => %{"message" => msg}}}} ->
-        {:error, "API error: #{msg}"}
-
-      {:ok, %{status: status}} ->
-        {:error, "API error: HTTP #{status}"}
+      {:ok, %{status: status, body: resp_body}} ->
+        {:error, "API error: #{extract_error_message(resp_body, status)}"}
 
       {:error, reason} ->
         {:error, "API request failed: #{inspect(reason)}"}

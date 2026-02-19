@@ -29,7 +29,8 @@ defmodule RLM.LiveAPITest do
         max_iterations: 5
       )
 
-    assert {:ok, answer} = result
+    assert {:ok, answer, run_id} = result
+    assert is_binary(run_id)
     assert answer == 9 or answer == "9" or (is_binary(answer) and String.contains?(answer, "9"))
   end
 end
