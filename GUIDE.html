@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLM Umbrella — Reference Guide</title>
+<style>
+  /* ------------------------------------------------------------------ Reset */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* --------------------------------------------------------- Design tokens */
+  :root {
+    --bg:           #f8f9fb;
+    --surface:      #ffffff;
+    --surface-alt:  #f0f2f5;
+    --border:       #d8dde6;
+    --border-light: #e8ecf0;
+    --text:         #1a1e27;
+    --text-muted:   #5a6478;
+    --accent:       #5b21b6;
+    --accent-mid:   #7c3aed;
+    --accent-light: #ede9fe;
+    --green:        #15803d;
+    --green-light:  #dcfce7;
+    --blue:         #1d4ed8;
+    --blue-light:   #dbeafe;
+    --amber:        #b45309;
+    --amber-light:  #fef3c7;
+    --red:          #b91c1c;
+    --red-light:    #fee2e2;
+    --teal:         #0e7490;
+    --teal-light:   #cffafe;
+    --code-bg:      #1e2130;
+    --code-text:    #e2e8f0;
+    --radius:       8px;
+    --radius-lg:    12px;
+    --mono:         "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --sans:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* --------------------------------------------------------------- Layout */
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  /* ------------------------------------------------------------ Navigation */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #1a1028;
+    border-bottom: 1px solid #2d1f4a;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 52px;
+    overflow-x: auto;
+  }
+  nav a {
+    color: #c4b5fd;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    padding: 0 14px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  nav a:hover { color: #f5f3ff; border-bottom-color: #7c3aed; }
+  nav .nav-brand {
+    color: #f5f3ff;
+    font-weight: 700;
+    font-size: 14px;
+    margin-right: 16px;
+    padding-left: 0;
+    border-bottom: none;
+    flex-shrink: 0;
+  }
+  nav .nav-brand:hover { border-bottom: none; }
+
+  /* --------------------------------------------------------- Page header */
+  .page-header {
+    background: linear-gradient(135deg, #1a1028 0%, #2d1b69 50%, #1e1040 100%);
+    color: white;
+    padding: 64px 48px 56px;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 70% 50%, rgba(124,58,237,0.2) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .page-header h1 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .page-header .subtitle {
+    font-size: 1.1rem;
+    color: #c4b5fd;
+    max-width: 700px;
+    position: relative;
+    line-height: 1.6;
+  }
+  .header-badges {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #e9d5ff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    letter-spacing: 0.2px;
+  }
+
+  /* ------------------------------------------------------------ Container */
+  .container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  /* ---------------------------------------------------------------- Main */
+  main { padding: 48px 0 80px; }
+
+  /* --------------------------------------------------------------- Sections */
+  .section {
+    margin-bottom: 56px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border-light);
+  }
+  .section-num {
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    font-weight: 800;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 28px 0 12px;
+  }
+  h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 20px 0 8px;
+  }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; }
+  strong { color: var(--text); }
+
+  /* ---------------------------------------------------------------- Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .module-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .module-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    border-color: var(--accent-mid);
+  }
+  .module-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-mid);
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+  .module-group {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+  .group-engine { background: var(--blue-light); color: var(--blue); }
+  .group-agent  { background: var(--green-light); color: var(--green); }
+  .group-infra  { background: var(--amber-light); color: var(--amber); }
+  .group-tool   { background: var(--teal-light); color: var(--teal); }
+  .module-purpose {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .module-api {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-muted);
+    background: var(--surface-alt);
+    border-radius: 4px;
+    padding: 4px 8px;
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* -------------------------------------------------------------- Code */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    overflow-x: auto;
+    margin: 12px 0 18px;
+    border: 1px solid #2d3548;
+  }
+  code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  p code, li code, td code {
+    background: var(--surface-alt);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+  }
+
+  /* Syntax highlighting — class-based, no JS */
+  .kw  { color: #c792ea; font-weight: 600; }  /* keywords */
+  .fn  { color: #82aaff; }                     /* function names */
+  .at  { color: #ffcb6b; }                     /* atoms / module attrs */
+  .st  { color: #c3e88d; }                     /* strings */
+  .cm  { color: #546e7a; font-style: italic; } /* comments */
+  .nm  { color: #f78c6c; }                     /* numbers */
+  .op  { color: #89ddff; }                     /* operators / punctuation */
+  .tp  { color: #ffcb6b; }                     /* types / module names */
+  .va  { color: #e2e8f0; }                     /* variables */
+  .md  { color: #7fdbca; }                     /* module references */
+
+  /* ASCII art box */
+  .ascii-box {
+    background: var(--code-bg);
+    color: #7fdbca;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    overflow-x: auto;
+    border: 1px solid #2d3548;
+    white-space: pre;
+  }
+  .ascii-box .comment { color: #546e7a; }
+  .ascii-box .highlight { color: #ffcb6b; font-weight: bold; }
+  .ascii-box .arrow { color: #89ddff; }
+
+  /* -------------------------------------------------------------- Tables */
+  .table-wrap { overflow-x: auto; margin: 12px 0 20px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  th {
+    background: var(--surface-alt);
+    font-weight: 700;
+    text-align: left;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  td {
+    padding: 9px 14px;
+    border: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafbfd; }
+
+  /* --------------------------------------------------------- Callout boxes */
+  .callout {
+    border-left: 3px solid;
+    padding: 14px 18px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin: 16px 0;
+    font-size: 13.5px;
+  }
+  .callout-info   { border-color: var(--blue);  background: var(--blue-light); }
+  .callout-warn   { border-color: var(--amber); background: var(--amber-light); }
+  .callout-ok     { border-color: var(--green); background: var(--green-light); }
+  .callout-accent { border-color: var(--accent-mid); background: var(--accent-light); }
+  .callout strong { display: block; margin-bottom: 4px; font-size: 13px; }
+
+  /* ------------------------------------------------------ OTP tree diagram */
+  .otp-tree {
+    background: var(--code-bg);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    border: 1px solid #2d3548;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+  }
+  .otp-root  { color: #ffcb6b; font-weight: 700; font-size: 14px; }
+  .otp-child { color: #c3e88d; }
+  .otp-role  { color: #546e7a; font-style: italic; }
+  .otp-branch { color: #89ddff; user-select: none; }
+
+  /* ------------------------------------------------ State machine diagram */
+  .fsm-diagram {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  .fsm-state {
+    background: var(--surface);
+    border: 2px solid var(--accent-mid);
+    border-radius: 24px;
+    padding: 8px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-mid);
+  }
+  .fsm-arrow {
+    font-size: 18px;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .fsm-arrow span {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    white-space: nowrap;
+    margin-bottom: 2px;
+  }
+
+  /* -------------------------------------------------- Iterate flow diagram */
+  .flow-list {
+    list-style: none;
+    padding: 0;
+    counter-reset: flow-counter;
+    margin: 0;
+  }
+  .flow-list li {
+    counter-increment: flow-counter;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    font-size: 13.5px;
+  }
+  .flow-list li::before {
+    content: counter(flow-counter);
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ------------------------------------------------ Two-column info layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+    .card-grid { grid-template-columns: 1fr; }
+  }
+
+  /* --------------------------------------------------------- Event table */
+  .event-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--accent-light);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ------------------------------------------------------- Footer / ToC */
+  footer {
+    background: #1a1028;
+    color: #6b7280;
+    text-align: center;
+    padding: 24px;
+    font-size: 13px;
+  }
+  footer a { color: #a78bfa; text-decoration: none; }
+  footer a:hover { color: #c4b5fd; }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .toc-link {
+    display: block;
+    padding: 9px 14px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--accent-mid);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .toc-link:hover { background: var(--accent-light); border-color: var(--accent-mid); }
+
+  .version-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #e9d5ff;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .tag-default {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--mono);
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 40px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <a href="#top" class="nav-brand">RLM Umbrella</a>
+  <a href="#summary">Summary</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#supervision">OTP Tree</a>
+  <a href="#rlm-engine">RLM Engine</a>
+  <a href="#coding-agent">Coding Agent</a>
+  <a href="#constraints">Constraints</a>
+  <a href="#quickstart">Quick Start</a>
+  <a href="#modules">Modules</a>
+</nav>
+
+<!-- Page Header -->
+<header class="page-header" id="top">
+  <div class="container">
+    <h1>RLM Umbrella — Reference Guide</h1>
+    <p class="subtitle">
+      A comprehensive reference for the Recursive Language Model engine and the OTP Coding Agent —
+      two complementary AI execution engines built on a shared Elixir/OTP infrastructure.
+    </p>
+    <div class="header-badges">
+      <span class="badge">Elixir &ge; 1.19</span>
+      <span class="badge">OTP 27</span>
+      <span class="badge version-tag">v0.2.0</span>
+      <span class="badge">Anthropic API</span>
+      <span class="badge">Phoenix.PubSub</span>
+      <span class="badge">Umbrella Project</span>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+
+<!-- ====================================================================
+     SECTION 1 — Executive Summary
+     ==================================================================== -->
+<section class="section" id="summary">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Executive Summary</h2>
+  </div>
+
+  <p>
+    <strong>RLM Umbrella</strong> is a single Elixir umbrella project that packages two
+    distinct AI execution engines. Both engines call the Anthropic Messages API and share
+    a common OTP supervision tree, configuration system, telemetry pipeline, and PubSub bus.
+  </p>
+
+  <div class="two-col">
+    <div class="card">
+      <h3 style="color: var(--blue); margin-top:0">RLM Engine — Code-Eval Loop</h3>
+      <p>
+        The LLM is given an input context and a query. It responds with an
+        <code>```elixir</code> code block. The code runs in a sandboxed
+        <code>Code.eval_string</code> REPL with a persistent binding map.
+        Stdout and errors are fed back to the LLM as context for the next iteration.
+        The loop continues until the code sets <code>final_answer</code> to a non-nil value.
+      </p>
+      <p>
+        Critically, eval runs in a spawned process so the Worker GenServer mailbox stays
+        free to handle recursive <code>lm_query/2</code> calls from within the eval'd code.
+        This enables tree-structured sub-LLM spawning without deadlock.
+      </p>
+      <p style="margin-bottom:0">
+        <strong>Entry point:</strong> <code>RLM.run/3</code> returns
+        <code>{:ok, answer, run_id}</code>.
+      </p>
+    </div>
+    <div class="card">
+      <h3 style="color: var(--green); margin-top:0">Coding Agent — Tool-Use Loop</h3>
+      <p>
+        The coding agent uses Anthropic's native <code>tool_use</code> API.
+        A GenServer session holds a multi-turn message history. On each turn, the LLM may
+        respond with one or more tool calls (read file, write file, bash, grep, etc.).
+        Tools are executed, their results appended to the history, and the LLM is called
+        again until it produces a final text response.
+      </p>
+      <p>
+        Each turn runs inside a <code>Task.Supervisor</code> child so the session GenServer
+        stays responsive. Live events are broadcast over <code>Phoenix.PubSub</code>.
+      </p>
+      <p style="margin-bottom:0">
+        <strong>Entry point:</strong> <code>RLM.Agent.Session.send_message/3</code>
+        or the IEx convenience helpers in <code>RLM.Agent.IEx</code>.
+      </p>
+    </div>
+  </div>
+
+  <div class="callout callout-accent">
+    <strong>Integration bridge</strong>
+    The <code>rlm_query</code> tool connects both engines. When the coding agent encounters
+    a task that requires heavy data processing (summarisation, analysis over large text),
+    it can delegate to the RLM engine via the <code>rlm_query</code> tool call, which
+    spawns a full RLM Worker and returns the answer.
+  </div>
+</section>
+
+<!-- ====================================================================
+     SECTION 2 — Architecture
+     ==================================================================== -->
+<section class="section" id="architecture">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Architecture Diagram</h2>
+  </div>
+
+  <p>The diagram below shows the full system — the shared OTP supervision tree at top,
+  and the per-engine data flows below it.</p>
+
+<div class="ascii-box"><span class="highlight">┌──────────────────────────────────────────────────────────────┐
+│                       RLM.Supervisor                          │
+│   (strategy: :one_for_one)                                    │</span>
+│                                                               │
+│  <span class="highlight">┌──────────────┐</span>  <span class="highlight">┌──────────────┐</span>  <span class="highlight">┌──────────────────┐</span>        │
+│  <span class="highlight">│ RLM.Registry │</span>  <span class="highlight">│ RLM.PubSub   │</span>  <span class="highlight">│ RLM.TaskSupervisor│</span>       │
+│  <span class="highlight">│  (Registry)  │</span>  <span class="highlight">│(Phoenix.Pub) │</span>  <span class="highlight">│  (Task.Supervisor)│</span>       │
+│  <span class="highlight">└──────────────┘</span>  <span class="highlight">└──────────────┘</span>  <span class="highlight">└──────────────────┘</span>        │
+│                                                               │
+│  <span class="highlight">┌──────────────┐</span>  <span class="highlight">┌──────────────┐</span>  <span class="highlight">┌──────────────────┐</span>        │
+│  <span class="highlight">│  WorkerSup   │</span>  <span class="highlight">│  EventStore  │</span>  <span class="highlight">│    AgentSup      │</span>        │
+│  <span class="highlight">│(DynSuper.)   │</span>  <span class="highlight">│(DynSuper.)   │</span>  <span class="highlight">│  (DynSuper.)     │</span>        │
+│  <span class="highlight">│ RLM Workers  │</span>  <span class="highlight">│ EventLog     │</span>  <span class="highlight">│ Agent Sessions   │</span>        │
+│  <span class="highlight">│ :temporary   │</span>  <span class="highlight">│ Agents       │</span>  <span class="highlight">│ :temporary       │</span>        │
+│  <span class="highlight">└──────────────┘</span>  <span class="highlight">└──────────────┘</span>  <span class="highlight">└──────────────────┘</span>        │
+│                                                               │
+│  <span class="highlight">┌──────────────┐</span>  <span class="highlight">┌──────────────┐</span>                               │
+│  <span class="highlight">│ RLM.Telemetry│</span>  <span class="highlight">│EventLog.Sweep│</span>                               │
+│  <span class="highlight">│  (GenServer) │</span>  <span class="highlight">│  (GenServer) │</span>                               │
+│  <span class="highlight">└──────────────┘</span>  <span class="highlight">└──────────────┘</span>                               │
+└──────────────────────────────────────────────────────────────┘
+
+<span class="comment">──────────────────────────────────────────────────────────────────
+ RLM ENGINE (code-eval loop)      CODING AGENT (tool-use loop)
+──────────────────────────────────────────────────────────────────</span>
+
+ RLM.run/3                         RLM.Agent.Session.send_message/3
+  <span class="arrow">↓</span>                                  <span class="arrow">↓</span>
+ DynamicSupervisor.start_child     Task.Supervisor.start_child
+  <span class="arrow">↓</span>                                  <span class="arrow">↓</span>
+ RLM.Worker (GenServer)            run_turn/2 (inside Task)
+  <span class="arrow">↓</span>  handle_info :iterate             <span class="arrow">↓</span>
+ RLM.LLM.chat/3 (sync)            Agent.LLM.call/4 (sync)
+  <span class="arrow">↓</span>                                  <span class="arrow">↓</span>
+ extract_code / spawn eval         {:text, ...} or {:tool_calls, ...}
+  <span class="arrow">↓</span>                                  <span class="arrow">↓</span>
+ RLM.Eval.run/3 (async spawn)     ToolRegistry.execute/2 (each call)
+  <span class="arrow">↕</span>  {:spawn_subcall} ←→ child       <span class="arrow">↓</span>  broadcast to PubSub
+ {:eval_complete, result}          append results → recurse
+  <span class="arrow">↓</span>                                  <span class="arrow">↓</span>
+ final_answer set? → complete      text response → turn_complete
+  <span class="arrow">↓</span>                                  <span class="arrow">↓</span>
+ send caller {:rlm_result, ...}   GenServer.reply to caller
+
+     <span class="arrow">↑────────────────────── rlm_query tool bridges here ───────────────────↑</span></div>
+
+  <h3>Project File Structure</h3>
+<pre><code><span class="at">rlm_umbrella/</span>
+<span class="op">├──</span> apps/
+<span class="op">│   └──</span> rlm/
+<span class="op">│       ├──</span> lib/rlm/
+<span class="op">│       │   ├──</span> <span class="fn">rlm.ex</span>                    <span class="cm"># Public API: RLM.run/3, run_async/3</span>
+<span class="op">│       │   ├──</span> <span class="fn">worker.ex</span>                 <span class="cm"># RLM GenServer (iterate loop)</span>
+<span class="op">│       │   ├──</span> <span class="fn">eval.ex</span>                   <span class="cm"># Sandboxed Code.eval_string</span>
+<span class="op">│       │   ├──</span> <span class="fn">llm.ex</span>                    <span class="cm"># Anthropic Messages API client</span>
+<span class="op">│       │   ├──</span> <span class="fn">event_log.ex</span>              <span class="cm"># Per-run trace Agent</span>
+<span class="op">│       │   ├──</span> <span class="fn">event_log_sweeper.ex</span>      <span class="cm"># Periodic EventLog GC (GenServer)</span>
+<span class="op">│       │   ├──</span> <span class="fn">telemetry/</span>                <span class="cm"># Telemetry events + handlers</span>
+<span class="op">│       │   └──</span> agent/
+<span class="op">│       │       ├──</span> <span class="fn">llm.ex</span>                <span class="cm"># tool_use API + SSE streaming</span>
+<span class="op">│       │       ├──</span> <span class="fn">message.ex</span>            <span class="cm"># Message type helpers</span>
+<span class="op">│       │       ├──</span> <span class="fn">session.ex</span>            <span class="cm"># Agent GenServer (tool-use loop)</span>
+<span class="op">│       │       ├──</span> <span class="fn">prompt.ex</span>             <span class="cm"># Composable system prompt</span>
+<span class="op">│       │       ├──</span> <span class="fn">tool.ex</span>               <span class="cm"># Tool @behaviour</span>
+<span class="op">│       │       ├──</span> <span class="fn">tool_registry.ex</span>      <span class="cm"># Tool dispatch + spec assembly</span>
+<span class="op">│       │       ├──</span> <span class="fn">iex.ex</span>                <span class="cm"># IEx convenience helpers</span>
+<span class="op">│       │       └──</span> tools/
+<span class="op">│       │           ├──</span> <span class="fn">read_file.ex</span>
+<span class="op">│       │           ├──</span> <span class="fn">write_file.ex</span>
+<span class="op">│       │           ├──</span> <span class="fn">edit_file.ex</span>
+<span class="op">│       │           ├──</span> <span class="fn">bash.ex</span>
+<span class="op">│       │           ├──</span> <span class="fn">grep.ex</span>
+<span class="op">│       │           ├──</span> <span class="fn">glob.ex</span>
+<span class="op">│       │           ├──</span> <span class="fn">ls.ex</span>
+<span class="op">│       │           └──</span> <span class="fn">rlm_query.ex</span>      <span class="cm"># Bridge: agent → RLM engine</span>
+<span class="op">│       └──</span> test/
+<span class="op">└──</span> config/<span class="fn">config.exs</span></code></pre>
+</section>
+
+<!-- ====================================================================
+     SECTION 3 — OTP Supervision Tree
+     ==================================================================== -->
+<section class="section" id="supervision">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <h2>OTP Supervision Tree</h2>
+  </div>
+
+  <p>
+    All 8 children start under <code>RLM.Supervisor</code> with
+    <code>strategy: :one_for_one</code>. Children are started in order; later entries
+    may depend on earlier ones (e.g., <code>AgentSup</code> sessions use the Registry
+    for naming).
+  </p>
+
+  <div class="otp-tree">
+<span class="otp-root">RLM.Supervisor</span>  <span class="otp-role">strategy: :one_for_one</span>
+<span class="otp-branch">├──</span> <span class="otp-child">Registry</span>                  <span class="otp-role">name: RLM.Registry — unique key/value store for process naming</span>
+<span class="otp-branch">├──</span> <span class="otp-child">Phoenix.PubSub</span>            <span class="otp-role">name: RLM.PubSub — broadcast bus for agent events and telemetry</span>
+<span class="otp-branch">├──</span> <span class="otp-child">Task.Supervisor</span>           <span class="otp-role">name: RLM.TaskSupervisor — supervises agent turn tasks and bash tool</span>
+<span class="otp-branch">├──</span> <span class="otp-child">DynamicSupervisor</span>         <span class="otp-role">name: RLM.WorkerSup — hosts RLM Worker GenServers (:temporary)</span>
+<span class="otp-branch">├──</span> <span class="otp-child">DynamicSupervisor</span>         <span class="otp-role">name: RLM.EventStore — hosts per-run EventLog Agents</span>
+<span class="otp-branch">├──</span> <span class="otp-child">DynamicSupervisor</span>         <span class="otp-role">name: RLM.AgentSup — hosts coding agent Session GenServers (:temporary)</span>
+<span class="otp-branch">├──</span> <span class="otp-child">RLM.Telemetry</span>             <span class="otp-role">GenServer — attaches Logger, PubSub, and EventLog telemetry handlers</span>
+<span class="otp-branch">└──</span> <span class="otp-child">RLM.EventLog.Sweeper</span>      <span class="otp-role">GenServer — GCs stale EventLog agents (TTL: 1h, interval: 5min)</span>
+  </div>
+
+  <h3>Child Roles in Detail</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Child</th>
+        <th>OTP Type</th>
+        <th>Restart</th>
+        <th>Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>RLM.Registry</code></td>
+        <td>Registry</td>
+        <td>permanent</td>
+        <td>Named process lookup for Workers (<code>{:worker, span_id}</code>) and Sessions (<code>{:agent_session, id}</code>)</td>
+      </tr>
+      <tr>
+        <td><code>RLM.PubSub</code></td>
+        <td>Phoenix.PubSub</td>
+        <td>permanent</td>
+        <td>Publish/subscribe bus. Topic: <code>"agent:session:&lt;id&gt;"</code> for agent events</td>
+      </tr>
+      <tr>
+        <td><code>RLM.TaskSupervisor</code></td>
+        <td>Task.Supervisor</td>
+        <td>permanent</td>
+        <td>Hosts agent turn tasks (each <code>send_message</code> call) and the bash tool's timeout-guarded tasks</td>
+      </tr>
+      <tr>
+        <td><code>RLM.WorkerSup</code></td>
+        <td>DynamicSupervisor</td>
+        <td>permanent</td>
+        <td>Spawns and supervises <code>RLM.Worker</code> GenServers. Workers are <code>:temporary</code> — they stop normally after returning a result</td>
+      </tr>
+      <tr>
+        <td><code>RLM.EventStore</code></td>
+        <td>DynamicSupervisor</td>
+        <td>permanent</td>
+        <td>Spawns one <code>RLM.EventLog</code> Agent per run. Agents accumulate the reasoning trace and are GC'd by the Sweeper</td>
+      </tr>
+      <tr>
+        <td><code>RLM.AgentSup</code></td>
+        <td>DynamicSupervisor</td>
+        <td>permanent</td>
+        <td>Spawns coding agent <code>RLM.Agent.Session</code> GenServers. Sessions are <code>:temporary</code></td>
+      </tr>
+      <tr>
+        <td><code>RLM.Telemetry</code></td>
+        <td>GenServer</td>
+        <td>permanent</td>
+        <td>Attaches all telemetry handlers at startup: <code>Telemetry.Logger</code>, <code>Telemetry.PubSub</code>, <code>Telemetry.EventLogHandler</code></td>
+      </tr>
+      <tr>
+        <td><code>RLM.EventLog.Sweeper</code></td>
+        <td>GenServer</td>
+        <td>permanent</td>
+        <td>Periodically scans <code>RLM.EventStore</code> children, terminates any EventLog Agent whose <code>started_at</code> exceeds the TTL</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ====================================================================
+     SECTION 4 — RLM Engine Deep-Dive
+     ==================================================================== -->
+<section class="section" id="rlm-engine">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <h2>RLM Engine Deep-Dive</h2>
+  </div>
+
+  <h3>The Async-Eval Pattern</h3>
+  <p>
+    The core challenge: eval'd code can call <code>lm_query/2</code>, which does a
+    <code>GenServer.call</code> back to the Worker. If eval ran inside the Worker's own
+    process, that call would deadlock — the Worker would be blocked waiting for its own
+    reply. The solution is to spawn eval in a separate process:
+  </p>
+
+  <div class="callout callout-info">
+    <strong>Deadlock prevention mechanism</strong>
+    Eval runs in a separate <code>spawn</code>. The Worker GenServer mailbox stays free.
+    When eval calls <code>lm_query()</code>, that results in a
+    <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>.
+    The Worker handles it immediately, spawns a child Worker, stores <code>from</code>
+    in <code>pending_subcalls</code>, and returns <code>{:noreply, state}</code>.
+    When the child finishes, it sends <code>{:rlm_result, child_span_id, result}</code>
+    to the parent. The parent's <code>handle_info</code> finds the stored <code>from</code>
+    and calls <code>GenServer.reply/2</code>, unblocking the eval process.
+  </div>
+
+  <h3>Iterate Loop — Step by Step</h3>
+  <ol class="flow-list">
+    <li><strong>Worker.init/1</strong> — builds system + user message from context/query, emits <code>[:rlm, :node, :start]</code>, sends <code>:iterate</code> to self</li>
+    <li><strong>handle_info(:iterate)</strong> — checks iteration limit; calls <code>maybe_compact/1</code> if history exceeds 80% of context window</li>
+    <li><strong>LLM.chat/3 (sync)</strong> — calls Anthropic Messages API; emits <code>[:rlm, :llm, :request, :start/stop]</code></li>
+    <li><strong>Code extraction</strong> — <code>RLM.LLM.extract_code/1</code> finds the <code>```elixir</code> block. If absent, asks LLM to wrap its code and loops</li>
+    <li><strong>start_async_eval/6</strong> — spawns eval in a new process via <code>spawn/1</code>; stores <code>eval_context</code> in state; emits <code>[:rlm, :eval, :start]</code></li>
+    <li><strong>Eval runs</strong> — <code>RLM.Eval.run/3</code> calls <code>Code.eval_string</code> with IO capture; may call back to Worker via <code>lm_query</code></li>
+    <li><strong>handle_info({:eval_complete, result})</strong> — receives result; truncates stdout; builds feedback message; checks <code>final_answer</code></li>
+    <li><strong>maybe_nudge/1</strong> — detects if the last 3 code blocks are Jaccard-similar (&gt; 0.85) and injects a nudge prompt</li>
+    <li><strong>Loop or complete</strong> — if <code>final_answer != nil</code>, calls <code>complete/2</code>; otherwise sends <code>:iterate</code> again</li>
+    <li><strong>complete/2</strong> — emits <code>[:rlm, :node, :stop]</code>; sends <code>{:rlm_result, span_id, result}</code> to caller; stops GenServer with <code>:normal</code></li>
+  </ol>
+
+  <h3>The Three Invariants</h3>
+  <div class="card">
+    <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:16px;">
+      <div>
+        <div class="module-group group-engine">Invariant 1</div>
+        <p style="font-size:13.5px; margin:0"><strong>Raw input never enters the LLM context window.</strong>
+        Only metadata (byte size, line count) and a 500-byte preview are included in the initial user message.
+        The full context is available in the <code>context</code> binding inside eval.</p>
+      </div>
+      <div>
+        <div class="module-group group-engine">Invariant 2</div>
+        <p style="font-size:13.5px; margin:0"><strong>Sub-LLM outputs stay in variables.</strong>
+        Results from <code>lm_query/2</code> subcalls are returned as Elixir values bound to variables
+        in the eval scope, never injected directly into the parent LLM's conversation history.</p>
+      </div>
+      <div>
+        <div class="module-group group-engine">Invariant 3</div>
+        <p style="font-size:13.5px; margin:0"><strong>Stdout is always truncated.</strong>
+        <code>RLM.Truncate.truncate/2</code> applies a head+tail strategy (default: 4 KB head +
+        4 KB tail) before feeding stdout back to the LLM, preventing context window exhaustion.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Context Compaction</h3>
+  <p>
+    When the estimated token count of the conversation history exceeds 80% of the model's
+    context window, <code>maybe_compact/1</code> fires. It serialises the history into a
+    single string, truncates it head+tail, and rebuilds the history as
+    <code>[system_msg, compaction_addendum]</code>. The serialised content is also stored
+    in the <code>compacted_history</code> binding so eval'd code can inspect it.
+  </p>
+
+  <h3>Sandbox Helpers (available inside eval)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Function</th><th>Signature</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>context</code></td>
+        <td><code>String.t()</code></td>
+        <td>The full input string passed to <code>RLM.run/3</code></td>
+      </tr>
+      <tr>
+        <td><code>chunks/2</code></td>
+        <td><code>chunks(string, size)</code></td>
+        <td>Split string into a list of fixed-byte chunks (e.g., 1000 bytes each)</td>
+      </tr>
+      <tr>
+        <td><code>grep/2</code></td>
+        <td><code>grep(pattern, string)</code></td>
+        <td>Return a list of lines matching the given regex pattern</td>
+      </tr>
+      <tr>
+        <td><code>preview/2</code></td>
+        <td><code>preview(string, n)</code></td>
+        <td>Return the first <em>n</em> bytes of a string</td>
+      </tr>
+      <tr>
+        <td><code>list_bindings/0</code></td>
+        <td><code>list_bindings()</code></td>
+        <td>Inspect current binding names and their sizes/types</td>
+      </tr>
+      <tr>
+        <td><code>lm_query/2</code></td>
+        <td><code>lm_query(text, opts)</code></td>
+        <td>Spawn a child Worker via <code>GenServer.call(:spawn_subcall)</code>. Opts: <code>model_size: :small | :large</code>. Returns <code>{:ok, result}</code></td>
+      </tr>
+      <tr>
+        <td><code>final_answer</code></td>
+        <td><code>any()</code></td>
+        <td>Set this binding to signal completion. Triggers <code>complete/2</code> on the Worker</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Configuration Fields</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Default</th><th>Type</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>model_large</code></td>
+        <td><span class="tag-default">claude-sonnet-4-5-20250929</span></td>
+        <td>string</td>
+        <td>Model used for parent Workers</td>
+      </tr>
+      <tr>
+        <td><code>model_small</code></td>
+        <td><span class="tag-default">claude-haiku-4-5-20251001</span></td>
+        <td>string</td>
+        <td>Model used for subcalls when <code>model_size: :small</code></td>
+      </tr>
+      <tr>
+        <td><code>max_iterations</code></td>
+        <td><span class="tag-default">25</span></td>
+        <td>integer</td>
+        <td>LLM turn limit per Worker. Returns <code>{:error, ...}</code> if exceeded</td>
+      </tr>
+      <tr>
+        <td><code>max_depth</code></td>
+        <td><span class="tag-default">5</span></td>
+        <td>integer</td>
+        <td>Recursive subcall depth limit. Checked in <code>handle_call({:spawn_subcall})</code></td>
+      </tr>
+      <tr>
+        <td><code>max_concurrent_subcalls</code></td>
+        <td><span class="tag-default">10</span></td>
+        <td>integer</td>
+        <td>Parallel subcall limit per Worker (number of entries in <code>pending_subcalls</code>)</td>
+      </tr>
+      <tr>
+        <td><code>eval_timeout</code></td>
+        <td><span class="tag-default">300_000</span></td>
+        <td>ms</td>
+        <td>Timeout per eval. The overall <code>RLM.run/3</code> timeout is <code>eval_timeout * 2</code></td>
+      </tr>
+      <tr>
+        <td><code>llm_timeout</code></td>
+        <td><span class="tag-default">120_000</span></td>
+        <td>ms</td>
+        <td>Timeout for each Anthropic API request</td>
+      </tr>
+      <tr>
+        <td><code>subcall_timeout</code></td>
+        <td><span class="tag-default">600_000</span></td>
+        <td>ms</td>
+        <td>Timeout for a child Worker to return a result (10 minutes)</td>
+      </tr>
+      <tr>
+        <td><code>truncation_head</code></td>
+        <td><span class="tag-default">4000</span></td>
+        <td>bytes</td>
+        <td>Head bytes kept in stdout truncation</td>
+      </tr>
+      <tr>
+        <td><code>truncation_tail</code></td>
+        <td><span class="tag-default">4000</span></td>
+        <td>bytes</td>
+        <td>Tail bytes kept in stdout truncation</td>
+      </tr>
+      <tr>
+        <td><code>context_window_tokens_large</code></td>
+        <td><span class="tag-default">200_000</span></td>
+        <td>tokens</td>
+        <td>Context window size for compaction trigger (large model)</td>
+      </tr>
+      <tr>
+        <td><code>context_window_tokens_small</code></td>
+        <td><span class="tag-default">200_000</span></td>
+        <td>tokens</td>
+        <td>Context window size for compaction trigger (small model)</td>
+      </tr>
+      <tr>
+        <td><code>enable_event_log</code></td>
+        <td><span class="tag-default">true</span></td>
+        <td>boolean</td>
+        <td>Whether to start an EventLog Agent per run</td>
+      </tr>
+      <tr>
+        <td><code>event_log_capture_full_stdout</code></td>
+        <td><span class="tag-default">false</span></td>
+        <td>boolean</td>
+        <td>If true, logs full stdout (not truncated) to EventLog</td>
+      </tr>
+      <tr>
+        <td><code>llm_module</code></td>
+        <td><span class="tag-default">RLM.LLM</span></td>
+        <td>module</td>
+        <td>Swappable LLM client. Use <code>RLM.Test.MockLLM</code> in tests</td>
+      </tr>
+      <tr>
+        <td><code>agent_llm_module</code></td>
+        <td><span class="tag-default">RLM.Agent.LLM</span></td>
+        <td>module</td>
+        <td>Swappable LLM client for the coding agent</td>
+      </tr>
+      <tr>
+        <td><code>enable_otel</code></td>
+        <td><span class="tag-default">false</span></td>
+        <td>boolean</td>
+        <td>OpenTelemetry export (not yet wired)</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Telemetry Events (14 events)</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Event</th><th>Measurements</th><th>Key Metadata</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>[:rlm, :node, :start]</code></td><td>—</td><td>context_bytes, query_preview</td></tr>
+      <tr><td><code>[:rlm, :node, :stop]</code></td><td>duration_ms, total_iterations</td><td>status, result_preview</td></tr>
+      <tr><td><code>[:rlm, :iteration, :start]</code></td><td>—</td><td>iteration</td></tr>
+      <tr><td><code>[:rlm, :iteration, :stop]</code></td><td>duration_ms</td><td>iteration, code, eval_status, llm_prompt_tokens, final_answer</td></tr>
+      <tr><td><code>[:rlm, :llm, :request, :start]</code></td><td>—</td><td>messages_count</td></tr>
+      <tr><td><code>[:rlm, :llm, :request, :stop]</code></td><td>duration_ms, prompt_tokens, completion_tokens</td><td>response_preview, code_extracted</td></tr>
+      <tr><td><code>[:rlm, :llm, :request, :exception]</code></td><td>duration_ms</td><td>error</td></tr>
+      <tr><td><code>[:rlm, :eval, :start]</code></td><td>—</td><td>code, iteration</td></tr>
+      <tr><td><code>[:rlm, :eval, :stop]</code></td><td>duration_ms</td><td>status, stdout_bytes</td></tr>
+      <tr><td><code>[:rlm, :subcall, :spawn]</code></td><td>—</td><td>child_span_id, child_depth, model_size</td></tr>
+      <tr><td><code>[:rlm, :subcall, :result]</code></td><td>duration_ms</td><td>child_span_id, status, result_preview</td></tr>
+      <tr><td><code>[:rlm, :compaction, :run]</code></td><td>before_tokens, after_tokens</td><td>history_bytes_compacted</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ====================================================================
+     SECTION 5 — Coding Agent Deep-Dive
+     ==================================================================== -->
+<section class="section" id="coding-agent">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>Coding Agent Deep-Dive</h2>
+  </div>
+
+  <h3>Tool-Use Loop</h3>
+  <p>
+    Each time <code>Session.send_message/3</code> is called, the session spawns a turn task
+    via <code>Task.Supervisor.start_child(RLM.TaskSupervisor, ...)</code> and saves the
+    <code>from</code> reference. The task calls <code>run_turn/2</code>, which recurses
+    (up to <code>@max_tool_rounds = 20</code>) until the LLM produces a pure text response.
+  </p>
+
+  <ol class="flow-list">
+    <li><strong>send_message/3</strong> — appends user message; spawns turn task; monitors task; returns <code>{:noreply, state}</code></li>
+    <li><strong>run_turn/2</strong> — broadcasts <code>:turn_start</code>; calls <code>Agent.LLM.call/4</code> with full message history, tools, and system prompt</li>
+    <li><strong>LLM returns <code>{:text, text}</code></strong> — turn is complete; return <code>{:ok, text, new_messages, usage}</code></li>
+    <li><strong>LLM returns <code>{:tool_calls, calls, text}</code></strong> — enters <code>handle_tool_calls/5</code></li>
+    <li><strong>Build assistant message</strong> — constructs multi-block content: optional text + one <code>tool_use</code> block per call</li>
+    <li><strong>Execute tools serially</strong> — <code>Enum.map</code> over calls, each broadcasts <code>:tool_call_start / :tool_call_end</code>, calls <code>ToolRegistry.execute/2</code></li>
+    <li><strong>Append tool results</strong> — constructs a <code>tool_result</code> message with all results (or errors with <code>is_error: true</code>)</li>
+    <li><strong>Recurse</strong> — calls <code>run_turn/2</code> again with updated messages; accumulates token usage</li>
+    <li><strong>Task sends :turn_done</strong> — <code>handle_info({:turn_done, from, ...})</code> updates state, broadcasts <code>:turn_complete</code>, replies to blocked caller</li>
+  </ol>
+
+  <h3>Session State Machine</h3>
+  <div class="fsm-diagram">
+    <div class="fsm-state">:idle</div>
+    <div class="fsm-arrow">
+      <span>send_message/3</span>
+      <span style="font-size:20px">&#8594;</span>
+    </div>
+    <div class="fsm-state">:running</div>
+    <div class="fsm-arrow">
+      <span>:turn_done</span>
+      <span style="font-size:20px">&#8594;</span>
+    </div>
+    <div class="fsm-state">:idle</div>
+  </div>
+  <p style="font-size:13px; color: var(--text-muted)">
+    If <code>send_message</code> is called while status is <code>:running</code>,
+    the GenServer immediately replies <code>{:error, "Session is busy"}</code>.
+    A <code>:DOWN</code> message from a crashed task resets status to <code>:idle</code>
+    and replies with <code>{:error, "Internal error: ..."}</code>.
+  </p>
+
+  <h3>Session State Fields</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>session_id</code></td><td>string</td><td>Unique ID; used as Registry key and PubSub topic suffix</td></tr>
+      <tr><td><code>messages</code></td><td>list</td><td>Full multi-turn conversation history (user + assistant + tool_result messages)</td></tr>
+      <tr><td><code>status</code></td><td><code>:idle | :running</code></td><td>Prevents concurrent turns</td></tr>
+      <tr><td><code>turn</code></td><td>integer</td><td>Turn counter, incremented on each <code>:turn_done</code></td></tr>
+      <tr><td><code>task_ref</code></td><td>reference</td><td>Monitor ref for the active turn task; used to detect crashes via <code>:DOWN</code></td></tr>
+      <tr><td><code>pending_from</code></td><td>GenServer.from</td><td>Caller reference held while task is running; used to reply when done</td></tr>
+      <tr><td><code>total_input_tokens</code></td><td>integer</td><td>Cumulative input tokens across all turns (from usage maps)</td></tr>
+      <tr><td><code>total_output_tokens</code></td><td>integer</td><td>Cumulative output tokens across all turns</td></tr>
+      <tr><td><code>stream</code></td><td>boolean</td><td>Whether to enable SSE streaming and <code>:text_chunk</code> events</td></tr>
+      <tr><td><code>model</code></td><td>string</td><td>Model name passed to Agent.LLM.call/4</td></tr>
+      <tr><td><code>tools</code></td><td>list</td><td>Tool spec maps (from <code>ToolRegistry.specs/0</code>) sent to the LLM</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Available Tools</h3>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Tool Name</th><th>Module</th><th>Description</th><th>Key Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>read_file</code></td>
+        <td><code>Tools.ReadFile</code></td>
+        <td>Read file contents</td>
+        <td>Capped at 100 KB to avoid context overflow</td>
+      </tr>
+      <tr>
+        <td><code>write_file</code></td>
+        <td><code>Tools.WriteFile</code></td>
+        <td>Write or overwrite a file</td>
+        <td>Creates parent directories automatically</td>
+      </tr>
+      <tr>
+        <td><code>edit_file</code></td>
+        <td><code>Tools.EditFile</code></td>
+        <td>Exact-string replacement in a file</td>
+        <td>Fails if the <code>old_string</code> appears more than once (uniqueness-guarded)</td>
+      </tr>
+      <tr>
+        <td><code>bash</code></td>
+        <td><code>Tools.Bash</code></td>
+        <td>Run a shell command</td>
+        <td>Uses <code>Task.async + Task.yield/2</code> for timeout enforcement (not <code>System.cmd</code>)</td>
+      </tr>
+      <tr>
+        <td><code>grep</code></td>
+        <td><code>Tools.Grep</code></td>
+        <td>Search file contents with ripgrep</td>
+        <td>Supports glob filter, case-insensitive flag, line-number output</td>
+      </tr>
+      <tr>
+        <td><code>glob</code></td>
+        <td><code>Tools.Glob</code></td>
+        <td>Find files by glob pattern</td>
+        <td>Returns matching paths sorted by modification time</td>
+      </tr>
+      <tr>
+        <td><code>ls</code></td>
+        <td><code>Tools.Ls</code></td>
+        <td>List directory contents with sizes</td>
+        <td>Shows file sizes and types; handles both files and directories</td>
+      </tr>
+      <tr>
+        <td><code>rlm_query</code></td>
+        <td><code>Tools.RlmQuery</code></td>
+        <td>Delegate data processing to the RLM engine</td>
+        <td><strong>Bridge tool.</strong> Calls <code>RLM.run/3</code> and returns the answer. Connects both engines</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Tool Behaviour Contract</h3>
+  <p>
+    Every tool module uses <code>use RLM.Agent.Tool</code> and must implement two callbacks:
+  </p>
+<pre><code><span class="kw">defmodule</span> <span class="tp">RLM.Agent.Tools.MyTool</span> <span class="kw">do</span>
+  <span class="kw">use</span> <span class="tp">RLM.Agent.Tool</span>
+
+  <span class="at">@impl</span> <span class="kw">true</span>
+  <span class="kw">def</span> <span class="fn">spec</span> <span class="kw">do</span>
+    <span class="cm"># Returns the Anthropic JSON schema map describing inputs</span>
+    <span class="op">%{</span> <span class="st">"name"</span> <span class="op">=&gt;</span> <span class="st">"my_tool"</span><span class="op">,</span> <span class="st">"description"</span> <span class="op">=&gt;</span> <span class="st">"..."</span><span class="op">,</span> <span class="st">"input_schema"</span> <span class="op">=&gt;</span> <span class="op">%{...}</span> <span class="op">}</span>
+  <span class="kw">end</span>
+
+  <span class="at">@impl</span> <span class="kw">true</span>
+  <span class="kw">def</span> <span class="fn">execute</span><span class="op">(%{</span><span class="st">"param"</span> <span class="op">=&gt;</span> <span class="va">value</span><span class="op">})</span> <span class="kw">do</span>
+    <span class="cm"># Returns {:ok, output_string} or {:error, reason_string}</span>
+    <span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="st">"result"</span><span class="op">}</span>
+  <span class="kw">end</span>
+<span class="kw">end</span>
+
+<span class="cm"># Register in RLM.Agent.ToolRegistry:</span>
+<span class="at">@tools</span> <span class="op">[...,</span> <span class="tp">RLM.Agent.Tools.MyTool</span><span class="op">]</span></code></pre>
+
+  <h3>PubSub Events</h3>
+  <p>All events broadcast on topic <code>"agent:session:&lt;session_id&gt;"</code>.</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Event Type</th><th>Extra Payload Fields</th><th>When Fired</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="event-tag">:turn_start</span></td>
+        <td><code>turn: n</code></td>
+        <td>At the beginning of <code>run_turn/2</code></td>
+      </tr>
+      <tr>
+        <td><span class="event-tag">:text_chunk</span></td>
+        <td><code>text: chunk</code></td>
+        <td>During SSE streaming (when <code>stream: true</code>); fires once per text delta</td>
+      </tr>
+      <tr>
+        <td><span class="event-tag">:tool_call_start</span></td>
+        <td><code>call: %{id, name, input}</code></td>
+        <td>Before each tool is executed</td>
+      </tr>
+      <tr>
+        <td><span class="event-tag">:tool_call_end</span></td>
+        <td><code>call: %{...}</code>, <code>result: {:ok, ...} | {:error, ...}</code></td>
+        <td>After each tool execution completes</td>
+      </tr>
+      <tr>
+        <td><span class="event-tag">:turn_complete</span></td>
+        <td><code>response: text</code>, <code>turn: n</code></td>
+        <td>When LLM produces a final text response (no more tool calls)</td>
+      </tr>
+      <tr>
+        <td><span class="event-tag">:error</span></td>
+        <td><code>reason: string</code></td>
+        <td>On LLM error, tool-round limit exceeded, or task crash</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>SSE Streaming Architecture</h3>
+  <p>
+    <code>RLM.Agent.LLM</code> sends <code>stream: true</code> to Anthropic. The response
+    arrives as a binary SSE body. The streaming pipeline:
+  </p>
+  <ol style="font-size:13.5px;">
+    <li><code>flush_sse_buffer/1</code> splits on <code>"\n\n"</code> to extract complete SSE event blocks, keeping a remainder</li>
+    <li><code>parse_sse_block/1</code> strips <code>"data: "</code> prefix and JSON-decodes each event</li>
+    <li><code>process_sse_event/3</code> accumulates: text chunks (<code>text_delta</code>), tool JSON fragments (<code>input_json_delta</code>), stop reason, and usage</li>
+    <li><code>build_streaming_response/1</code> assembles the final <code>{:ok, {:text | :tool_calls, ...}, usage}</code> tuple</li>
+  </ol>
+  <div class="callout callout-warn">
+    <strong>Buffered SSE (not true real-time)</strong>
+    <code>on_chunk</code> callbacks fire during the parsing phase — after the full HTTP
+    response is received, not while individual bytes arrive. This is a deliberate trade-off
+    due to Req 0.5.x's <code>into:</code> option conflicting with Finch's adapter contract.
+    For tests and correctness, post-receipt delivery is sufficient.
+  </div>
+</section>
+
+<!-- ====================================================================
+     SECTION 6 — Known Design Constraints
+     ==================================================================== -->
+<section class="section" id="constraints">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>Known Design Constraints</h2>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color: var(--amber)">SSE Buffering Approach</h3>
+    <p>
+      <code>RLM.Agent.LLM</code> uses <code>Req.post/2</code> without the <code>into:</code>
+      option, letting Req buffer the full SSE response as a binary. This was necessary because
+      Req 0.5.x's <code>into:</code> option (both the <code>fn</code> and <code>:self</code>
+      forms) conflicts with the Finch adapter's expected return contract, causing
+      <code>FunctionClauseError</code>.
+    </p>
+    <p style="margin-bottom:0">
+      Practical impact: Anthropic closes the connection after <code>message_stop</code>,
+      so there is no indefinite blocking. The <code>on_chunk</code> callback fires during
+      parsing after receipt. A future LiveView integration could add a different transport
+      layer for true per-token real-time streaming.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color: var(--blue)">Code.eval_string is Intentional</h3>
+    <p>
+      <code>RLM.Eval</code> uses <code>Code.eval_string/3</code> deliberately — it is the
+      core REPL mechanism. The LLM generates arbitrary Elixir code that must be executed
+      with a persistent binding map across iterations. There is no sandboxed alternative
+      in Elixir that supports stateful bindings.
+    </p>
+    <p style="margin-bottom:0">
+      The "sandbox" is not a security sandbox — it is a set of helper functions
+      (<code>RLM.Sandbox</code>) injected into the eval environment. Deployments
+      requiring true isolation must run the system in a restricted environment at the
+      OS or container level.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color: var(--green)">MockLLM for Tests</h3>
+    <p>
+      <code>RLM.Test.MockLLM</code> is a global ETS-based queue. Tests push canned LLM
+      responses via <code>MockLLM.push_response/1</code> and the Worker pops them in order.
+      Because ETS state is global, all tests run with <code>async: false</code>.
+    </p>
+    <p style="margin-bottom:0">
+      Live API tests are tagged <code>@moduletag :live_api</code> and excluded from the
+      default <code>mix test</code> run. They require the <code>CLAUDE_API_KEY</code>
+      environment variable and are enabled with <code>mix test --include live_api</code>.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color: var(--accent-mid)">Worker Restart Strategy</h3>
+    <p>
+      <code>RLM.Worker</code> uses <code>use GenServer, restart: :temporary</code>.
+      Workers are expected to terminate normally after returning a result.
+      If a Worker crashes, it is not restarted — the caller receives
+      <code>{:error, "Worker crashed: ..."}</code> via <code>Process.monitor</code>.
+    </p>
+    <p style="margin-bottom:0">
+      The same applies to <code>RLM.Agent.Session</code>. Sessions are <code>:temporary</code>
+      and hold all conversation state in-process. A session crash means the conversation
+      history is lost.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color: var(--teal)">Bash Tool Timeout</h3>
+    <p style="margin-bottom:0">
+      The <code>bash</code> tool uses <code>Task.async/1</code> +
+      <code>Task.yield/2</code> instead of <code>System.cmd/3</code>.
+      <code>System.cmd</code> does not accept a <code>:timeout</code> option and would
+      block indefinitely on long-running commands. The Task-based approach allows a
+      configurable timeout with graceful task shutdown.
+    </p>
+  </div>
+</section>
+
+<!-- ====================================================================
+     SECTION 7 — Quick Start
+     ==================================================================== -->
+<section class="section" id="quickstart">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Quick Start</h2>
+  </div>
+
+  <h3>Prerequisites</h3>
+<pre><code><span class="cm"># Elixir >= 1.19 / OTP 27 required</span>
+<span class="kw">export</span> <span class="at">CLAUDE_API_KEY</span><span class="op">=</span><span class="st">sk-ant-...</span>
+
+<span class="fn">mix</span> deps.get
+<span class="fn">mix</span> compile</code></pre>
+
+  <h3>RLM Engine — IEx Usage</h3>
+<pre><code><span class="fn">iex</span> -S mix
+
+<span class="cm"># --- Basic synchronous call ---</span>
+<span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="va">answer</span><span class="op">,</span> <span class="va">run_id</span><span class="op">}</span> <span class="op">=</span> <span class="md">RLM</span><span class="op">.</span><span class="fn">run</span><span class="op">(</span>
+  <span class="st">"line 1\nline 2\nline 3\nline 4"</span><span class="op">,</span>
+  <span class="st">"Count the lines and return the count as an integer"</span>
+<span class="op">)</span>
+<span class="cm"># => {:ok, 4, "run-abc123"}</span>
+
+<span class="cm"># --- With config overrides ---</span>
+<span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="va">result</span><span class="op">,</span> <span class="va">run_id</span><span class="op">}</span> <span class="op">=</span> <span class="md">RLM</span><span class="op">.</span><span class="fn">run</span><span class="op">(</span><span class="va">context</span><span class="op">,</span> <span class="va">query</span><span class="op">,</span>
+  <span class="at">max_iterations:</span> <span class="nm">10</span><span class="op">,</span>
+  <span class="at">max_depth:</span> <span class="nm">3</span><span class="op">,</span>
+  <span class="at">model_large:</span> <span class="st">"claude-opus-4-6"</span><span class="op">,</span>
+  <span class="at">eval_timeout:</span> <span class="nm">60_000</span>
+<span class="op">)</span>
+
+<span class="cm"># --- Async (result arrives as message) ---</span>
+<span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="va">run_id</span><span class="op">,</span> <span class="va">pid</span><span class="op">}</span> <span class="op">=</span> <span class="md">RLM</span><span class="op">.</span><span class="fn">run_async</span><span class="op">(</span><span class="va">large_text</span><span class="op">,</span> <span class="st">"Summarize the key themes"</span><span class="op">)</span>
+
+<span class="kw">receive</span> <span class="kw">do</span>
+  <span class="op">{</span><span class="at">:rlm_result</span><span class="op">,</span> <span class="op">^</span><span class="va">run_id</span><span class="op">,</span> <span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="va">answer</span><span class="op">}}</span> <span class="op">-&gt;</span> <span class="md">IO</span><span class="op">.</span><span class="fn">puts</span><span class="op">(</span><span class="va">answer</span><span class="op">)</span>
+<span class="kw">end</span>
+
+<span class="cm"># --- Inspect the execution trace ---</span>
+<span class="va">tree</span> <span class="op">=</span> <span class="md">RLM.EventLog</span><span class="op">.</span><span class="fn">get_tree</span><span class="op">(</span><span class="va">run_id</span><span class="op">)</span>
+<span class="va">jsonl</span> <span class="op">=</span> <span class="md">RLM.EventLog</span><span class="op">.</span><span class="fn">to_jsonl</span><span class="op">(</span><span class="va">run_id</span><span class="op">)</span>
+<span class="md">File</span><span class="op">.</span><span class="fn">write!</span><span class="op">(</span><span class="st">"trace.jsonl"</span><span class="op">,</span> <span class="va">jsonl</span><span class="op">)</span>
+
+<span class="cm"># --- Attach a custom telemetry handler ---</span>
+<span class="at">:telemetry</span><span class="op">.</span><span class="fn">attach</span><span class="op">(</span><span class="st">"my-handler"</span><span class="op">,</span> <span class="op">[</span><span class="at">:rlm</span><span class="op">,</span> <span class="at">:iteration</span><span class="op">,</span> <span class="at">:stop</span><span class="op">],</span>
+  <span class="kw">fn</span> <span class="va">_event</span><span class="op">,</span> <span class="va">measurements</span><span class="op">,</span> <span class="va">meta</span><span class="op">,</span> <span class="va">_</span> <span class="op">-&gt;</span>
+    <span class="md">IO</span><span class="op">.</span><span class="fn">puts</span><span class="op">(</span><span class="st">"Iteration #{meta.iteration} — #{measurements.duration_ms}ms"</span><span class="op">)</span>
+  <span class="kw">end</span><span class="op">,</span> <span class="at">nil</span><span class="op">)</span></code></pre>
+
+  <h3>Coding Agent — IEx Usage</h3>
+<pre><code><span class="fn">iex</span> -S mix
+
+<span class="cm"># --- IEx convenience helpers ---</span>
+<span class="kw">import</span> <span class="md">RLM.Agent.IEx</span>
+
+<span class="cm"># Start a session and send the first message in one step</span>
+<span class="op">{</span><span class="va">session</span><span class="op">,</span> <span class="va">_response</span><span class="op">}</span> <span class="op">=</span> <span class="fn">start_chat</span><span class="op">(</span><span class="st">"What Elixir version is this project using?"</span><span class="op">)</span>
+
+<span class="cm"># Continue the conversation</span>
+<span class="fn">chat</span><span class="op">(</span><span class="va">session</span><span class="op">,</span> <span class="st">"Now show me the supervision tree"</span><span class="op">)</span>
+
+<span class="cm"># Watch live events (tool calls + streaming text)</span>
+<span class="fn">watch</span><span class="op">(</span><span class="va">session</span><span class="op">)</span>
+
+<span class="cm"># Inspect history and stats</span>
+<span class="fn">history</span><span class="op">(</span><span class="va">session</span><span class="op">)</span>
+<span class="fn">status</span><span class="op">(</span><span class="va">session</span><span class="op">)</span>
+
+<span class="cm"># --- Programmatic API ---</span>
+<span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="va">_pid</span><span class="op">}</span> <span class="op">=</span> <span class="md">DynamicSupervisor</span><span class="op">.</span><span class="fn">start_child</span><span class="op">(</span><span class="md">RLM.AgentSup</span><span class="op">, {</span>
+  <span class="md">RLM.Agent.Session</span><span class="op">,</span>
+  <span class="op">[</span>
+    <span class="at">session_id:</span> <span class="st">"my-session"</span><span class="op">,</span>
+    <span class="at">system_prompt:</span> <span class="md">RLM.Agent.Prompt</span><span class="op">.</span><span class="fn">build</span><span class="op">(</span><span class="at">cwd:</span> <span class="md">File</span><span class="op">.</span><span class="fn">cwd!</span><span class="op">()),</span>
+    <span class="at">tools:</span> <span class="md">RLM.Agent.ToolRegistry</span><span class="op">.</span><span class="fn">specs</span><span class="op">(),</span>
+    <span class="at">stream:</span> <span class="kw">true</span>
+  <span class="op">]</span>
+<span class="op">})</span>
+
+<span class="cm"># Subscribe to real-time events</span>
+<span class="md">Phoenix.PubSub</span><span class="op">.</span><span class="fn">subscribe</span><span class="op">(</span><span class="md">RLM.PubSub</span><span class="op">,</span> <span class="st">"agent:session:my-session"</span><span class="op">)</span>
+
+<span class="cm"># Send a message</span>
+<span class="op">{</span><span class="at">:ok</span><span class="op">,</span> <span class="va">response</span><span class="op">}</span> <span class="op">=</span> <span class="md">RLM.Agent.Session</span><span class="op">.</span><span class="fn">send_message</span><span class="op">(</span><span class="st">"my-session"</span><span class="op">,</span> <span class="st">"Run the test suite"</span><span class="op">)</span>
+
+<span class="cm"># Receive events in your process</span>
+<span class="kw">receive</span> <span class="kw">do</span>
+  <span class="op">{</span><span class="at">:agent_event</span><span class="op">,</span> <span class="at">:text_chunk</span><span class="op">,</span> <span class="op">%{</span><span class="at">text:</span> <span class="va">chunk</span><span class="op">}}</span>     <span class="op">-&gt;</span> <span class="md">IO</span><span class="op">.</span><span class="fn">write</span><span class="op">(</span><span class="va">chunk</span><span class="op">)</span>
+  <span class="op">{</span><span class="at">:agent_event</span><span class="op">,</span> <span class="at">:tool_call_start</span><span class="op">,</span> <span class="op">%{</span><span class="at">call:</span> <span class="va">call</span><span class="op">}}</span>  <span class="op">-&gt;</span> <span class="md">IO</span><span class="op">.</span><span class="fn">inspect</span><span class="op">(</span><span class="va">call</span><span class="op">)</span>
+  <span class="op">{</span><span class="at">:agent_event</span><span class="op">,</span> <span class="at">:turn_complete</span><span class="op">,</span> <span class="op">%{</span><span class="at">response:</span> <span class="va">text</span><span class="op">}}</span> <span class="op">-&gt;</span> <span class="md">IO</span><span class="op">.</span><span class="fn">puts</span><span class="op">(</span><span class="va">text</span><span class="op">)</span>
+<span class="kw">end</span></code></pre>
+
+  <h3>Running Tests</h3>
+<pre><code><span class="cm"># Standard tests (MockLLM, no API key required)</span>
+<span class="fn">mix</span> test
+
+<span class="cm"># With trace output</span>
+<span class="fn">mix</span> test --trace
+
+<span class="cm"># Live API tests (requires CLAUDE_API_KEY)</span>
+<span class="fn">mix</span> test --include live_api</code></pre>
+</section>
+
+<!-- ====================================================================
+     SECTION 8 — Module Reference
+     ==================================================================== -->
+<section class="section" id="modules">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>All Modules</h2>
+  </div>
+
+  <h3>RLM Engine</h3>
+  <div class="card-grid">
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM</div>
+      <div class="module-purpose">Public API. Entry point for both synchronous and async execution.</div>
+      <code class="module-api">run(context, query, opts) → {:ok, answer, run_id} | {:error, reason}
+run_async(context, query, opts) → {:ok, run_id, pid}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Config</div>
+      <div class="module-purpose">Configuration struct. Loads from application env with runtime keyword overrides.</div>
+      <code class="module-api">load(overrides \\ []) → %RLM.Config{}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Worker</div>
+      <div class="module-purpose">GenServer per execution node. Drives the iterate loop: LLM call → async eval → check final_answer → repeat.</div>
+      <code class="module-api">start_link(opts) → {:ok, pid}
+handle_call {:spawn_subcall, text, model_size}, from, state
+handle_info :iterate | {:eval_complete, result} | {:rlm_result, id, result}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Eval</div>
+      <div class="module-purpose">Sandboxed Code.eval_string with async IO capture. Runs in a spawned process.</div>
+      <code class="module-api">run(code, bindings, opts) →
+  {:ok, stdout, value, new_bindings}
+  | {:error, msg, original_bindings}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Sandbox</div>
+      <div class="module-purpose">Functions injected into the eval binding: lm_query, chunks, grep, preview, list_bindings.</div>
+      <code class="module-api">lm_query(text, opts) → {:ok, result}
+chunks(string, size) → [String.t()]
+grep(pattern, string) → [String.t()]
+preview(string, n) → String.t()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.LLM</div>
+      <div class="module-purpose">Anthropic Messages API client (RLM path). Extracts Elixir code blocks from responses.</div>
+      <code class="module-api">chat(messages, model, config) →
+  {:ok, response_text, usage} | {:error, reason}
+extract_code(response) →
+  {:ok, code} | {:error, :no_code_block}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Prompt</div>
+      <div class="module-purpose">System prompt loading from priv/ and message formatters for user, feedback, compaction, and nudge messages.</div>
+      <code class="module-api">build_system_message() → map()
+build_user_message(query, bytes, lines, preview) → map()
+build_feedback_message(stdout, :ok | :error) → map()
+build_compaction_addendum(preview) → String.t()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Helpers</div>
+      <div class="module-purpose">Data processing utilities available both in eval and externally.</div>
+      <code class="module-api">chunks(string, size) → [String.t()]
+grep(pattern, string) → [String.t()]
+preview(string, n) → String.t()
+list_bindings(bindings) → String.t()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-engine">RLM Engine</div>
+      <div class="module-name">RLM.Truncate</div>
+      <div class="module-purpose">Head+tail string truncation for stdout overflow prevention.</div>
+      <code class="module-api">truncate(string, head: n, tail: n) → String.t()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.Span</div>
+      <div class="module-purpose">Span and run ID generation for tracing Workers and their traces.</div>
+      <code class="module-api">generate_id() → String.t()       # "span-xxxxx"
+generate_run_id() → String.t()   # "run-xxxxx"</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.EventLog</div>
+      <div class="module-purpose">Per-run Agent storing a structured reasoning trace. Started under RLM.EventStore.</div>
+      <code class="module-api">get_tree(run_id) → map()
+to_jsonl(run_id) → String.t()
+get_started_at(run_id) → integer()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.EventLog.Sweeper</div>
+      <div class="module-purpose">GenServer that periodically GCs stale EventLog agents. Default TTL 1 hour, interval 5 minutes.</div>
+      <code class="module-api">start_link(opts) → {:ok, pid}
+# Auto-runs on interval; no public API</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.Telemetry</div>
+      <div class="module-purpose">GenServer that attaches all telemetry handlers at startup. Centralises handler registration.</div>
+      <code class="module-api">start_link(opts) → {:ok, pid}
+# Attaches: Logger, PubSub, EventLogHandler</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.Telemetry.Logger</div>
+      <div class="module-purpose">Telemetry handler — structured Logger output for all 14 RLM telemetry events.</div>
+      <code class="module-api">handle_event(event, measurements, metadata, config)</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.Telemetry.PubSub</div>
+      <div class="module-purpose">Telemetry handler — broadcasts events to Phoenix.PubSub for live subscribers.</div>
+      <code class="module-api">handle_event(event, measurements, metadata, config)</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-infra">Infrastructure</div>
+      <div class="module-name">RLM.Telemetry.EventLogHandler</div>
+      <div class="module-purpose">Telemetry handler — routes events to the correct EventLog Agent by run_id.</div>
+      <code class="module-api">handle_event(event, measurements, metadata, config)</code>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+  <h3>Coding Agent</h3>
+  <div class="card-grid">
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.Session</div>
+      <div class="module-purpose">GenServer managing a single multi-turn coding agent session. Drives the tool-use loop via Task children.</div>
+      <code class="module-api">send_message(session_id, text, timeout) →
+  {:ok, response} | {:error, reason}
+history(session_id) → [message()]
+status(session_id) → map()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.LLM</div>
+      <div class="module-purpose">Anthropic Messages API client with native tool_use support and SSE response parsing.</div>
+      <code class="module-api">call(messages, model, config, opts) →
+  {:ok, {:text, text}, usage}
+  | {:ok, {:tool_calls, calls, text}, usage}
+  | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.Message</div>
+      <div class="module-purpose">Message constructors and Anthropic API serialisation helpers for the multi-turn format.</div>
+      <code class="module-api">user(text) → map()
+assistant(text) → map()
+assistant_from_blocks(blocks) → map()
+tool_results(results) → map()
+to_api_map(message) → map()</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.Prompt</div>
+      <div class="module-purpose">Composable system prompt builder for the coding agent session.</div>
+      <code class="module-api">build(opts \\ []) → String.t()
+# opts: cwd: path, extra: string</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.Tool</div>
+      <div class="module-purpose">@behaviour defining the tool contract. Provides use macro that injects name/0 from spec.</div>
+      <code class="module-api">@callback spec() :: map()
+@callback execute(input :: map()) ::
+  {:ok, String.t()} | {:error, String.t()}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.ToolRegistry</div>
+      <div class="module-purpose">Central registry. Lists all 8 tools; provides dispatch and spec assembly for the LLM.</div>
+      <code class="module-api">all() → [module()]
+specs() → [map()]
+spec_for(name) → {:ok, map()} | {:error, :not_found}
+execute(name, input) → {:ok, String.t()} | {:error, String.t()}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-agent">Coding Agent</div>
+      <div class="module-name">RLM.Agent.IEx</div>
+      <div class="module-purpose">IEx convenience helpers for interactive use of the coding agent from a shell session.</div>
+      <code class="module-api">start(opts) → {:ok, session_id}
+start_chat(msg, opts) → {session_id, response}
+chat(session_id, msg) → response
+watch(session_id) → :ok  # subscribes and prints
+history(session_id) → [message()]
+status(session_id) → map()</code>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+  <h3>Tool Implementations</h3>
+  <div class="card-grid">
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.ReadFile</div>
+      <div class="module-purpose">Read file contents. Capped at 100 KB to avoid context window exhaustion.</div>
+      <code class="module-api">execute(%{"path" => path}) → {:ok, content} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.WriteFile</div>
+      <div class="module-purpose">Write or overwrite a file. Creates parent directories automatically.</div>
+      <code class="module-api">execute(%{"path" => path, "content" => content}) → {:ok, msg} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.EditFile</div>
+      <div class="module-purpose">Exact-string replacement in a file. Fails if old_string appears more than once.</div>
+      <code class="module-api">execute(%{"path" => path, "old_string" => old, "new_string" => new}) → {:ok, msg} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.Bash</div>
+      <div class="module-purpose">Run shell commands with timeout enforcement via Task.async + Task.yield/2.</div>
+      <code class="module-api">execute(%{"command" => cmd}) → {:ok, output} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.Grep</div>
+      <div class="module-purpose">ripgrep search with glob filtering, case-insensitive flag, and line-number output.</div>
+      <code class="module-api">execute(%{"pattern" => p, "path" => path, ...}) → {:ok, matches} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.Glob</div>
+      <div class="module-purpose">Find files by glob pattern, sorted by modification time.</div>
+      <code class="module-api">execute(%{"pattern" => glob}) → {:ok, paths} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.Ls</div>
+      <div class="module-purpose">List directory contents with file sizes and types.</div>
+      <code class="module-api">execute(%{"path" => path}) → {:ok, listing} | {:error, reason}</code>
+    </div>
+
+    <div class="module-card">
+      <div class="module-group group-tool">Tool</div>
+      <div class="module-name">RLM.Agent.Tools.RlmQuery</div>
+      <div class="module-purpose">Bridge tool: delegates data processing to the RLM engine. Connects the two engines.</div>
+      <code class="module-api">execute(%{"context" => ctx, "query" => q}) →
+  {:ok, answer} | {:error, reason}
+# Calls RLM.run/3 internally</code>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====================================================================
+     Changelog snippet
+     ==================================================================== -->
+<section class="section" style="margin-bottom: 24px;">
+  <div class="section-header" style="border-bottom-color: var(--border-light);">
+    <h2 style="font-size: 1.1rem; color: var(--text-muted);">Changelog Summary</h2>
+  </div>
+  <div class="two-col">
+    <div class="card" style="border-color: var(--accent-light);">
+      <div class="module-group group-engine" style="margin-bottom:10px">v0.2.0 — 2026-02-19</div>
+      <ul style="font-size:13px; color: var(--text-muted);">
+        <li>Added <strong>Coding Agent</strong> subsystem (Session, LLM, ToolRegistry, 8 tools)</li>
+        <li><code>RLM.run/3</code> returns 3-tuple <code>{:ok, answer, run_id}</code></li>
+        <li><code>Process.monitor</code> on Worker — crashes surface as errors</li>
+        <li><code>max_concurrent_subcalls</code> config field with enforcement</li>
+        <li><code>RLM.EventLog.Sweeper</code> for stale agent GC</li>
+        <li><code>Task.Supervisor</code> added to supervision tree</li>
+        <li>SSE buffering fix for Req 0.5.x / Finch adapter conflict</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="module-group group-infra" style="margin-bottom:10px">v0.1.0 — 2026-02-18</div>
+      <ul style="font-size:13px; color: var(--text-muted);">
+        <li>Initial RLM Engine implementation</li>
+        <li>Worker GenServer with async-eval iterate loop</li>
+        <li>Sandboxed <code>Code.eval_string</code> with IO capture</li>
+        <li>Anthropic Messages API client with code-block extraction</li>
+        <li>EventLog, Telemetry (14 events), Config, Span</li>
+        <li>Full OTP supervision tree</li>
+        <li>Integration test suite with MockLLM (ETS-based)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div><!-- /container -->
+</main>
+
+<footer>
+  <p>
+    RLM Umbrella — Reference Guide &bull;
+    Generated 2026-02-19 &bull;
+    v0.2.0 &bull;
+    Elixir &ge; 1.19 / OTP 27
+  </p>
+  <p style="margin-top:8px; font-size:12px;">
+    Source: <code style="background: rgba(255,255,255,0.08); color: #c4b5fd; padding: 2px 6px; border-radius:4px;">rlm_umbrella/apps/rlm/</code>
+  </p>
+</footer>
+
+</body>
+</html>
