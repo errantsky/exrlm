@@ -2,7 +2,7 @@ defmodule RLM.Agent.ToolTest do
   use ExUnit.Case, async: true
 
   alias RLM.Agent.ToolRegistry
-  alias RLM.Agent.Tools.{ReadFile, WriteFile, EditFile, Bash, Glob, Ls, Grep}
+  alias RLM.Agent.Tools.{ReadFile, WriteFile, EditFile, Bash, Glob, Ls}
 
   # Use a unique temp dir per test
   setup do

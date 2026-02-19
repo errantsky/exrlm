@@ -121,14 +121,16 @@ defmodule RLM.Agent.LLM do
   # is separated by "\n\n". HTTP chunks may split events mid-line, so we keep
   # a running buffer of incomplete data.
 
-  @streaming_initial %{
-    buffer: "",
-    text_chunks: [],
-    # index => {id, name, [json_chunk]}
-    tool_blocks: %{},
-    stop_reason: nil,
-    usage: nil
-  }
+  defp initial_streaming_acc do
+    %{
+      buffer: "",
+      text_chunks: [],
+      # index => {id, name, [json_chunk]}
+      tool_blocks: %{},
+      stop_reason: nil,
+      usage: nil
+    }
+  end
 
   defp call_streaming(url, headers, body, config, on_chunk) do
     result =
@@ -137,6 +139,8 @@ defmodule RLM.Agent.LLM do
         headers: headers,
         receive_timeout: config.llm_timeout,
         into: fn {:data, chunk}, acc ->
+          # Req may pass nil as the initial accumulator — normalise on first call
+          acc = if is_map(acc), do: acc, else: initial_streaming_acc()
           {events, new_buffer} = flush_sse_buffer(acc.buffer <> chunk)
 
           new_acc =
@@ -151,7 +155,7 @@ defmodule RLM.Agent.LLM do
       {:ok, %{status: 200, body: final_acc}} ->
         build_streaming_response(final_acc)
 
-      {:ok, %{status: status, body: %{"error" => %{"message" => msg}}}} ->
+      {:ok, %{status: _status, body: %{"error" => %{"message" => msg}}}} ->
         {:error, "API error: #{msg}"}
 
       {:ok, %{status: status}} ->

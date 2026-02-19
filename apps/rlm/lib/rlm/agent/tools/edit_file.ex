@@ -62,7 +62,7 @@ defmodule RLM.Agent.Tools.EditFile do
     end
   end
 
-  defp count_occurrences(string, pattern) when byte_size(pattern) == 0, do: 0
+  defp count_occurrences(_string, pattern) when byte_size(pattern) == 0, do: 0
 
   defp count_occurrences(string, pattern) do
     string

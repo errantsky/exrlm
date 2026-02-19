@@ -150,7 +150,6 @@ defmodule RLM.Agent.LLMTest do
       config = RLM.Config.load()
       messages = [Message.user("Count to 3, one number per word.")]
 
-      chunks = []
       ref = make_ref()
       parent = self()
 
