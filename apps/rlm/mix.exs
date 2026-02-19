@@ -13,7 +13,10 @@ defmodule RLM.MixProject do
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      name: "RLM",
+      source_url: "https://github.com/errantsky/exrlm",
+      docs: docs()
     ]
   end
 
@@ -40,11 +43,65 @@ defmodule RLM.MixProject do
       {:phoenix_pubsub, "~> 2.1"},
 
       # Test
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+
+      # Docs
+      {:ex_doc, "~> 0.40.1", only: :dev, runtime: false}
     ]
   end
 
   defp aliases do
     []
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: [
+        "../../README.md": [title: "Overview"],
+        "../../CHANGELOG.md": [title: "Changelog"]
+      ],
+      groups_for_modules: [
+        "RLM Engine": [
+          RLM,
+          RLM.Config,
+          RLM.Worker,
+          RLM.Eval,
+          RLM.Sandbox,
+          RLM.LLM,
+          RLM.Prompt,
+          RLM.Helpers,
+          RLM.Truncate,
+          RLM.Span,
+          RLM.EventLog,
+          RLM.EventLog.Sweeper
+        ],
+        "Coding Agent": [
+          RLM.Agent.LLM,
+          RLM.Agent.Message,
+          RLM.Agent.Session,
+          RLM.Agent.Prompt,
+          RLM.Agent.Tool,
+          RLM.Agent.ToolRegistry,
+          RLM.Agent.IEx
+        ],
+        "Agent Tools": [
+          RLM.Agent.Tools.ReadFile,
+          RLM.Agent.Tools.WriteFile,
+          RLM.Agent.Tools.EditFile,
+          RLM.Agent.Tools.Bash,
+          RLM.Agent.Tools.Grep,
+          RLM.Agent.Tools.Glob,
+          RLM.Agent.Tools.Ls,
+          RLM.Agent.Tools.RlmQuery
+        ],
+        "Telemetry": [
+          RLM.Telemetry,
+          RLM.Telemetry.Logger,
+          RLM.Telemetry.PubSub,
+          RLM.Telemetry.EventLogHandler
+        ]
+      ]
+    ]
   end
 end

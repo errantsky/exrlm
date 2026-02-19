@@ -287,27 +287,27 @@ import RLM.Agent.IEx
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    RLM.Supervisor                         │
-│  ┌─────────────┐  ┌────────────────┐  ┌───────────────┐ │
-│  │ RLM.Registry│  │  RLM.PubSub    │  │ RLM.TaskSup   │ │
-│  └─────────────┘  └────────────────┘  └───────────────┘ │
-│  ┌─────────────┐  ┌────────────────┐  ┌───────────────┐ │
-│  │  WorkerSup  │  │   EventStore   │  │   AgentSup    │ │
-│  │ (RLM nodes) │  │ (trace agents) │  │  (sessions)   │ │
-│  └─────────────┘  └────────────────┘  └───────────────┘ │
-│  ┌─────────────┐  ┌────────────────┐                     │
-│  │ RLM.Telemetry│ │ EventLog.Sweeper│                    │
-│  └─────────────┘  └────────────────┘                     │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      RLM.Supervisor                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ RLM.Registry │  │ RLM.PubSub   │  │ RLM.TaskSupervisor│  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │  WorkerSup   │  │  EventStore  │  │    AgentSup      │  │
+│  │ (RLM workers)│  │(trace agents)│  │ (agent sessions) │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐                         │
+│  │ RLM.Telemetry│  │EventLog.Sweep│                         │
+│  └──────────────┘  └──────────────┘                         │
+└─────────────────────────────────────────────────────────────┘
 
 RLM Engine (code-eval loop):          Coding Agent (tool-use loop):
-  RLM.run/3                             RLM.Agent.Session.send_message/3
+  RLM.run/3 → {:ok, answer, run_id}    RLM.Agent.Session.send_message/3
     → Worker GenServer                    → Agent.LLM.call/4 (tool_use API)
       → RLM.LLM.chat (sync)               → Tool execution (parallel)
       → spawn(RLM.Eval.run)               → Append tool results
         ↕ {:spawn_subcall} calls          → LLM again...
-      → {:eval_complete, result}         → Final text response
+      → {:eval_complete, result}          → Final text response
       → Repeat or complete
 ```
 
