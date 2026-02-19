@@ -181,6 +181,7 @@ Default models:
 | `eval_timeout` | `300_000` | ms per eval (5 min) |
 | `llm_timeout` | `120_000` | ms per LLM request (2 min) |
 | `llm_module` | `RLM.LLM` | Swappable for `RLM.Test.MockLLM` |
+| `agent_llm_module` | `RLM.Agent.LLM` | Swappable LLM for the coding agent; inject `MockAgentLLM` in session tests |
 
 ## Testing Conventions
 
@@ -201,3 +202,75 @@ Default models:
 - `.env` file with `CLAUDE_API_KEY` should exist at project root but must not be committed
 - `RLM.run/3` monitors the Worker with `Process.monitor` so crashes return `{:error, reason}`
   rather than hanging indefinitely
+
+## Orientation for Coding Agents
+
+When starting a task, read these files in order:
+
+1. **`CLAUDE.md`** (this file) — architecture, invariants, module map
+2. **`config/config.exs`** — runtime defaults
+3. The specific module(s) relevant to your task (see Module Map above)
+4. The corresponding test file to understand expected behaviour
+
+Key invariants **never to break**:
+- Raw input data must not enter any LLM context window (use `preview/2` or metadata only)
+- Workers are `:temporary` — do not change their restart strategy
+- The async-eval pattern in `RLM.Worker` is intentional; do not make eval synchronous
+- All session tests must use `async: false` (MockLLM is global ETS state)
+
+Before committing, always run:
+```bash
+# From the umbrella root
+mix compile --warnings-as-errors
+mix test
+mix format --check-formatted
+```
+
+If you add or modify a public function, run `mix docs` from `apps/rlm/` to verify ExDoc
+compiles cleanly (warnings indicate missing or broken `@doc` / `@spec` annotations).
+
+## Feature Development Checklist
+
+When implementing a new feature or making a significant change, update the following
+documentation artifacts **as part of the same commit or PR**:
+
+### Always update
+
+- [ ] **`CLAUDE.md` — Module Map** — add a row for every new module you create
+- [ ] **`CLAUDE.md` — Config Fields** — add a row for every new `RLM.Config` field
+- [ ] **`CHANGELOG.md`** — add an entry under `## [Unreleased]` describing what changed
+      and why; follow the existing format (Added / Changed / Fixed / Removed)
+
+### Update when the public API changes
+
+- [ ] **`README.md`** — update usage examples, return-value descriptions, or the
+      supervision-tree diagram if the OTP structure changed
+
+### Update for significant architectural changes
+
+- [ ] **`GUIDE.html`** — regenerate by asking a subagent to produce an updated
+      self-contained HTML architecture reference based on the current source files;
+      commit the result to the repo root
+
+### Regenerate ExDoc
+
+```bash
+cd apps/rlm
+mix docs        # output: apps/rlm/doc/
+```
+
+Commit the regenerated `doc/` only if the project tracks it (check `.gitignore`).
+Otherwise just verify it builds cleanly.
+
+### Checklist summary (copy-paste ready)
+
+```
+- [ ] CLAUDE.md module map updated
+- [ ] CLAUDE.md config fields updated (if new config keys added)
+- [ ] CHANGELOG.md entry added
+- [ ] README.md updated (if public API changed)
+- [ ] mix compile --warnings-as-errors passes
+- [ ] mix test passes
+- [ ] mix format --check-formatted passes
+- [ ] mix docs builds cleanly
+```
