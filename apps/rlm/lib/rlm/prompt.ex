@@ -36,7 +36,7 @@ defmodule RLM.Prompt do
     %{role: :user, content: content}
   end
 
-  @spec build_feedback_message(String.t(), String.t()) :: map()
+  @spec build_feedback_message(String.t(), :ok | :error) :: map()
   def build_feedback_message(truncated_stdout, eval_status) do
     status_text =
       if eval_status == :ok, do: "Code executed successfully.", else: "Code execution failed."

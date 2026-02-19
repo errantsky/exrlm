@@ -89,10 +89,15 @@ defmodule RLM.Agent.Message do
         }
   def parse_response_content(blocks) do
     text =
-      Enum.find_value(blocks, fn
-        %{"type" => "text", "text" => t} -> t
-        _ -> nil
+      blocks
+      |> Enum.flat_map(fn
+        %{"type" => "text", "text" => t} -> [t]
+        _ -> []
       end)
+      |> case do
+        [] -> nil
+        parts -> Enum.join(parts, "\n")
+      end
 
     tool_calls =
       Enum.flat_map(blocks, fn

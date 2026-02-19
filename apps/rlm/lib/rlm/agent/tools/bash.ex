@@ -1,7 +1,10 @@
 defmodule RLM.Agent.Tools.Bash do
   use RLM.Agent.Tool
 
+  require Logger
+
   @default_timeout_ms 30_000
+  @max_timeout_ms 300_000
   @max_output_bytes 50_000
 
   @impl true
@@ -10,8 +13,7 @@ defmodule RLM.Agent.Tools.Bash do
       "name" => "bash",
       "description" => """
       Run a bash command and return its combined stdout+stderr output.
-      Avoid interactive commands. Working directory is the project root.
-      Output is truncated to 50KB if it exceeds that limit.
+      Avoid interactive commands. Output is truncated to 50KB if it exceeds that limit.
       """,
       "input_schema" => %{
         "type" => "object",
@@ -22,7 +24,11 @@ defmodule RLM.Agent.Tools.Bash do
           },
           "timeout_ms" => %{
             "type" => "integer",
-            "description" => "Timeout in milliseconds (default: 30000)"
+            "description" => "Timeout in milliseconds (default: 30000, max: 300000)"
+          },
+          "cwd" => %{
+            "type" => "string",
+            "description" => "Working directory (default: current directory)"
           }
         },
         "required" => ["command"]
@@ -32,11 +38,14 @@ defmodule RLM.Agent.Tools.Bash do
 
   @impl true
   def execute(%{"command" => command} = input) do
-    timeout = Map.get(input, "timeout_ms", @default_timeout_ms)
+    timeout = min(Map.get(input, "timeout_ms", @default_timeout_ms), @max_timeout_ms)
+    cwd = Map.get(input, "cwd", File.cwd!())
+
+    Logger.debug("Bash tool executing: #{command}")
 
     task =
       Task.async(fn ->
-        System.cmd("bash", ["-c", command], stderr_to_stdout: true)
+        System.cmd("bash", ["-c", command], stderr_to_stdout: true, cd: cwd)
       end)
 
     case Task.yield(task, timeout) || Task.shutdown(task) do

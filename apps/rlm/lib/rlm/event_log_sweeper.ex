@@ -42,7 +42,7 @@ defmodule RLM.EventLog.Sweeper do
     DynamicSupervisor.which_children(RLM.EventStore)
     |> Enum.each(fn {_id, pid, _type, _modules} ->
       if is_pid(pid) and Process.alive?(pid) do
-        started_at = Agent.get(pid, & &1.started_at)
+        started_at = safe_get_started_at(pid)
 
         if is_integer(started_at) and started_at < cutoff_us do
           Logger.debug("EventLog.Sweeper: terminating stale agent #{inspect(pid)}")
@@ -50,6 +50,17 @@ defmodule RLM.EventLog.Sweeper do
         end
       end
     end)
+  end
+
+  # Use a short timeout so a busy/unresponsive Agent doesn't block the sweep.
+  # Returns nil if the agent doesn't respond, has crashed, or has an unexpected
+  # state shape — all of which are handled gracefully by the caller.
+  defp safe_get_started_at(pid) do
+    Agent.get(pid, & &1.started_at, 5_000)
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
   end
 
   defp schedule_sweep(interval) do

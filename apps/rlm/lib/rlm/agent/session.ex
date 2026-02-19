@@ -29,7 +29,7 @@ defmodule RLM.Agent.Session do
 
   require Logger
 
-  alias RLM.Agent.{LLM, Message, ToolRegistry}
+  alias RLM.Agent.{Message, ToolRegistry}
 
   # How many tool-call rounds to allow before aborting a turn
   @max_tool_rounds 20
@@ -43,6 +43,9 @@ defmodule RLM.Agent.Session do
     :stream,
     :status,
     :turn,
+    # Set while a turn task is running; used to detect crashes via :DOWN
+    :task_ref,
+    :pending_from,
     messages: [],
     total_input_tokens: 0,
     total_output_tokens: 0
@@ -114,12 +117,14 @@ defmodule RLM.Agent.Session do
     state = %{state | messages: new_messages, status: :running}
     parent = self()
 
-    Task.Supervisor.start_child(RLM.TaskSupervisor, fn ->
-      result = run_turn(state, @max_tool_rounds)
-      send(parent, {:turn_done, from, result})
-    end)
+    {:ok, pid} =
+      Task.Supervisor.start_child(RLM.TaskSupervisor, fn ->
+        result = run_turn(state, @max_tool_rounds)
+        send(parent, {:turn_done, from, result})
+      end)
 
-    {:noreply, state}
+    ref = Process.monitor(pid)
+    {:noreply, %{state | task_ref: ref, pending_from: from}}
   end
 
   def handle_call(:history, _from, state) do
@@ -147,7 +152,9 @@ defmodule RLM.Agent.Session do
         status: :idle,
         turn: state.turn + 1,
         total_input_tokens: state.total_input_tokens + usage.input_tokens,
-        total_output_tokens: state.total_output_tokens + usage.output_tokens
+        total_output_tokens: state.total_output_tokens + usage.output_tokens,
+        task_ref: nil,
+        pending_from: nil
     }
 
     broadcast(state, :turn_complete, %{response: response_text, turn: state.turn - 1})
@@ -156,11 +163,30 @@ defmodule RLM.Agent.Session do
   end
 
   def handle_info({:turn_done, from, {:error, reason}}, state) do
-    state = %{state | status: :idle}
+    state = %{state | status: :idle, task_ref: nil, pending_from: nil}
     broadcast(state, :error, %{reason: reason})
     GenServer.reply(from, {:error, reason})
     {:noreply, state}
   end
+
+  # Task completed normally after already sending :turn_done — discard the DOWN.
+  def handle_info({:DOWN, ref, :process, _pid, :normal}, %{task_ref: ref} = state) do
+    {:noreply, %{state | task_ref: nil, pending_from: nil}}
+  end
+
+  # Task crashed without sending :turn_done — reset status and unblock the caller.
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state) do
+    Logger.error("Session #{state.session_id}: turn task crashed: #{inspect(reason)}")
+    broadcast(state, :error, %{reason: "Internal error: turn task crashed"})
+
+    if state.pending_from do
+      GenServer.reply(state.pending_from, {:error, "Internal error: #{inspect(reason)}"})
+    end
+
+    {:noreply, %{state | status: :idle, task_ref: nil, pending_from: nil}}
+  end
+
+  def handle_info(_msg, state), do: {:noreply, state}
 
   # ---------------------------------------------------------------------------
   # Turn execution (runs inside Task.Supervisor child)
@@ -183,7 +209,9 @@ defmodule RLM.Agent.Session do
       on_chunk: on_chunk
     ]
 
-    case LLM.call(state.messages, state.model, state.config, llm_opts) do
+    llm = state.config.agent_llm_module
+
+    case llm.call(state.messages, state.model, state.config, llm_opts) do
       {:ok, {:text, text}, usage} ->
         assistant_msg = Message.assistant(text)
         {:ok, text, state.messages ++ [assistant_msg], usage}

@@ -41,7 +41,7 @@ defmodule RLM.Agent.Tools.Grep do
     case_insensitive = Map.get(input, "case_insensitive", false)
 
     args =
-      ["--line-number", "--no-heading", "--max-count=#{@max_results}"]
+      ["--line-number", "--no-heading"]
       |> maybe_add("-i", case_insensitive)
       |> maybe_add(["--glob", glob], !is_nil(glob))
       |> Enum.concat([pattern, path])
@@ -51,8 +51,9 @@ defmodule RLM.Agent.Tools.Grep do
         lines = String.split(output, "\n", trim: true)
 
         result =
-          if length(lines) >= @max_results do
-            output <> "\n[Results truncated at #{@max_results} matches]"
+          if length(lines) > @max_results do
+            capped = lines |> Enum.take(@max_results) |> Enum.join("\n")
+            capped <> "\n[Results truncated: showing #{@max_results} of #{length(lines)} total matches]"
           else
             output
           end

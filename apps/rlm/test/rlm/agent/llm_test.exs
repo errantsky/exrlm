@@ -102,6 +102,17 @@ defmodule RLM.Agent.LLMTest do
       assert result.text == nil
       assert result.tool_calls == []
     end
+
+    test "concatenates multiple text blocks" do
+      blocks = [
+        %{"type" => "text", "text" => "Thinking..."},
+        %{"type" => "text", "text" => "Done."}
+      ]
+
+      result = Message.parse_response_content(blocks)
+      assert result.text == "Thinking...\nDone."
+      assert result.tool_calls == []
+    end
   end
 
   # ---------------------------------------------------------------------------

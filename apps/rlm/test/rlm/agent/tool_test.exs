@@ -2,7 +2,7 @@ defmodule RLM.Agent.ToolTest do
   use ExUnit.Case, async: true
 
   alias RLM.Agent.ToolRegistry
-  alias RLM.Agent.Tools.{ReadFile, WriteFile, EditFile, Bash, Glob, Ls}
+  alias RLM.Agent.Tools.{ReadFile, WriteFile, EditFile, Bash, Grep, Glob, Ls}
 
   # Use a unique temp dir per test
   setup do
@@ -151,6 +151,48 @@ defmodule RLM.Agent.ToolTest do
     test "captures stderr in output" do
       assert {:error, msg} = Bash.execute(%{"command" => "ls /nonexistent_path_xyz 2>&1; exit 1"})
       assert is_binary(msg)
+    end
+
+    test "respects cwd parameter", %{dir: dir} do
+      File.write!(Path.join(dir, "marker.txt"), "here")
+      assert {:ok, output} = Bash.execute(%{"command" => "ls", "cwd" => dir})
+      assert output =~ "marker.txt"
+    end
+
+    test "caps timeout at max ceiling" do
+      # Passing an absurdly large timeout should not be honoured as-is;
+      # the tool should still complete (command finishes instantly).
+      assert {:ok, _} = Bash.execute(%{"command" => "echo ok", "timeout_ms" => 999_999_999})
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Grep
+  # ---------------------------------------------------------------------------
+
+  describe "Grep" do
+    test "finds pattern in files", %{dir: dir} do
+      File.write!(Path.join(dir, "a.txt"), "hello world\nfoo bar\n")
+      assert {:ok, output} = Grep.execute(%{"pattern" => "hello", "path" => dir})
+      assert output =~ "hello"
+    end
+
+    test "returns no matches message when pattern absent", %{dir: dir} do
+      File.write!(Path.join(dir, "a.txt"), "nothing here")
+      assert {:ok, msg} = Grep.execute(%{"pattern" => "xyz_not_present", "path" => dir})
+      assert msg =~ "No matches found"
+    end
+
+    test "truncates output at max_results total lines", %{dir: dir} do
+      # Write a file with 300 matching lines (> @max_results of 200)
+      content = Enum.map_join(1..300, "\n", fn i -> "match_line_#{i}" end)
+      File.write!(Path.join(dir, "big.txt"), content)
+
+      assert {:ok, output} = Grep.execute(%{"pattern" => "match_line", "path" => dir})
+      lines = String.split(output, "\n", trim: true)
+      # Output should be capped: 200 result lines + 1 truncation notice
+      assert length(lines) <= 201
+      assert output =~ "truncated"
     end
   end
 

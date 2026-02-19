@@ -8,7 +8,8 @@ defmodule RLM.Agent.Tools.EditFile do
       "description" => """
       Replace an exact string in a file with new content.
       The `old_string` must match exactly (including whitespace and newlines).
-      To insert text, use an empty string for old_string and provide the content.
+      To prepend text at the very beginning of a file, pass an empty string for
+      old_string. For mid-file insertions, use a unique anchor string instead.
       """,
       "input_schema" => %{
         "type" => "object",
