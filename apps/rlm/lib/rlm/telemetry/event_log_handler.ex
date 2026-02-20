@@ -12,7 +12,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       parent_span_id: metadata.parent_span_id,
       depth: metadata.depth,
       model: metadata.model,
-      context_bytes: metadata[:context_bytes]
+      context_bytes: metadata[:context_bytes],
+      timestamp_us: System.system_time(:microsecond)
     }
 
     RLM.EventLog.append(metadata.run_id, event)
@@ -27,7 +28,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       status: metadata.status,
       result_preview: metadata[:result_preview],
       duration_ms: measurements.duration_ms,
-      total_iterations: measurements.total_iterations
+      total_iterations: measurements.total_iterations,
+      timestamp_us: System.system_time(:microsecond)
     }
 
     RLM.EventLog.append(metadata.run_id, event)
@@ -52,7 +54,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       subcalls_spawned: metadata[:subcalls_spawned],
       llm_prompt_tokens: metadata[:llm_prompt_tokens],
       llm_completion_tokens: metadata[:llm_completion_tokens],
-      llm_duration_ms: metadata[:llm_duration_ms]
+      llm_duration_ms: metadata[:llm_duration_ms],
+      timestamp_us: System.system_time(:microsecond)
     }
 
     RLM.EventLog.append(metadata.run_id, event)
@@ -66,7 +69,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       child_span_id: metadata[:child_span_id],
       child_depth: metadata[:child_depth],
       context_bytes: metadata[:context_bytes],
-      model_size: metadata[:model_size]
+      model_size: metadata[:model_size],
+      timestamp_us: System.system_time(:microsecond)
     }
 
     RLM.EventLog.append(metadata.run_id, event)
@@ -80,7 +84,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       child_span_id: metadata[:child_span_id],
       status: metadata[:status],
       result_preview: metadata[:result_preview],
-      duration_ms: measurements[:duration_ms]
+      duration_ms: measurements[:duration_ms],
+      timestamp_us: System.system_time(:microsecond)
     }
 
     RLM.EventLog.append(metadata.run_id, event)

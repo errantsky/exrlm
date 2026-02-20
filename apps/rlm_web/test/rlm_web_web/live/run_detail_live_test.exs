@@ -6,8 +6,9 @@ defmodule RlmWebWeb.RunDetailLiveTest do
   alias RLM.TraceStore
 
   setup do
+    # Flush any pending put_event casts before wiping the table.
+    _ = :sys.get_state(RLM.TraceStore)
     :dets.delete_all_objects(:rlm_traces)
-    :timer.sleep(20)
     run_id = "test-run-detail-#{System.unique_integer([:positive])}"
     span_id = "span-#{System.unique_integer([:positive])}"
     %{run_id: run_id, span_id: span_id}
@@ -44,7 +45,7 @@ defmodule RlmWebWeb.RunDetailLiveTest do
       timestamp_us: ts + 1
     })
 
-    :timer.sleep(50)
+    _ = :sys.get_state(RLM.TraceStore)
 
     {:ok, _lv, html} = live(conn, ~p"/runs/#{run_id}")
     assert html =~ "span:" <> String.slice(span_id, 0, 6)
@@ -62,7 +63,7 @@ defmodule RlmWebWeb.RunDetailLiveTest do
       timestamp_us: System.monotonic_time(:microsecond)
     })
 
-    :timer.sleep(50)
+    _ = :sys.get_state(RLM.TraceStore)
 
     {:ok, lv, _html} = live(conn, ~p"/runs/#{run_id}")
 
@@ -103,7 +104,7 @@ defmodule RlmWebWeb.RunDetailLiveTest do
       timestamp_us: System.monotonic_time(:microsecond)
     })
 
-    :timer.sleep(50)
+    _ = :sys.get_state(RLM.TraceStore)
 
     {:ok, lv, _html} = live(conn, ~p"/runs/#{run_id}")
 

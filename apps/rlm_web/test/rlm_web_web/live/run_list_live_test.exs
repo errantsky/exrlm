@@ -6,9 +6,9 @@ defmodule RlmWebWeb.RunListLiveTest do
   alias RLM.TraceStore
 
   setup do
-    # Clear all dets data — safe because async: false means sequential tests
+    # Flush any pending put_event casts before wiping the table.
+    _ = :sys.get_state(RLM.TraceStore)
     :dets.delete_all_objects(:rlm_traces)
-    :timer.sleep(20)
     run_id = "test-run-#{System.unique_integer([:positive])}"
     %{run_id: run_id}
   end
@@ -36,8 +36,8 @@ defmodule RlmWebWeb.RunListLiveTest do
       timestamp_us: System.monotonic_time(:microsecond)
     })
 
-    # Allow cast to flush
-    :timer.sleep(50)
+    # Flush the cast before mounting the LiveView
+    _ = :sys.get_state(RLM.TraceStore)
 
     {:ok, _lv, html} = live(conn, ~p"/")
     assert html =~ String.slice(run_id, 0, 8)

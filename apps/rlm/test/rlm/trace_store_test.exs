@@ -18,10 +18,8 @@ defmodule RLM.TraceStoreTest do
       }
 
       RLM.TraceStore.put_event(run_id, event)
-
-      # cast is async, give it a moment to process
-      Process.sleep(50)
-
+      # Flush the cast by issuing a synchronous call — get_events/1 itself is a call,
+      # so it won't return until the preceding cast has been processed.
       events = RLM.TraceStore.get_events(run_id)
       assert length(events) == 1
       assert hd(events).type == :node_start
@@ -39,8 +37,6 @@ defmodule RLM.TraceStoreTest do
       RLM.TraceStore.put_event(run_id, event3)
       RLM.TraceStore.put_event(run_id, event1)
       RLM.TraceStore.put_event(run_id, event2)
-      Process.sleep(50)
-
       events = RLM.TraceStore.get_events(run_id)
       assert length(events) == 3
       assert Enum.map(events, & &1.type) == [:node_start, :iteration_stop, :node_stop]
@@ -61,8 +57,6 @@ defmodule RLM.TraceStoreTest do
       RLM.TraceStore.put_event(run_b, %{type: :node_start, timestamp_us: now})
       # Insert a second event for run_a to verify deduplication
       RLM.TraceStore.put_event(run_a, %{type: :node_stop, timestamp_us: now + 1_000})
-      Process.sleep(50)
-
       run_ids = RLM.TraceStore.list_run_ids()
       assert run_a in run_ids
       assert run_b in run_ids
@@ -83,7 +77,8 @@ defmodule RLM.TraceStoreTest do
 
       RLM.TraceStore.put_event(run_id, old_event)
       RLM.TraceStore.put_event(run_id, new_event)
-      Process.sleep(50)
+      # Flush casts by issuing a synchronous call before the delete
+      _ = :sys.get_state(RLM.TraceStore)
 
       # Delete events older than 5 seconds ago
       cutoff = now - 5_000_000

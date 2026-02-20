@@ -61,6 +61,7 @@ defmodule RLM.TraceStore do
     {:reply, events, state}
   end
 
+  @impl true
   def handle_call(:list_run_ids, _from, state) do
     run_ids =
       :dets.foldl(
@@ -73,22 +74,24 @@ defmodule RLM.TraceStore do
     {:reply, run_ids, state}
   end
 
+  @impl true
   def handle_call({:delete_older_than, cutoff_us}, _from, state) do
-    # Match spec: match {_run_id, event} where event is a map with timestamp_us < cutoff_us
-    # Since :dets.select_delete works on the raw tuple, we use :dets.foldl to find and delete.
-    :dets.foldl(
-      fn {run_id, event} = _record, acc ->
-        if is_map(event) and Map.get(event, :timestamp_us, 0) < cutoff_us do
-          :dets.delete_object(@table, {run_id, event})
-          acc + 1
-        else
-          acc
-        end
-      end,
-      0,
-      @table
-    )
+    # Collect records to delete in one pass, then delete in a second pass.
+    # Modifying :dets during foldl is undefined behaviour per OTP docs.
+    to_delete =
+      :dets.foldl(
+        fn {_run_id, event} = record, acc ->
+          if is_map(event) and Map.get(event, :timestamp_us, 0) < cutoff_us do
+            [record | acc]
+          else
+            acc
+          end
+        end,
+        [],
+        @table
+      )
 
+    Enum.each(to_delete, fn record -> :dets.delete_object(@table, record) end)
     {:reply, :ok, state}
   end
 

@@ -175,7 +175,9 @@ defmodule RlmWebWeb.RunDetailLive do
   defp root_span_ids(spans) do
     spans
     |> Map.values()
-    |> Enum.filter(&is_nil(&1[:parent_span_id]))
+    # Require :span_id to be present so partial maps created by out-of-order
+    # :iteration_stop events (before their :node_start arrives) are excluded.
+    |> Enum.filter(&(Map.has_key?(&1, :span_id) and is_nil(&1[:parent_span_id])))
     |> Enum.sort_by(& &1[:started_at])
     |> Enum.map(& &1.span_id)
   end

@@ -19,7 +19,7 @@ defmodule RlmWebWeb.RunListLive do
     if is_nil(meta[:parent_span_id]) do
       run = %{
         run_id: meta.run_id,
-        started_at: System.monotonic_time(:microsecond),
+        started_at: System.system_time(:microsecond),
         status: :running,
         depth: 0,
         iteration_count: 0,
@@ -146,9 +146,8 @@ defmodule RlmWebWeb.RunListLive do
 
   defp format_started_at(nil), do: "—"
 
-  defp format_started_at(monotonic_us) do
-    # Convert monotonic microseconds to a rough wall-clock estimate for display
-    offset_s = (System.monotonic_time(:microsecond) - monotonic_us) / 1_000_000
+  defp format_started_at(wall_us) do
+    offset_s = (System.system_time(:microsecond) - wall_us) / 1_000_000
     ago_s = round(offset_s)
 
     cond do
