@@ -74,26 +74,20 @@ defmodule RLM.MixProject do
           RLM.Truncate,
           RLM.Span,
           RLM.EventLog,
-          RLM.EventLog.Sweeper
+          RLM.EventLog.Sweeper,
+          RLM.TraceStore,
+          RLM.IEx
         ],
-        "Coding Agent": [
-          RLM.Agent.LLM,
-          RLM.Agent.Message,
-          RLM.Agent.Session,
-          RLM.Agent.Prompt,
-          RLM.Agent.Tool,
-          RLM.Agent.ToolRegistry,
-          RLM.Agent.IEx
-        ],
-        "Agent Tools": [
-          RLM.Agent.Tools.ReadFile,
-          RLM.Agent.Tools.WriteFile,
-          RLM.Agent.Tools.EditFile,
-          RLM.Agent.Tools.Bash,
-          RLM.Agent.Tools.Grep,
-          RLM.Agent.Tools.Glob,
-          RLM.Agent.Tools.Ls,
-          RLM.Agent.Tools.RlmQuery
+        "Filesystem Tools": [
+          RLM.Tool,
+          RLM.ToolRegistry,
+          RLM.Tools.ReadFile,
+          RLM.Tools.WriteFile,
+          RLM.Tools.EditFile,
+          RLM.Tools.Bash,
+          RLM.Tools.Grep,
+          RLM.Tools.Glob,
+          RLM.Tools.Ls
         ],
         Telemetry: [
           RLM.Telemetry,

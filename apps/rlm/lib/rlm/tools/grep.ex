@@ -1,37 +1,16 @@
-defmodule RLM.Agent.Tools.Grep do
-  use RLM.Agent.Tool
+defmodule RLM.Tools.Grep do
+  @moduledoc "Search for a pattern in files using ripgrep."
+  use RLM.Tool
 
   @max_results 200
 
   @impl true
-  def spec do
-    %{
-      "name" => "grep",
-      "description" =>
-        "Search for a pattern in files using ripgrep. Returns matching lines with file and line number.",
-      "input_schema" => %{
-        "type" => "object",
-        "properties" => %{
-          "pattern" => %{
-            "type" => "string",
-            "description" => "Regular expression to search for"
-          },
-          "path" => %{
-            "type" => "string",
-            "description" => "File or directory to search in (default: current directory)"
-          },
-          "glob" => %{
-            "type" => "string",
-            "description" => "Glob pattern to filter files, e.g. '*.ex' or '**/*.exs'"
-          },
-          "case_insensitive" => %{
-            "type" => "boolean",
-            "description" => "Case-insensitive search (default: false)"
-          }
-        },
-        "required" => ["pattern"]
-      }
-    }
+  def name, do: "grep"
+
+  @impl true
+  def description do
+    "Search for a regex pattern in files using ripgrep. " <>
+      "Returns matching lines with file path and line number."
   end
 
   @impl true
@@ -71,7 +50,6 @@ defmodule RLM.Agent.Tools.Grep do
   rescue
     e in ErlangError ->
       if e.original == :enoent do
-        # rg not found, fall back to basic grep
         execute_fallback(input)
       else
         {:error, "Search failed: #{Exception.message(e)}"}

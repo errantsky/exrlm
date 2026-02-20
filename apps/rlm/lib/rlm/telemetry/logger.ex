@@ -55,6 +55,15 @@ defmodule RLM.Telemetry.Logger do
     )
   end
 
+  def handle_event([:rlm, :turn, :complete], measurements, metadata, _config) do
+    Logger.info("[RLM] Turn completed",
+      span_id: metadata.span_id,
+      status: metadata.status,
+      duration_ms: measurements.duration_ms,
+      total_iterations: measurements.total_iterations
+    )
+  end
+
   def handle_event(_event, _measurements, _metadata, _config) do
     :ok
   end

@@ -1,23 +1,12 @@
-defmodule RLM.Agent.Tools.Ls do
-  use RLM.Agent.Tool
+defmodule RLM.Tools.Ls do
+  @moduledoc "List directory contents with file sizes and types."
+  use RLM.Tool
 
   @impl true
-  def spec do
-    %{
-      "name" => "ls",
-      "description" => "List directory contents with file sizes and types.",
-      "input_schema" => %{
-        "type" => "object",
-        "properties" => %{
-          "path" => %{
-            "type" => "string",
-            "description" => "Directory to list (default: current directory)"
-          }
-        },
-        "required" => []
-      }
-    }
-  end
+  def name, do: "ls"
+
+  @impl true
+  def description, do: "List directory contents with file sizes and types."
 
   @impl true
   def execute(input) do

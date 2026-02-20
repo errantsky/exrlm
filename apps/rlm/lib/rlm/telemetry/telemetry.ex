@@ -19,7 +19,8 @@ defmodule RLM.Telemetry do
     [:rlm, :eval, :exception],
     [:rlm, :subcall, :spawn],
     [:rlm, :subcall, :result],
-    [:rlm, :compaction, :run]
+    [:rlm, :compaction, :run],
+    [:rlm, :turn, :complete]
   ]
 
   def events, do: @events

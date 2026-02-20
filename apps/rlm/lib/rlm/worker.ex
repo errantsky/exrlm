@@ -6,6 +6,12 @@ defmodule RLM.Worker do
 
   Eval runs asynchronously so the Worker can process subcall requests
   from the eval process without deadlocking.
+
+  ## Modes
+
+  - **One-shot** (default): starts iterating immediately, terminates after `final_answer`.
+  - **Keep-alive** (`keep_alive: true`): starts idle, accepts `send_message` calls,
+    stays alive between turns. Bindings persist across turns.
   """
   use GenServer, restart: :temporary
 
@@ -28,6 +34,10 @@ defmodule RLM.Worker do
     :started_at,
     # Tracks in-flight eval context
     :eval_context,
+    # keep_alive mode fields
+    :keep_alive,
+    :cwd,
+    :pending_from,
     pending_subcalls: %{}
   ]
 
@@ -56,45 +66,86 @@ defmodule RLM.Worker do
     model = Keyword.get(opts, :model, config.model_large)
     parent_span_id = Keyword.get(opts, :parent_span_id)
     caller = Keyword.get(opts, :caller)
+    keep_alive = Keyword.get(opts, :keep_alive, false)
+    cwd = Keyword.get(opts, :cwd, File.cwd!())
 
-    context_bytes = byte_size(context)
-    context_lines = length(String.split(context, "\n"))
-    context_preview = String.slice(context, 0, 500)
+    if keep_alive do
+      # Keep-alive mode: start idle, wait for send_message
+      system_msg = RLM.Prompt.build_system_message()
 
-    bindings = [
-      context: context,
-      final_answer: nil,
-      compacted_history: ""
-    ]
+      state = %__MODULE__{
+        span_id: span_id,
+        parent_span_id: parent_span_id,
+        run_id: run_id,
+        depth: depth,
+        iteration: 0,
+        history: [system_msg],
+        bindings: [final_answer: nil, compacted_history: ""],
+        model: model,
+        config: config,
+        status: :idle,
+        result: nil,
+        prev_codes: [],
+        caller: nil,
+        started_at: System.monotonic_time(:millisecond),
+        eval_context: nil,
+        keep_alive: true,
+        cwd: cwd,
+        pending_from: nil
+      }
 
-    system_msg = RLM.Prompt.build_system_message()
-    user_msg = RLM.Prompt.build_user_message(query, context_bytes, context_lines, context_preview)
+      emit_telemetry([:rlm, :node, :start], %{}, state, %{
+        context_bytes: 0,
+        query_preview: "(keep_alive session)"
+      })
 
-    state = %__MODULE__{
-      span_id: span_id,
-      parent_span_id: parent_span_id,
-      run_id: run_id,
-      depth: depth,
-      iteration: 0,
-      history: [system_msg, user_msg],
-      bindings: bindings,
-      model: model,
-      config: config,
-      status: :running,
-      result: nil,
-      prev_codes: [],
-      caller: caller,
-      started_at: System.monotonic_time(:millisecond),
-      eval_context: nil
-    }
+      {:ok, state}
+    else
+      # One-shot mode: existing behavior
+      context_bytes = byte_size(context)
+      context_lines = length(String.split(context, "\n"))
+      context_preview = String.slice(context, 0, 500)
 
-    emit_telemetry([:rlm, :node, :start], %{}, state, %{
-      context_bytes: context_bytes,
-      query_preview: String.slice(query, 0, 200)
-    })
+      bindings = [
+        context: context,
+        final_answer: nil,
+        compacted_history: ""
+      ]
 
-    send(self(), :iterate)
-    {:ok, state}
+      system_msg = RLM.Prompt.build_system_message()
+
+      user_msg =
+        RLM.Prompt.build_user_message(query, context_bytes, context_lines, context_preview)
+
+      state = %__MODULE__{
+        span_id: span_id,
+        parent_span_id: parent_span_id,
+        run_id: run_id,
+        depth: depth,
+        iteration: 0,
+        history: [system_msg, user_msg],
+        bindings: bindings,
+        model: model,
+        config: config,
+        status: :running,
+        result: nil,
+        prev_codes: [],
+        caller: caller,
+        started_at: System.monotonic_time(:millisecond),
+        eval_context: nil,
+        keep_alive: false,
+        cwd: cwd,
+        pending_from: nil
+      }
+
+      emit_telemetry([:rlm, :node, :start], %{}, state, %{
+        context_bytes: context_bytes,
+        query_preview: String.slice(query, 0, 200)
+      })
+
+      send(self(), :iterate)
+      {:ok, state}
+    end
   end
 
   @impl true
@@ -179,7 +230,8 @@ defmodule RLM.Worker do
     end
   end
 
-  # Async eval result
+  # Async eval result — NOTE: Code.eval_string is the intentional REPL mechanism
+  # for the RLM architecture. See RLM.Eval for full documentation.
   def handle_info({:eval_complete, eval_result}, state) do
     ctx = state.eval_context
     code_duration = System.monotonic_time(:millisecond) - ctx.code_start
@@ -308,6 +360,46 @@ defmodule RLM.Worker do
   end
 
   @impl true
+  def handle_call({:send_message, text}, from, state) do
+    case state.status do
+      :running ->
+        {:reply, {:error, "Worker is busy"}, state}
+
+      :idle ->
+        user_msg = %{role: :user, content: text}
+
+        state = %{
+          state
+          | history: state.history ++ [user_msg],
+            status: :running,
+            pending_from: from,
+            iteration: 0,
+            prev_codes: [],
+            bindings: Keyword.put(state.bindings, :final_answer, nil)
+        }
+
+        send(self(), :iterate)
+        {:noreply, state}
+    end
+  end
+
+  def handle_call(:history, _from, state) do
+    {:reply, state.history, state}
+  end
+
+  def handle_call(:status, _from, state) do
+    {:reply,
+     %{
+       session_id: state.span_id,
+       run_id: state.run_id,
+       status: state.status,
+       iteration: state.iteration,
+       message_count: length(state.history),
+       keep_alive: state.keep_alive,
+       cwd: state.cwd
+     }, state}
+  end
+
   def handle_call({:spawn_subcall, text, model_size}, from, state) do
     model =
       if model_size == :large,
@@ -369,13 +461,16 @@ defmodule RLM.Worker do
     worker_pid = self()
     code_start = System.monotonic_time(:millisecond)
 
-    # Spawn eval asynchronously so the Worker can handle subcall requests
+    # Spawn eval asynchronously so the Worker can handle subcall requests.
+    # NOTE: RLM.Eval.run uses Code.eval_string — this is the intentional REPL
+    # mechanism for the RLM architecture. See RLM.Eval module docs.
     spawn(fn ->
       result =
         RLM.Eval.run(code, state.bindings,
           timeout: state.config.eval_timeout,
           worker_pid: worker_pid,
-          bindings_info: RLM.Helpers.list_bindings(state.bindings)
+          bindings_info: RLM.Helpers.list_bindings(state.bindings),
+          cwd: state.cwd
         )
 
       send(worker_pid, {:eval_complete, result})
@@ -403,24 +498,56 @@ defmodule RLM.Worker do
         {:error, reason} -> inspect(reason) |> String.slice(0, 500)
       end
 
-    emit_telemetry(
-      [:rlm, :node, :stop],
-      %{
-        duration_ms: duration,
-        total_iterations: state.iteration
-      },
-      state,
-      %{
-        status: status,
-        result_preview: result_preview
-      }
-    )
+    if state.keep_alive do
+      # Keep-alive mode: reply to caller, reset to idle, emit turn:complete
+      emit_telemetry(
+        [:rlm, :turn, :complete],
+        %{
+          duration_ms: duration,
+          total_iterations: state.iteration
+        },
+        state,
+        %{
+          status: status,
+          result_preview: result_preview
+        }
+      )
 
-    if state.caller do
-      send(state.caller, {:rlm_result, state.span_id, result})
+      if state.pending_from do
+        GenServer.reply(state.pending_from, result)
+      end
+
+      {:noreply,
+       %{
+         state
+         | status: :idle,
+           result: nil,
+           pending_from: nil,
+           eval_context: nil,
+           iteration: 0,
+           prev_codes: []
+       }}
+    else
+      # One-shot mode: emit node:stop, notify caller, terminate
+      emit_telemetry(
+        [:rlm, :node, :stop],
+        %{
+          duration_ms: duration,
+          total_iterations: state.iteration
+        },
+        state,
+        %{
+          status: status,
+          result_preview: result_preview
+        }
+      )
+
+      if state.caller do
+        send(state.caller, {:rlm_result, state.span_id, result})
+      end
+
+      {:stop, :normal, %{state | status: status, result: result}}
     end
-
-    {:stop, :normal, %{state | status: status, result: result}}
   end
 
   defp emit_iteration_stop(state, iter_duration, code, stdout, usage, llm_duration) do

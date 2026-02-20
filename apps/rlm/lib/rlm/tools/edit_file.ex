@@ -1,29 +1,15 @@
-defmodule RLM.Agent.Tools.EditFile do
-  use RLM.Agent.Tool
+defmodule RLM.Tools.EditFile do
+  @moduledoc "Replace an exact string in a file with new content (uniqueness-guarded)."
+  use RLM.Tool
 
   @impl true
-  def spec do
-    %{
-      "name" => "edit_file",
-      "description" => """
-      Replace an exact string in a file with new content.
-      The `old_string` must match exactly (including whitespace and newlines).
-      To prepend text at the very beginning of a file, pass an empty string for
-      old_string. For mid-file insertions, use a unique anchor string instead.
-      """,
-      "input_schema" => %{
-        "type" => "object",
-        "properties" => %{
-          "path" => %{"type" => "string", "description" => "Path to the file to edit"},
-          "old_string" => %{
-            "type" => "string",
-            "description" => "Exact text to find (must be unique in the file)"
-          },
-          "new_string" => %{"type" => "string", "description" => "Replacement text"}
-        },
-        "required" => ["path", "old_string", "new_string"]
-      }
-    }
+  def name, do: "edit_file"
+
+  @impl true
+  def description do
+    "Replace an exact string in a file with new content. " <>
+      "The old_string must match exactly and be unique. " <>
+      "Pass an empty old_string to prepend at the beginning."
   end
 
   @impl true
@@ -34,7 +20,6 @@ defmodule RLM.Agent.Tools.EditFile do
 
         cond do
           count == 0 and old == "" ->
-            # Insert at beginning
             case File.write(path, new <> content) do
               :ok -> {:ok, "Inserted #{byte_size(new)} bytes at start of #{path}"}
               {:error, reason} -> {:error, "Write failed: #{:file.format_error(reason)}"}
