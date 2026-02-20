@@ -1,10 +1,16 @@
 defmodule RLM.Agent.Prompt do
+  require Logger
+
   @moduledoc """
   Builds the coding agent's system prompt.
 
   The prompt is composable: `build/1` accepts keyword opts to inject
   context such as the working directory, allowed tool names, and
   additional constraints.
+
+  `build/1` prepends the contents of `priv/soul.md` (identity and
+  behavioural guidelines) as the opening section of the prompt. If the
+  file is absent a warning is logged and the section is omitted.
   """
 
   @doc """
@@ -19,10 +25,14 @@ defmodule RLM.Agent.Prompt do
     cwd = Keyword.get(opts, :cwd, cwd())
     extra = Keyword.get(opts, :extra, nil)
 
-    base = """
-    #{soul()}
+    soul_section =
+      case soul() do
+        "" -> ""
+        content -> content <> "\n\n"
+      end
 
-    You are an expert Elixir coding agent. You help users understand and modify
+    base = """
+    #{soul_section}You are an expert Elixir coding agent. You help users understand and modify
     codebases by reading files, writing code, running commands, and reasoning about
     the results.
 
@@ -64,8 +74,12 @@ defmodule RLM.Agent.Prompt do
     path = Application.app_dir(:rlm, "priv/soul.md")
 
     case File.read(path) do
-      {:ok, content} -> String.trim(content)
-      {:error, _} -> ""
+      {:ok, content} ->
+        String.trim(content)
+
+      {:error, reason} ->
+        Logger.warning("[RLM.Agent.Prompt] Could not load soul.md (#{inspect(reason)}): #{path}")
+        ""
     end
   end
 
