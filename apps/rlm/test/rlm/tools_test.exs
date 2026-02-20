@@ -1,12 +1,11 @@
-defmodule RLM.Agent.ToolTest do
+defmodule RLM.ToolsTest do
   use ExUnit.Case, async: true
 
-  alias RLM.Agent.ToolRegistry
-  alias RLM.Agent.Tools.{ReadFile, WriteFile, EditFile, Bash, Grep, Glob, Ls}
+  alias RLM.ToolRegistry
+  alias RLM.Tools.{ReadFile, WriteFile, EditFile, Bash, Grep, Glob, Ls}
 
-  # Use a unique temp dir per test
   setup do
-    dir = Path.join(System.tmp_dir!(), "rlm_tool_test_#{:rand.uniform(999_999)}")
+    dir = Path.join(System.tmp_dir!(), "rlm_tools_test_#{:rand.uniform(999_999)}")
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf!(dir) end)
     %{dir: dir}
@@ -17,24 +16,27 @@ defmodule RLM.Agent.ToolTest do
   # ---------------------------------------------------------------------------
 
   describe "ToolRegistry" do
-    test "specs/0 returns a list of maps with name and input_schema" do
-      specs = ToolRegistry.specs()
-      assert length(specs) >= 7
+    test "all/0 returns 7 tool modules" do
+      assert length(ToolRegistry.all()) == 7
+    end
 
-      for spec <- specs do
-        assert is_binary(spec["name"])
-        assert is_binary(spec["description"])
-        assert is_map(spec["input_schema"])
+    test "names/0 returns a list of strings" do
+      names = ToolRegistry.names()
+      assert length(names) == 7
+
+      for name <- names do
+        assert is_binary(name)
       end
     end
 
-    test "spec_for/1 finds a tool by name" do
-      assert {:ok, spec} = ToolRegistry.spec_for("read_file")
-      assert spec["name"] == "read_file"
-    end
+    test "descriptions/0 returns {name, description} tuples" do
+      descs = ToolRegistry.descriptions()
+      assert length(descs) == 7
 
-    test "spec_for/1 returns error for unknown tools" do
-      assert {:error, :not_found} = ToolRegistry.spec_for("nonexistent_tool")
+      for {name, desc} <- descs do
+        assert is_binary(name)
+        assert is_binary(desc)
+      end
     end
 
     test "execute/2 routes to the correct tool" do
@@ -44,6 +46,15 @@ defmodule RLM.Agent.ToolTest do
     test "execute/2 returns error for unknown tool names" do
       assert {:error, msg} = ToolRegistry.execute("not_a_tool", %{})
       assert msg =~ "Unknown tool"
+    end
+
+    test "description_for/1 finds a tool by name" do
+      assert {:ok, desc} = ToolRegistry.description_for("read_file")
+      assert is_binary(desc)
+    end
+
+    test "description_for/1 returns error for unknown tools" do
+      assert {:error, :not_found} = ToolRegistry.description_for("nonexistent_tool")
     end
   end
 
@@ -160,8 +171,6 @@ defmodule RLM.Agent.ToolTest do
     end
 
     test "caps timeout at max ceiling" do
-      # Passing an absurdly large timeout should not be honoured as-is;
-      # the tool should still complete (command finishes instantly).
       assert {:ok, _} = Bash.execute(%{"command" => "echo ok", "timeout_ms" => 999_999_999})
     end
   end
@@ -184,13 +193,11 @@ defmodule RLM.Agent.ToolTest do
     end
 
     test "truncates output at max_results total lines", %{dir: dir} do
-      # Write a file with 300 matching lines (> @max_results of 200)
       content = Enum.map_join(1..300, "\n", fn i -> "match_line_#{i}" end)
       File.write!(Path.join(dir, "big.txt"), content)
 
       assert {:ok, output} = Grep.execute(%{"pattern" => "match_line", "path" => dir})
       lines = String.split(output, "\n", trim: true)
-      # Output should be capped: 200 result lines + 1 truncation notice
       assert length(lines) <= 201
       assert output =~ "truncated"
     end

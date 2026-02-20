@@ -2,17 +2,21 @@ defmodule RLM do
   @moduledoc """
   Public API for the Recursive Language Model engine.
 
-  ## Usage
+  ## One-shot queries
 
-      # Single-turn query
-      {:ok, answer} = RLM.run("Your long input text...", "Summarize this")
+      {:ok, answer, run_id} = RLM.run("Your long input text...", "Summarize this")
 
-      # With config overrides
-      {:ok, answer} = RLM.run(context, query, model_large: "gpt-4o")
+  ## Interactive sessions
 
-      # Async execution
-      {:ok, run_id, pid} = RLM.run_async(context, query)
+      {:ok, session_id} = RLM.start_session(cwd: ".")
+      {:ok, answer} = RLM.send_message(session_id, "List files in current directory")
+      {:ok, answer2} = RLM.send_message(session_id, "Now read the README")
+      history = RLM.history(session_id)
   """
+
+  # ---------------------------------------------------------------------------
+  # One-shot API
+  # ---------------------------------------------------------------------------
 
   @spec run(String.t(), String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
   def run(context, query, opts \\ []) when is_binary(context) and is_binary(query) do
@@ -84,5 +88,76 @@ defmodule RLM do
       {:ok, pid} -> {:ok, run_id, pid}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Interactive Session API
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Start an interactive keep-alive session.
+
+  The Worker starts idle and waits for `send_message/3` calls.
+  Bindings persist across turns.
+
+  Options:
+    - `:cwd` — working directory for tools (default: current dir)
+    - `:model` — override the model (default: config.model_large)
+    - Plus any `RLM.Config` overrides
+
+  Returns `{:ok, session_id}`.
+  """
+  @spec start_session(keyword()) :: {:ok, String.t()} | {:error, any()}
+  def start_session(opts \\ []) do
+    config = RLM.Config.load(opts)
+    session_id = RLM.Span.generate_id()
+    run_id = RLM.Span.generate_run_id()
+    cwd = Keyword.get(opts, :cwd, File.cwd!())
+    model = Keyword.get(opts, :model, config.model_large)
+
+    worker_opts = [
+      span_id: session_id,
+      run_id: run_id,
+      config: config,
+      keep_alive: true,
+      cwd: cwd,
+      model: model
+    ]
+
+    case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts}) do
+      {:ok, _pid} -> {:ok, session_id}
+      {:error, reason} -> {:error, "Failed to start session: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Send a message to a keep-alive session and wait for the response.
+
+  Returns `{:ok, answer}` or `{:error, reason}`.
+  """
+  @spec send_message(String.t(), String.t(), timeout()) ::
+          {:ok, any()} | {:error, any()}
+  def send_message(session_id, text, timeout \\ :infinity) do
+    GenServer.call(via(session_id), {:send_message, text}, timeout)
+  end
+
+  @doc "Get the full message history for a session."
+  @spec history(String.t()) :: {:ok, [map()]} | {:error, :not_found}
+  def history(session_id) do
+    {:ok, GenServer.call(via(session_id), :history)}
+  catch
+    :exit, _ -> {:error, :not_found}
+  end
+
+  @doc "Get the status of a session."
+  @spec status(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def status(session_id) do
+    {:ok, GenServer.call(via(session_id), :status)}
+  catch
+    :exit, _ -> {:error, :not_found}
+  end
+
+  defp via(session_id) do
+    {:via, Registry, {RLM.Registry, {:worker, session_id}}}
   end
 end

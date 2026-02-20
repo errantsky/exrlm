@@ -92,6 +92,22 @@ defmodule RLM.Telemetry.EventLogHandler do
     RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
+  def handle_event([:rlm, :turn, :complete], measurements, metadata, _config) do
+    event = %{
+      type: :turn_complete,
+      span_id: metadata.span_id,
+      depth: metadata.depth,
+      status: metadata.status,
+      result_preview: metadata[:result_preview],
+      duration_ms: measurements.duration_ms,
+      total_iterations: measurements.total_iterations,
+      timestamp_us: System.system_time(:microsecond)
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
+  end
+
   def handle_event(_event, _measurements, _metadata, _config) do
     :ok
   end

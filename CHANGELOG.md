@@ -8,6 +8,46 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Consolidated Agent into RLM Engine — unified architecture**
+
+- `RLM.Tool` behaviour — lightweight tool contract with `name/0`, `description/0`, `execute/1`
+- `RLM.Tools.*` — 7 filesystem tools (ReadFile, WriteFile, EditFile, Bash, Grep, Glob, Ls)
+  ported from the former `RLM.Agent.Tools.*` namespace
+- `RLM.ToolRegistry` — central tool dispatch with `all/0`, `names/0`, `descriptions/0`,
+  `execute/2`, `description_for/1`
+- `RLM.Sandbox` tool wrappers — `read_file/1`, `write_file/2`, `edit_file/3`, `bash/1-2`,
+  `rg/1-3`, `find_files/1-2`, `ls/0-1`, `list_tools/0`, `tool_help/1` available inside
+  eval'd code. Paths resolve relative to session working directory.
+- `RLM.Worker` keep-alive mode — `keep_alive: true` starts the Worker in `:idle` state,
+  accepting `send_message` calls. Bindings persist across turns; `final_answer` and iteration
+  count reset per turn. Emits `[:rlm, :turn, :complete]` instead of `[:rlm, :node, :stop]`.
+- `RLM.start_session/1` — start an interactive keep-alive session, returns `{:ok, session_id}`
+- `RLM.send_message/3` — send a message to a keep-alive session, returns `{:ok, answer}`
+- `RLM.history/1`, `RLM.status/1` — introspect session state
+- `RLM.IEx` — IEx convenience helpers (`start/1`, `chat/2-3`, `start_chat/2`, `watch/2`,
+  `history/1`, `status/1`) replacing the former `RLM.Agent.IEx`
+- `[:rlm, :turn, :complete]` telemetry event for keep-alive turn completion
+- `cwd` injection into `RLM.Eval` via `Process.put(:rlm_cwd, ...)` for tool path resolution
+
+### Changed
+
+- `RLM.Worker` gains `:keep_alive`, `:cwd`, `:pending_from` struct fields
+- Worker's `start_async_eval` passes `cwd` to `RLM.Eval.run/3`
+- `RLM.Eval.run/3` injects `:rlm_cwd` into the eval process dictionary
+
+### Removed
+
+- Entire `RLM.Agent.*` namespace (15 source files, 3 test files):
+  `Session`, `LLM`, `Message`, `Tool`, `ToolRegistry`, `Prompt`, `IEx`,
+  and all `RLM.Agent.Tools.*` modules including `RlmQuery`
+- `RLM.AgentSup` DynamicSupervisor removed from supervision tree
+- `agent_llm_module` config field removed from `RLM.Config`
+- SSE streaming (was in `RLM.Agent.LLM`; can be re-added to `RLM.LLM` if needed)
+
+---
+
+### Added
+
 **RLM Live Trace Dashboard — :dets persistence + Phoenix LiveView**
 
 - `RLM.TraceStore` — new GenServer that owns a `:dets` `:bag` table (`priv/traces.dets`).

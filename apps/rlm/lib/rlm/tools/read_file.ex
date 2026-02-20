@@ -1,25 +1,14 @@
-defmodule RLM.Agent.Tools.ReadFile do
-  use RLM.Agent.Tool
+defmodule RLM.Tools.ReadFile do
+  @moduledoc "Read the contents of a file (up to 100 KB)."
+  use RLM.Tool
 
   @max_bytes 100_000
 
   @impl true
-  def spec do
-    %{
-      "name" => "read_file",
-      "description" => "Read the contents of a file. Returns up to 100KB of content.",
-      "input_schema" => %{
-        "type" => "object",
-        "properties" => %{
-          "path" => %{
-            "type" => "string",
-            "description" => "Absolute or relative path to the file"
-          }
-        },
-        "required" => ["path"]
-      }
-    }
-  end
+  def name, do: "read_file"
+
+  @impl true
+  def description, do: "Read the contents of a file. Returns up to 100KB of content."
 
   @impl true
   def execute(%{"path" => path}) do
