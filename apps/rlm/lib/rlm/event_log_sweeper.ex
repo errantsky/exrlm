@@ -50,6 +50,8 @@ defmodule RLM.EventLog.Sweeper do
         end
       end
     end)
+
+    RLM.TraceStore.delete_older_than(cutoff_us)
   end
 
   # Use a short timeout so a busy/unresponsive Agent doesn't block the sweep.

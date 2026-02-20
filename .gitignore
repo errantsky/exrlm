@@ -22,3 +22,13 @@ erl_crash.dump
 # Environment files with secrets
 .env
 .env.*
+
+# macOS metadata
+.DS_Store
+
+# RLM runtime artifacts
+apps/rlm/priv/traces.dets
+trace.jsonl
+
+# Local-only notes (kept uncommitted intentionally)
+DEMO_RUN_NOTES.md

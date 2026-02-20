@@ -6,18 +6,21 @@ defmodule RLM.Telemetry.EventLogHandler do
   def handle_event([:rlm, :node, :start], _measurements, metadata, _config) do
     ensure_event_log(metadata.run_id)
 
-    RLM.EventLog.append(metadata.run_id, %{
+    event = %{
       type: :node_start,
       span_id: metadata.span_id,
       parent_span_id: metadata.parent_span_id,
       depth: metadata.depth,
       model: metadata.model,
       context_bytes: metadata[:context_bytes]
-    })
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
   def handle_event([:rlm, :node, :stop], measurements, metadata, _config) do
-    RLM.EventLog.append(metadata.run_id, %{
+    event = %{
       type: :node_stop,
       span_id: metadata.span_id,
       depth: metadata.depth,
@@ -25,11 +28,14 @@ defmodule RLM.Telemetry.EventLogHandler do
       result_preview: metadata[:result_preview],
       duration_ms: measurements.duration_ms,
       total_iterations: measurements.total_iterations
-    })
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
   def handle_event([:rlm, :iteration, :stop], measurements, metadata, _config) do
-    RLM.EventLog.append(metadata.run_id, %{
+    event = %{
       type: :iteration_stop,
       span_id: metadata.span_id,
       depth: metadata.depth,
@@ -47,29 +53,38 @@ defmodule RLM.Telemetry.EventLogHandler do
       llm_prompt_tokens: metadata[:llm_prompt_tokens],
       llm_completion_tokens: metadata[:llm_completion_tokens],
       llm_duration_ms: metadata[:llm_duration_ms]
-    })
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
   def handle_event([:rlm, :subcall, :spawn], _measurements, metadata, _config) do
-    RLM.EventLog.append(metadata.run_id, %{
+    event = %{
       type: :subcall_spawn,
       span_id: metadata.span_id,
       child_span_id: metadata[:child_span_id],
       child_depth: metadata[:child_depth],
       context_bytes: metadata[:context_bytes],
       model_size: metadata[:model_size]
-    })
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
   def handle_event([:rlm, :subcall, :result], measurements, metadata, _config) do
-    RLM.EventLog.append(metadata.run_id, %{
+    event = %{
       type: :subcall_result,
       span_id: metadata.span_id,
       child_span_id: metadata[:child_span_id],
       status: metadata[:status],
       result_preview: metadata[:result_preview],
       duration_ms: measurements[:duration_ms]
-    })
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
   def handle_event(_event, _measurements, _metadata, _config) do

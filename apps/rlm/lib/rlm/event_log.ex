@@ -49,6 +49,11 @@ defmodule RLM.EventLog do
     _ -> nil
   end
 
+  @doc "Fall back to persisted store when the in-memory Agent has been swept."
+  def get_events_from_store(run_id) do
+    RLM.TraceStore.get_events(run_id)
+  end
+
   def to_jsonl(run_id) do
     get_events(run_id)
     |> Enum.map(&sanitize_for_json/1)

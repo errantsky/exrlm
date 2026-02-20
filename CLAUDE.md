@@ -7,7 +7,8 @@ This is an Elixir umbrella project at `rlm_umbrella/`.
 ```
 rlm_umbrella/
 ├── apps/
-│   └── rlm/                    # Core engine (no web framework)
+│   ├── rlm/                    # Core engine (no web framework)
+│   └── rlm_web/                # Phoenix LiveView dashboard (read-only)
 │       ├── lib/rlm/
 │       │   ├── rlm.ex          # Public API: run/3, run_async/3
 │       │   ├── worker.ex       # RLM GenServer (iterate loop)
@@ -102,7 +103,8 @@ RLM.Supervisor (one_for_one)
 ├── DynamicSupervisor (RLM.EventStore)     ← EventLog Agents
 ├── DynamicSupervisor (RLM.AgentSup)       ← coding agent sessions
 ├── RLM.Telemetry   (GenServer)
-└── RLM.EventLog.Sweeper (GenServer)       ← GCs stale trace agents
+├── RLM.TraceStore  (GenServer)            ← :dets persistence (rlm_traces table)
+└── RLM.EventLog.Sweeper (GenServer)       ← GCs stale trace agents + :dets TTL sweep
 ```
 
 ### RLM.run/3 Return Value
@@ -143,11 +145,12 @@ Default models:
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
 | `RLM.Span` | Span/run ID generation |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |
-| `RLM.EventLog.Sweeper` | GenServer; periodically GCs stale EventLog agents |
+| `RLM.EventLog.Sweeper` | GenServer; periodically GCs stale EventLog agents + :dets TTL sweep |
+| `RLM.TraceStore` | GenServer owning `:dets` table; persists events across restarts |
 | `RLM.Telemetry` | Handler attachment GenServer |
 | `RLM.Telemetry.Logger` | Structured logging handler |
 | `RLM.Telemetry.PubSub` | Phoenix.PubSub broadcast handler |
-| `RLM.Telemetry.EventLogHandler` | Routes telemetry events to EventLog Agent |
+| `RLM.Telemetry.EventLogHandler` | Routes telemetry events to EventLog Agent AND TraceStore |
 
 ### Coding Agent
 
@@ -168,6 +171,18 @@ Default models:
 | `RLM.Agent.Tools.Glob` | Find files by pattern |
 | `RLM.Agent.Tools.Ls` | List directory with sizes |
 | `RLM.Agent.Tools.RlmQuery` | Bridge: delegate to RLM engine from agent |
+
+### Dashboard (apps/rlm_web)
+
+Read-only Phoenix LiveView app. Reuses `RLM.PubSub` started by the rlm app.
+Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000`.
+
+| Module | Purpose |
+|---|---|
+| `RlmWebWeb.RunListLive` | `/` — list of all runs (from TraceStore + live PubSub updates) |
+| `RlmWebWeb.RunDetailLive` | `/runs/:run_id` — recursive span tree with expandable iterations |
+| `RlmWebWeb.TraceComponents` | HEEx components: `span_node/1`, `iteration_card/1` |
+| `RlmWebWeb.Endpoint` | Phoenix endpoint using `RLM.PubSub` as pubsub_server |
 
 ## Config Fields
 

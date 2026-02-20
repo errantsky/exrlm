@@ -53,7 +53,9 @@ defmodule RLM.Agent.Tools.Grep do
         result =
           if length(lines) > @max_results do
             capped = lines |> Enum.take(@max_results) |> Enum.join("\n")
-            capped <> "\n[Results truncated: showing #{@max_results} of #{length(lines)} total matches]"
+
+            capped <>
+              "\n[Results truncated: showing #{@max_results} of #{length(lines)} total matches]"
           else
             output
           end
