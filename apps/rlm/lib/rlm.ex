@@ -5,13 +5,17 @@ defmodule RLM do
   ## Usage
 
       # Single-turn query
-      {:ok, answer} = RLM.run("Your long input text...", "Summarize this")
+      {:ok, answer, run_id} = RLM.run("Your long input text...", "Summarize this")
 
       # With config overrides
-      {:ok, answer} = RLM.run(context, query, model_large: "gpt-4o")
+      {:ok, answer, run_id} = RLM.run(context, query, model_large: "claude-opus-4-6")
 
       # Async execution
       {:ok, run_id, pid} = RLM.run_async(context, query)
+
+      # Multi-turn (keep_alive mode)
+      {:ok, answer, span_id} = RLM.run(context, query, keep_alive: true)
+      {:ok, follow_up} = RLM.send_message(span_id, "Now do something else with it")
   """
 
   @spec run(String.t(), String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
@@ -40,7 +44,7 @@ defmodule RLM do
         receive do
           {:rlm_result, ^span_id, {:ok, answer}} ->
             Process.demonitor(ref, [:flush])
-            {:ok, answer, run_id}
+            {:ok, answer, span_id}
 
           {:rlm_result, ^span_id, {:error, reason}} ->
             Process.demonitor(ref, [:flush])
@@ -61,6 +65,28 @@ defmodule RLM do
       {:error, reason} ->
         {:error, "Failed to start worker: #{inspect(reason)}"}
     end
+  end
+
+  @doc """
+  Send a follow-up message to a keep-alive Worker identified by `span_id`.
+  The Worker must have been started with `keep_alive: true` and be in `:idle` status.
+  """
+  @spec send_message(String.t(), String.t(), non_neg_integer()) ::
+          {:ok, any()} | {:error, any()}
+  def send_message(span_id, text, timeout \\ 120_000) do
+    GenServer.call(via(span_id), {:send_message, text}, timeout)
+  end
+
+  @doc "Return the full message history for a Worker."
+  @spec history(String.t()) :: [map()]
+  def history(span_id) do
+    GenServer.call(via(span_id), :history)
+  end
+
+  @doc "Return status and statistics for a Worker."
+  @spec status(String.t()) :: map()
+  def status(span_id) do
+    GenServer.call(via(span_id), :status)
   end
 
   @spec run_async(String.t(), String.t(), keyword()) :: {:ok, String.t(), pid()}
@@ -84,5 +110,9 @@ defmodule RLM do
       {:ok, pid} -> {:ok, run_id, pid}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp via(span_id) do
+    {:via, Registry, {RLM.Registry, {:worker, span_id}}}
   end
 end

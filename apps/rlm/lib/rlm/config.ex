@@ -27,8 +27,8 @@ defmodule RLM.Config do
     :enable_event_log,
     :event_log_capture_full_stdout,
     :llm_module,
-    # Swappable LLM module for the coding agent (default: RLM.Agent.LLM)
-    :agent_llm_module
+    # When true, the Worker stays alive after final_answer for follow-up messages
+    :keep_alive
   ]
 
   @type t :: %__MODULE__{}
@@ -60,7 +60,7 @@ defmodule RLM.Config do
       enable_event_log: get(overrides, :enable_event_log, true),
       event_log_capture_full_stdout: get(overrides, :event_log_capture_full_stdout, false),
       llm_module: get(overrides, :llm_module, RLM.LLM),
-      agent_llm_module: get(overrides, :agent_llm_module, RLM.Agent.LLM)
+      keep_alive: get(overrides, :keep_alive, false)
     }
   end
 

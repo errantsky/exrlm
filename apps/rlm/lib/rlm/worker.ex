@@ -26,8 +26,11 @@ defmodule RLM.Worker do
     :prev_codes,
     :caller,
     :started_at,
+    :cwd,
     # Tracks in-flight eval context
     :eval_context,
+    # GenServer.from for multi-turn callers waiting on a result
+    :pending_from,
     pending_subcalls: %{}
   ]
 
@@ -56,6 +59,7 @@ defmodule RLM.Worker do
     model = Keyword.get(opts, :model, config.model_large)
     parent_span_id = Keyword.get(opts, :parent_span_id)
     caller = Keyword.get(opts, :caller)
+    cwd = Keyword.get(opts, :cwd, File.cwd!())
 
     context_bytes = byte_size(context)
     context_lines = length(String.split(context, "\n"))
@@ -85,7 +89,9 @@ defmodule RLM.Worker do
       prev_codes: [],
       caller: caller,
       started_at: System.monotonic_time(:millisecond),
-      eval_context: nil
+      cwd: cwd,
+      eval_context: nil,
+      pending_from: nil
     }
 
     emit_telemetry([:rlm, :node, :start], %{}, state, %{
@@ -356,6 +362,49 @@ defmodule RLM.Worker do
     end
   end
 
+  # -- Multi-turn support --
+
+  def handle_call({:send_message, _text}, _from, %{status: :running} = state) do
+    {:reply, {:error, "Worker is busy — an iteration is in progress"}, state}
+  end
+
+  def handle_call({:send_message, text}, from, %{status: :idle} = state) do
+    user_msg = %{role: :user, content: text}
+
+    bindings = Keyword.put(state.bindings, :final_answer, nil)
+
+    state = %{
+      state
+      | history: state.history ++ [user_msg],
+        bindings: bindings,
+        status: :running,
+        result: nil,
+        prev_codes: [],
+        pending_from: from,
+        started_at: System.monotonic_time(:millisecond)
+    }
+
+    send(self(), :iterate)
+    {:noreply, state}
+  end
+
+  def handle_call(:history, _from, state) do
+    {:reply, state.history, state}
+  end
+
+  def handle_call(:status, _from, state) do
+    {:reply,
+     %{
+       span_id: state.span_id,
+       run_id: state.run_id,
+       status: state.status,
+       iteration: state.iteration,
+       message_count: length(state.history),
+       depth: state.depth,
+       model: state.model
+     }, state}
+  end
+
   # -- Private --
 
   defp start_async_eval(state, response, code, llm_duration, usage, iter_start) do
@@ -375,7 +424,8 @@ defmodule RLM.Worker do
         RLM.Eval.run(code, state.bindings,
           timeout: state.config.eval_timeout,
           worker_pid: worker_pid,
-          bindings_info: RLM.Helpers.list_bindings(state.bindings)
+          bindings_info: RLM.Helpers.list_bindings(state.bindings),
+          cwd: state.cwd
         )
 
       send(worker_pid, {:eval_complete, result})
@@ -416,11 +466,24 @@ defmodule RLM.Worker do
       }
     )
 
-    if state.caller do
-      send(state.caller, {:rlm_result, state.span_id, result})
+    # Reply to the appropriate caller
+    if state.pending_from do
+      GenServer.reply(state.pending_from, result)
+    else
+      if state.caller do
+        send(state.caller, {:rlm_result, state.span_id, result})
+      end
     end
 
-    {:stop, :normal, %{state | status: status, result: result}}
+    if state.config.keep_alive do
+      # Stay alive for follow-up messages — reset to idle
+      bindings = Keyword.put(state.bindings, :final_answer, nil)
+
+      {:noreply,
+       %{state | status: :idle, result: result, bindings: bindings, pending_from: nil}}
+    else
+      {:stop, :normal, %{state | status: status, result: result}}
+    end
   end
 
   defp emit_iteration_stop(state, iter_duration, code, stdout, usage, llm_duration) do
