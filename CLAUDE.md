@@ -8,50 +8,65 @@ This is an Elixir umbrella project at `rlm_umbrella/`.
 rlm_umbrella/
 ├── apps/
 │   ├── rlm/                    # Core engine (no web framework)
-│   └── rlm_web/                # Phoenix LiveView dashboard (read-only)
-│       ├── lib/rlm/
-│       │   ├── rlm.ex          # Public API: run/3, run_async/3
-│       │   ├── worker.ex       # RLM GenServer (iterate loop)
-│       │   ├── eval.ex         # Sandboxed Code.eval_string
-│       │   ├── llm.ex          # Anthropic Messages API client (RLM path)
-│       │   ├── helpers.ex      # chunks/2, grep/2, preview/2, list_bindings/0
-│       │   ├── sandbox.ex      # Bindings injected into eval'd code
-│       │   ├── prompt.ex       # System prompt + message formatting
-│       │   ├── config.ex       # Config struct + loader
-│       │   ├── span.ex         # Span/run ID generation
-│       │   ├── truncate.ex     # Head+tail string truncation
-│       │   ├── event_log.ex    # Per-run trace Agent
-│       │   ├── event_log_sweeper.ex  # Periodic EventLog GC (GenServer)
-│       │   ├── telemetry/      # Telemetry events + handlers
-│       │   └── agent/
-│       │       ├── llm.ex          # Anthropic tool_use API + SSE parsing
-│       │       ├── message.ex      # Message type helpers
-│       │       ├── session.ex      # Agent GenServer (tool-use loop)
-│       │       ├── prompt.ex       # Composable system prompt
-│       │       ├── tool.ex         # Tool behaviour
-│       │       ├── tool_registry.ex# Tool dispatch + spec assembly
-│       │       ├── iex.ex          # IEx convenience helpers
-│       │       └── tools/
-│       │           ├── read_file.ex
-│       │           ├── write_file.ex
-│       │           ├── edit_file.ex
-│       │           ├── bash.ex
-│       │           ├── grep.ex
-│       │           ├── glob.ex
-│       │           ├── ls.ex
-│       │           └── rlm_query.ex  # Bridge: agent → RLM engine
-│       ├── test/
-│       │   ├── support/        # MockLLM, test helpers
-│       │   └── rlm/
-│       │       ├── agent/      # Agent unit + live API tests
-│       │       ├── integration_test.exs
-│       │       ├── helpers_test.exs
-│       │       ├── live_api_test.exs
-│       │       └── worker_test.exs
-│       └── priv/
-│           └── agent_system_prompt.md
+│   │   ├── lib/rlm/
+│   │   │   ├── rlm.ex          # Public API: run/3, run_async/3
+│   │   │   ├── worker.ex       # RLM GenServer (iterate loop)
+│   │   │   ├── eval.ex         # Sandboxed Code.eval_string
+│   │   │   ├── llm.ex          # Anthropic Messages API client (RLM path)
+│   │   │   ├── helpers.ex      # chunks/2, grep/2, preview/2, list_bindings/0
+│   │   │   ├── sandbox.ex      # Bindings injected into eval'd code
+│   │   │   ├── prompt.ex       # System prompt + message formatting
+│   │   │   ├── config.ex       # Config struct + loader
+│   │   │   ├── span.ex         # Span/run ID generation
+│   │   │   ├── truncate.ex     # Head+tail string truncation
+│   │   │   ├── event_log.ex    # Per-run trace Agent
+│   │   │   ├── event_log_sweeper.ex  # Periodic EventLog GC (GenServer)
+│   │   │   ├── trace_store.ex  # :dets persistence GenServer
+│   │   │   ├── telemetry/      # Telemetry events + handlers
+│   │   │   └── agent/
+│   │   │       ├── llm.ex          # Anthropic tool_use API + SSE parsing
+│   │   │       ├── message.ex      # Message type helpers
+│   │   │       ├── session.ex      # Agent GenServer (tool-use loop)
+│   │   │       ├── prompt.ex       # Composable system prompt
+│   │   │       ├── tool.ex         # Tool behaviour
+│   │   │       ├── tool_registry.ex# Tool dispatch + spec assembly
+│   │   │       ├── iex.ex          # IEx convenience helpers
+│   │   │       └── tools/
+│   │   │           ├── read_file.ex
+│   │   │           ├── write_file.ex
+│   │   │           ├── edit_file.ex
+│   │   │           ├── bash.ex
+│   │   │           ├── grep.ex
+│   │   │           ├── glob.ex
+│   │   │           ├── ls.ex
+│   │   │           └── rlm_query.ex  # Bridge: agent → RLM engine
+│   │   ├── test/
+│   │   │   ├── support/        # MockLLM, test helpers
+│   │   │   └── rlm/
+│   │   │       ├── agent/      # Agent unit + live API tests
+│   │   │       ├── integration_test.exs
+│   │   │       ├── helpers_test.exs
+│   │   │       ├── live_api_test.exs
+│   │   │       └── worker_test.exs
+│   │   └── priv/
+│   │       └── system_prompt.md
+│   └── rlm_web/                # Phoenix 1.8 LiveView dashboard (read-only)
+│       ├── lib/rlm_web_web/
+│       │   ├── live/
+│       │   │   ├── run_list_live.ex    # GET /
+│       │   │   └── run_detail_live.ex  # GET /runs/:run_id
+│       │   ├── components/
+│       │   │   ├── core_components.ex
+│       │   │   └── trace_components.ex # span_node, iteration_card
+│       │   ├── router.ex
+│       │   └── endpoint.ex
+│       └── test/
+│           └── rlm_web_web/live/
 ├── config/
-│   └── config.exs
+│   ├── config.exs
+│   ├── dev.exs
+│   ├── test.exs
+│   └── runtime.exs
 └── mix.exs
 ```
 

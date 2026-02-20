@@ -28,6 +28,17 @@ All notable changes to this project are documented here.
   - `RlmWebWeb.TraceComponents` — `span_node/1` and `iteration_card/1` HEEx components.
   - Reuses `RLM.PubSub` — no extra PubSub process started.
 
+### Fixed
+
+- `priv/system_prompt.md` — added **Elixir Syntax Rules** section addressing
+  two recurring LLM code-generation failures observed during live testing:
+  - Regex sigil delimiter: models (especially haiku) emit `~r\b...\b/i` using
+    `\` as the delimiter; correct form is `~r/\b...\b/i`.
+  - Heredoc syntax: models place content on the same line as the opening `"""`;
+    Elixir requires an immediate newline after the opening triple-quote.
+  - Sub-call result unwrapping: documented that `lm_query`/`parallel_query`
+    return `{:ok, result} | {:error, reason}` tuples.
+
 ---
 
 ## [0.2.0] — 2026-02-19
