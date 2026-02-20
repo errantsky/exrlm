@@ -15,7 +15,7 @@ defmodule RLM do
   """
 
   @spec run(String.t(), String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
-  def run(context, query, opts \\ []) do
+  def run(context, query, opts \\ []) when is_binary(context) and is_binary(query) do
     config = RLM.Config.load(opts)
     span_id = RLM.Span.generate_id()
     run_id = RLM.Span.generate_run_id()
