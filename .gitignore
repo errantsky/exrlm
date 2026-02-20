@@ -30,5 +30,7 @@ erl_crash.dump
 apps/rlm/priv/traces.dets
 trace.jsonl
 
-# Local-only notes (kept uncommitted intentionally)
+# Local-only notes and scratch scripts (kept uncommitted intentionally)
 DEMO_RUN_NOTES.md
+test.exs
+apps/rlm/priv/foodlab.epub
