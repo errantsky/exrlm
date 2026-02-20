@@ -95,7 +95,7 @@ defmodule RLM.MixProject do
           RLM.Agent.Tools.Ls,
           RLM.Agent.Tools.RlmQuery
         ],
-        "Telemetry": [
+        Telemetry: [
           RLM.Telemetry,
           RLM.Telemetry.Logger,
           RLM.Telemetry.PubSub,

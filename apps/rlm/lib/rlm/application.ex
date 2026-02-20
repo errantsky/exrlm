@@ -12,6 +12,7 @@ defmodule RLM.Application do
       {DynamicSupervisor, name: RLM.EventStore, strategy: :one_for_one},
       {DynamicSupervisor, name: RLM.AgentSup, strategy: :one_for_one},
       {RLM.Telemetry, []},
+      {RLM.TraceStore, []},
       {RLM.EventLog.Sweeper, []}
     ]
 

@@ -35,21 +35,25 @@ defmodule RLM.EventLog.Sweeper do
 
   # -- Private --
 
-  # EventLog stores started_at in microseconds; ttl arrives in milliseconds.
+  # EventLog.started_at is monotonic; TraceStore event timestamps are wall-clock.
+  # Use separate cutoffs so both stores sweep by the same TTL on the right clock.
   defp sweep(ttl_ms) do
-    cutoff_us = System.monotonic_time(:microsecond) - ttl_ms * 1_000
+    monotonic_cutoff = System.monotonic_time(:microsecond) - ttl_ms * 1_000
+    wall_cutoff = System.system_time(:microsecond) - ttl_ms * 1_000
 
     DynamicSupervisor.which_children(RLM.EventStore)
     |> Enum.each(fn {_id, pid, _type, _modules} ->
       if is_pid(pid) and Process.alive?(pid) do
         started_at = safe_get_started_at(pid)
 
-        if is_integer(started_at) and started_at < cutoff_us do
+        if is_integer(started_at) and started_at < monotonic_cutoff do
           Logger.debug("EventLog.Sweeper: terminating stale agent #{inspect(pid)}")
           DynamicSupervisor.terminate_child(RLM.EventStore, pid)
         end
       end
     end)
+
+    RLM.TraceStore.delete_older_than(wall_cutoff)
   end
 
   # Use a short timeout so a busy/unresponsive Agent doesn't block the sweep.

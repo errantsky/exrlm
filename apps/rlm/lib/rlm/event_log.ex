@@ -23,7 +23,9 @@ defmodule RLM.EventLog do
 
   def append(run_id, event) do
     Agent.update(via(run_id), fn log ->
-      event = Map.put(event, :timestamp_us, System.monotonic_time(:microsecond))
+      # Preserve timestamp_us if already stamped by EventLogHandler (wall-clock);
+      # fall back to monotonic time only for direct callers that omit it.
+      event = Map.put_new(event, :timestamp_us, System.monotonic_time(:microsecond))
 
       %{log | events: [event | log.events], tree: update_tree(log.tree, event)}
     end)
@@ -47,6 +49,11 @@ defmodule RLM.EventLog do
     Agent.get(via(run_id), & &1.started_at)
   rescue
     _ -> nil
+  end
+
+  @doc "Fall back to persisted store when the in-memory Agent has been swept."
+  def get_events_from_store(run_id) do
+    RLM.TraceStore.get_events(run_id)
   end
 
   def to_jsonl(run_id) do

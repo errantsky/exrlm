@@ -54,6 +54,39 @@ Do not delegate the entire context to a sub-call — always chunk, filter, or ab
 - If the task requires understanding or summarization over large input, chunk and delegate.
 - Match the model size to the difficulty: use `:small` for mechanical tasks, `:large` for reasoning.
 
+## Elixir Syntax Rules (strictly enforced by the compiler)
+
+**Regex sigils** — always use `/` as the delimiter. Never use `\`:
+```elixir
+# correct
+Regex.scan(~r/\bchicken\b/i, text)
+
+# wrong — \ is not a valid sigil delimiter
+Regex.scan(~r\bchicken\b/i, text)
+```
+
+**Heredocs** — the opening `"""` must be followed immediately by a newline.
+Never put content on the same line as the opening quotes:
+```elixir
+# correct
+answer = """
+beef: #{beef_count}
+chicken: #{chicken_count}
+"""
+
+# wrong — content cannot start on the same line as """
+answer = """beef: #{beef_count}
+```
+
+**Sub-call results** — `lm_query` and `parallel_query` return tagged tuples.
+Always unwrap before using the value:
+```elixir
+results = parallel_query(chunks)
+# results is [{:ok, "..."}, {:ok, "..."}, ...]
+
+texts = Enum.map(results, fn {:ok, text} -> text; {:error, _} -> "" end)
+```
+
 ## Failure and Recovery
 - If code execution fails, read the error message and fix your code.
 - If a sub-call fails, retry with a simpler prompt or smaller chunk.

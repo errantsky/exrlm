@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**RLM Live Trace Dashboard — :dets persistence + Phoenix LiveView**
+
+- `RLM.TraceStore` — new GenServer that owns a `:dets` `:bag` table (`priv/traces.dets`).
+  Provides `put_event/2`, `get_events/1`, `list_run_ids/0`, `delete_older_than/1`.
+  Events survive server restarts without any additional dependencies.
+- Write-through telemetry: `RLM.Telemetry.EventLogHandler` now writes every event to
+  both the in-memory `EventLog` Agent (hot path) and `TraceStore` (persistence).
+- `RLM.EventLog.Sweeper` now calls `RLM.TraceStore.delete_older_than/1` on each sweep
+  cycle, enforcing the same TTL policy across both stores.
+- `RLM.EventLog.get_events_from_store/1` — convenience delegate to `TraceStore` for
+  querying completed runs after their Agent has been swept.
+- New umbrella app `apps/rlm_web` — Phoenix 1.8 LiveView dashboard (read-only):
+  - `GET /` (`RunListLive`) — live table of all runs loaded from TraceStore; new rows
+    appear in < 1 s via PubSub `rlm:runs` subscription.
+  - `GET /runs/:run_id` (`RunDetailLive`) — recursive span tree with status badges,
+    context size, timing, and per-iteration expandable code/stdout/bindings panels.
+    Falls back to TraceStore when the in-memory Agent has been swept.
+  - `RlmWebWeb.TraceComponents` — `span_node/1` and `iteration_card/1` HEEx components.
+  - Reuses `RLM.PubSub` — no extra PubSub process started.
+
+### Fixed
+
+- `priv/system_prompt.md` — added **Elixir Syntax Rules** section addressing
+  two recurring LLM code-generation failures observed during live testing:
+  - Regex sigil delimiter: models (especially haiku) emit `~r\b...\b/i` using
+    `\` as the delimiter; correct form is `~r/\b...\b/i`.
+  - Heredoc syntax: models place content on the same line as the opening `"""`;
+    Elixir requires an immediate newline after the opening triple-quote.
+  - Sub-call result unwrapping: documented that `lm_query`/`parallel_query`
+    return `{:ok, result} | {:error, reason}` tuples.
+
+---
+
 ## [0.2.0] — 2026-02-19
 
 ### Added
