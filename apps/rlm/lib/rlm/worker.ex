@@ -114,6 +114,8 @@ defmodule RLM.Worker do
         iteration: state.iteration
       })
 
+      broadcast(state, :iteration_start, %{iteration: state.iteration})
+
       iter_start = System.monotonic_time(:millisecond)
 
       # Step 1: Call LLM (synchronous — LLM calls don't need GenServer reentrancy)
@@ -233,6 +235,12 @@ defmodule RLM.Worker do
           llm_prompt_tokens: ctx.usage.prompt_tokens,
           llm_completion_tokens: ctx.usage.completion_tokens,
           llm_duration_ms: ctx.llm_duration
+        })
+
+        broadcast(state, :iteration_stop, %{
+          iteration: state.iteration - 1,
+          code: ctx.code,
+          final_answer: final_answer
         })
 
         if final_answer != nil do
@@ -466,6 +474,8 @@ defmodule RLM.Worker do
       }
     )
 
+    broadcast(state, :complete, %{status: status, result: result})
+
     # Reply to the appropriate caller
     if state.pending_from do
       GenServer.reply(state.pending_from, result)
@@ -598,5 +608,15 @@ defmodule RLM.Worker do
     }
 
     :telemetry.execute(event, measurements, Map.merge(base, extra_metadata))
+  end
+
+  defp broadcast(state, event_type, extra) do
+    payload = Map.merge(%{span_id: state.span_id, run_id: state.run_id}, extra)
+
+    Phoenix.PubSub.broadcast(
+      RLM.PubSub,
+      "rlm:worker:#{state.span_id}",
+      {:rlm_event, event_type, payload}
+    )
   end
 end
