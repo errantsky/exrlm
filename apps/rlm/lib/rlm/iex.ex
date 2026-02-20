@@ -77,38 +77,50 @@ defmodule RLM.IEx do
   """
   @spec watch(String.t(), non_neg_integer()) :: :ok
   def watch(session_id, timeout \\ 60_000) do
-    status = RLM.status(session_id)
-    topic = "rlm:run:#{status.run_id}"
+    {:ok, info} = RLM.status(session_id)
+    topic = "rlm:run:#{info.run_id}"
     Phoenix.PubSub.subscribe(RLM.PubSub, topic)
-    IO.puts("Watching session #{session_id} (run: #{status.run_id})...\n")
-    watch_loop(timeout)
-  after
-    status = RLM.status(session_id)
-    Phoenix.PubSub.unsubscribe(RLM.PubSub, "rlm:run:#{status.run_id}")
+    IO.puts("Watching session #{session_id} (run: #{info.run_id})...\n")
+
+    try do
+      watch_loop(timeout)
+    after
+      Phoenix.PubSub.unsubscribe(RLM.PubSub, topic)
+    end
   end
 
   @doc "Print the full message history for a session."
-  @spec history(String.t()) :: :ok
+  @spec history(String.t()) :: :ok | {:error, :not_found}
   def history(session_id) do
-    session_id
-    |> RLM.history()
-    |> Enum.each(&print_message/1)
+    case RLM.history(session_id) do
+      {:ok, messages} ->
+        Enum.each(messages, &print_message/1)
+
+      {:error, :not_found} ->
+        IO.puts("[Error] Session #{session_id} not found")
+        {:error, :not_found}
+    end
   end
 
   @doc "Print session statistics."
-  @spec status(String.t()) :: map()
+  @spec status(String.t()) :: map() | {:error, :not_found}
   def status(session_id) do
-    info = RLM.status(session_id)
+    case RLM.status(session_id) do
+      {:ok, info} ->
+        IO.puts("""
+        Session: #{info.session_id}
+        Run ID:  #{info.run_id}
+        Status:  #{info.status}
+        Messages:#{info.message_count}
+        CWD:     #{info.cwd}
+        """)
 
-    IO.puts("""
-    Session: #{info.session_id}
-    Run ID:  #{info.run_id}
-    Status:  #{info.status}
-    Messages:#{info.message_count}
-    CWD:     #{info.cwd}
-    """)
+        info
 
-    info
+      {:error, :not_found} ->
+        IO.puts("[Error] Session #{session_id} not found")
+        {:error, :not_found}
+    end
   end
 
   # ---------------------------------------------------------------------------

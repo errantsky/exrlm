@@ -25,7 +25,7 @@ defmodule RLM.Tools.Bash do
     Logger.debug("Bash tool executing: #{command}")
 
     task =
-      Task.async(fn ->
+      Task.Supervisor.async_nolink(RLM.TaskSupervisor, fn ->
         System.cmd("bash", ["-c", command], stderr_to_stdout: true, cd: cwd)
       end)
 

@@ -135,22 +135,26 @@ defmodule RLM do
 
   Returns `{:ok, answer}` or `{:error, reason}`.
   """
-  @spec send_message(String.t(), String.t(), non_neg_integer()) ::
+  @spec send_message(String.t(), String.t(), timeout()) ::
           {:ok, any()} | {:error, any()}
-  def send_message(session_id, text, timeout \\ 120_000) do
+  def send_message(session_id, text, timeout \\ :infinity) do
     GenServer.call(via(session_id), {:send_message, text}, timeout)
   end
 
   @doc "Get the full message history for a session."
-  @spec history(String.t()) :: [map()]
+  @spec history(String.t()) :: {:ok, [map()]} | {:error, :not_found}
   def history(session_id) do
-    GenServer.call(via(session_id), :history)
+    {:ok, GenServer.call(via(session_id), :history)}
+  catch
+    :exit, _ -> {:error, :not_found}
   end
 
   @doc "Get the status of a session."
-  @spec status(String.t()) :: map()
+  @spec status(String.t()) :: {:ok, map()} | {:error, :not_found}
   def status(session_id) do
-    GenServer.call(via(session_id), :status)
+    {:ok, GenServer.call(via(session_id), :status)}
+  catch
+    :exit, _ -> {:error, :not_found}
   end
 
   defp via(session_id) do

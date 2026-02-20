@@ -515,6 +515,12 @@ defmodule RLM.Worker do
 
       if state.pending_from do
         GenServer.reply(state.pending_from, result)
+      else
+        Logger.warning(
+          "keep_alive turn completed but no pending caller — caller may have timed out",
+          span_id: state.span_id,
+          result: inspect(result, limit: 200)
+        )
       end
 
       {:noreply,
