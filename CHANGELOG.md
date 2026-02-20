@@ -4,6 +4,57 @@ All notable changes to this project are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+**Architecture consolidation — tools as sandbox functions + multi-turn Worker**
+
+- `RLM.Tool` behaviour (`name/0`, `doc/0`) for lightweight tool discoverability.
+- 7 tool modules under `RLM.Tools.*`: `ReadFile`, `WriteFile`, `EditFile`, `Bash`,
+  `Grep`, `Glob`, `Ls`. Each returns `{:ok, value} | {:error, message}`.
+- `RLM.Tools.Registry` — central listing (`all/0`, `list/0`, `doc/1`) for runtime
+  tool discovery.
+- `RLM.Sandbox` tool wrappers: `read_file/1`, `write_file/2`, `edit_file/3`,
+  `bash/1-2`, `grep_files/1-2`, `glob/1-2`, `ls/0-1`. These call the corresponding
+  `RLM.Tools.*` module and raise on error (`unwrap!` pattern), so LLM-generated code
+  reads naturally without pattern matching.
+- `RLM.Sandbox.list_tools/0` and `tool_help/1` — runtime tool discovery available
+  from within eval'd code.
+- Multi-turn Worker support: `keep_alive` config option. When true, the Worker stays
+  alive after `final_answer` instead of terminating.
+- `RLM.send_message/2-3` — send follow-up messages to a keep-alive Worker.
+- `RLM.history/1` — retrieve accumulated message history from a Worker.
+- `RLM.status/1` — inspect Worker state (status, iteration, message count, model).
+- `RLM.IEx` — IEx convenience helpers: `start/1`, `chat/3`, `start_chat/2`,
+  `watch/2`, `history/1`, `status/1`.
+- PubSub broadcasts from Worker on topic `"rlm:worker:<span_id>"` with events:
+  `:iteration_start`, `:iteration_stop`, `:complete`, `:error`.
+- New tests: `tools_test.exs`, `sandbox_test.exs`, `worker_multiturn_test.exs`.
+
+### Changed
+
+- `RLM.run/3` now returns `{:ok, answer, span_id}` (was `run_id`). The `span_id`
+  can be used with `send_message/2`, `history/1`, and `status/1` for multi-turn
+  interaction.
+- `RLM.Eval` now injects `:rlm_cwd` into the eval process dictionary, enabling
+  tools like `bash` and `grep_files` to resolve relative paths.
+- System prompt expanded with full tool documentation, usage examples, and discovery
+  instructions.
+
+### Removed
+
+- **Entire `RLM.Agent.*` namespace** (15 source files): `Agent.LLM`, `Agent.Message`,
+  `Agent.Session`, `Agent.Prompt`, `Agent.Tool`, `Agent.ToolRegistry`, `Agent.IEx`,
+  and all 8 `Agent.Tools.*` modules. The tool-use agent loop is superseded by the
+  RLM engine's eval-sandbox pattern with integrated tools.
+- `RLM.AgentSup` DynamicSupervisor removed from supervision tree.
+- `agent_llm_module` config field removed from `RLM.Config`.
+- Agent test files: `agent/llm_test.exs`, `agent/session_test.exs`,
+  `agent/tool_test.exs`.
+
+---
+
 ## [0.2.0] — 2026-02-19
 
 ### Added

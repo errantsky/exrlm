@@ -62,7 +62,7 @@ defmodule RLM.MixProject do
         "../../CHANGELOG.md": [title: "Changelog"]
       ],
       groups_for_modules: [
-        "RLM Engine": [
+        "Core Engine": [
           RLM,
           RLM.Config,
           RLM.Worker,
@@ -74,28 +74,21 @@ defmodule RLM.MixProject do
           RLM.Truncate,
           RLM.Span,
           RLM.EventLog,
-          RLM.EventLog.Sweeper
+          RLM.EventLog.Sweeper,
+          RLM.IEx
         ],
-        "Coding Agent": [
-          RLM.Agent.LLM,
-          RLM.Agent.Message,
-          RLM.Agent.Session,
-          RLM.Agent.Prompt,
-          RLM.Agent.Tool,
-          RLM.Agent.ToolRegistry,
-          RLM.Agent.IEx
+        Tools: [
+          RLM.Tool,
+          RLM.Tools.Registry,
+          RLM.Tools.ReadFile,
+          RLM.Tools.WriteFile,
+          RLM.Tools.EditFile,
+          RLM.Tools.Bash,
+          RLM.Tools.Grep,
+          RLM.Tools.Glob,
+          RLM.Tools.Ls
         ],
-        "Agent Tools": [
-          RLM.Agent.Tools.ReadFile,
-          RLM.Agent.Tools.WriteFile,
-          RLM.Agent.Tools.EditFile,
-          RLM.Agent.Tools.Bash,
-          RLM.Agent.Tools.Grep,
-          RLM.Agent.Tools.Glob,
-          RLM.Agent.Tools.Ls,
-          RLM.Agent.Tools.RlmQuery
-        ],
-        "Telemetry": [
+        Telemetry: [
           RLM.Telemetry,
           RLM.Telemetry.Logger,
           RLM.Telemetry.PubSub,

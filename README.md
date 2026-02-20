@@ -1,11 +1,9 @@
-# RLM Umbrella — Recursive Language Model + OTP Coding Agent
+# RLM Umbrella — Recursive Language Model Engine
 
-An Elixir umbrella project implementing two complementary AI execution engines:
-
-1. **RLM Engine** — a recursive code-evaluation loop where the LLM writes Elixir code that runs in a persistent REPL, with recursive sub-LLM spawning
-2. **Coding Agent** — a tool-use loop (Pi-agent philosophy) where the LLM calls structured tools (read file, write file, bash, etc.) in a GenServer session
-
-Both engines share OTP infrastructure: Registry, PubSub, DynamicSupervisors, and a Telemetry pipeline.
+An Elixir OTP application implementing a recursive code-evaluation AI engine.
+The LLM writes Elixir code that runs in a persistent REPL with file/shell tools
+available as normal function calls, recursive sub-LLM spawning, and multi-turn
+conversation support.
 
 ---
 
@@ -16,30 +14,20 @@ rlm_umbrella/
 ├── apps/
 │   └── rlm/
 │       ├── lib/rlm/
-│       │   ├── rlm.ex                  # Public API: RLM.run/3
-│       │   ├── worker.ex               # RLM GenServer (iterate loop)
+│       │   ├── rlm.ex                  # Public API: RLM.run/3, send_message/3
+│       │   ├── worker.ex               # GenServer (iterate loop + multi-turn)
 │       │   ├── eval.ex                 # Sandboxed Code.eval_string
-│       │   ├── llm.ex                  # Anthropic Messages API client (RLM path)
+│       │   ├── llm.ex                  # Anthropic Messages API client
+│       │   ├── sandbox.ex              # Tool wrappers + helpers for eval'd code
+│       │   ├── iex.ex                  # IEx convenience helpers
+│       │   ├── tool.ex                 # Tool behaviour
+│       │   ├── tools/                  # Tool implementations
+│       │   │   ├── registry.ex         # Central tool listing
+│       │   │   ├── read_file.ex, write_file.ex, edit_file.ex
+│       │   │   ├── bash.ex, grep.ex, glob.ex, ls.ex
 │       │   ├── event_log.ex            # Per-run trace Agent
 │       │   ├── event_log_sweeper.ex    # Periodic EventLog GC
-│       │   ├── telemetry/              # Telemetry events + handlers
-│       │   └── agent/
-│       │       ├── llm.ex              # Anthropic tool_use API + SSE streaming
-│       │       ├── message.ex          # Message type helpers
-│       │       ├── session.ex          # Agent GenServer (tool-use loop)
-│       │       ├── prompt.ex           # Composable system prompt
-│       │       ├── tool.ex             # Tool behaviour
-│       │       ├── tool_registry.ex    # Tool dispatch + spec assembly
-│       │       ├── iex.ex              # IEx convenience helpers
-│       │       └── tools/
-│       │           ├── read_file.ex
-│       │           ├── write_file.ex
-│       │           ├── edit_file.ex
-│       │           ├── bash.ex
-│       │           ├── grep.ex
-│       │           ├── glob.ex
-│       │           ├── ls.ex
-│       │           └── rlm_query.ex    # Bridge: agent → RLM engine
+│       │   └── telemetry/              # Telemetry events + handlers
 │       └── test/
 └── config/config.exs
 ```
@@ -75,11 +63,11 @@ mix test --include live_api
 
 ---
 
-## Using the RLM Engine
+## Usage
 
 The RLM engine is a recursive data-processing loop. The LLM writes Elixir code that
 runs in a sandboxed REPL with a persistent binding map. It can call itself recursively
-via `lm_query/2`.
+via `lm_query/2`, and use file/shell tools as normal function calls.
 
 ### From IEx
 
@@ -88,12 +76,12 @@ iex -S mix
 ```
 
 ```elixir
-# Basic usage — synchronous, returns {:ok, answer, run_id}
-{:ok, answer, run_id} = RLM.run(
+# Basic usage — synchronous, returns {:ok, answer, span_id}
+{:ok, answer, span_id} = RLM.run(
   "line 1\nline 2\nline 3\nline 4",
   "Count the lines and return the count as an integer"
 )
-# => {:ok, 4, "run-abc123"}
+# => {:ok, 4, "span-abc123"}
 
 # Async — returns immediately; result arrives as {:rlm_result, span_id, result}
 {:ok, run_id, pid} = RLM.run_async(my_large_text, "Summarize the key themes")
@@ -104,14 +92,54 @@ jsonl = RLM.EventLog.to_jsonl(run_id)
 File.write!("trace.jsonl", jsonl)
 ```
 
+### Multi-turn conversations
+
+```elixir
+import RLM.IEx
+
+# Start a keep-alive session and send first message
+{span_id, _response} = start_chat("What Elixir version is this project using?")
+
+# Continue the conversation (bindings persist across turns)
+chat(span_id, "Now count the .ex files in lib/")
+
+# Watch live events (iterations + results)
+watch(span_id)
+
+# Inspect history and stats
+history(span_id)
+status(span_id)
+```
+
+### Programmatic multi-turn API
+
+```elixir
+# Start a keep-alive Worker
+{:ok, answer, span_id} = RLM.run(context, query, keep_alive: true)
+
+# Send follow-up messages
+{:ok, next_answer} = RLM.send_message(span_id, "Now do something else")
+
+# Check Worker state
+info = RLM.status(span_id)
+# => %{status: :idle, iteration: 2, message_count: 8, ...}
+
+# Get full message history
+messages = RLM.history(span_id)
+
+# Subscribe to PubSub events (for LiveView integration)
+Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:worker:#{span_id}")
+```
+
 ### Configuration overrides
 
 ```elixir
-{:ok, result, run_id} = RLM.run(context, query,
+{:ok, result, span_id} = RLM.run(context, query,
   max_iterations: 10,
   max_depth: 3,
   model_large: "claude-opus-4-6",
-  eval_timeout: 60_000  # 60 seconds per eval
+  eval_timeout: 60_000,  # 60 seconds per eval
+  keep_alive: true        # Worker stays alive for follow-ups
 )
 ```
 
@@ -124,105 +152,51 @@ File.write!("trace.jsonl", jsonl)
 5. LLM iterates until it sets `final_answer = <value>`
 6. That value is returned as the result
 
-Available in the sandbox:
+### Available in the sandbox
+
+Tools are normal Elixir functions, available as bare calls in eval'd code:
 
 ```elixir
-context           # String — the input you passed to RLM.run
-
-chunks(context, 1000)        # Stream of 1000-byte chunks
-grep("pattern", context)     # List of matching lines
-preview(context, 200)        # First N bytes
-list_bindings()              # Inspect current binding state
+# Data helpers (from RLM.Helpers)
+context                         # String — the input you passed to RLM.run
+chunks(context, 1000)           # Stream of 1000-byte chunks
+grep("pattern", context)        # List of matching lines (in-memory)
+preview(context, 200)           # First N bytes
+list_bindings()                 # Inspect current binding state
 
 # Recursive sub-LLM call (spawns a child Worker)
 {:ok, result} = lm_query("subset of data", model_size: :small)
+
+# File tools
+content = read_file("path/to/file.ex")
+write_file("output.txt", "hello world")
+edit_file("lib/app.ex", "old_code", "new_code")
+
+# Shell and search tools
+output = bash("mix test --trace")
+results = grep_files("TODO", glob: "**/*.ex")
+files = glob("lib/**/*.ex")
+listing = ls("lib/")
+
+# Tool discovery
+list_tools()                    # Print all available tools
+tool_help(:read_file)           # Print detailed help for a tool
 ```
-
----
-
-## Using the Coding Agent
-
-The coding agent uses Anthropic's native `tool_use` API. It can read/write files,
-run bash commands, search code, and delegate complex data tasks to the RLM engine.
-
-### From IEx
-
-```bash
-iex -S mix
-```
-
-```elixir
-import RLM.Agent.IEx
-
-# Start a session and send first message in one step
-{session, _response} = start_chat("What Elixir version is this project using?")
-
-# Continue the conversation
-chat(session, "Now show me the supervision tree")
-
-# Watch live events (tool calls + streaming text)
-watch(session)
-
-# Inspect history and stats
-history(session)
-status(session)
-```
-
-### Programmatic API
-
-```elixir
-# Start a session
-{:ok, _pid} = DynamicSupervisor.start_child(RLM.AgentSup, {
-  RLM.Agent.Session,
-  [
-    session_id: "my-session",
-    system_prompt: RLM.Agent.Prompt.build(cwd: File.cwd!()),
-    tools: RLM.Agent.ToolRegistry.specs(),
-    stream: true
-  ]
-})
-
-# Subscribe to real-time events
-Phoenix.PubSub.subscribe(RLM.PubSub, "agent:session:my-session")
-
-# Send a message
-{:ok, response} = RLM.Agent.Session.send_message("my-session", "Run the test suite")
-
-# Receive events
-receive do
-  {:agent_event, :text_chunk, %{text: chunk}} -> IO.write(chunk)
-  {:agent_event, :tool_call_start, %{call: call}} -> IO.inspect(call)
-  {:agent_event, :turn_complete, %{response: text}} -> IO.puts(text)
-end
-```
-
-### Available tools
-
-| Tool | Description |
-|------|-------------|
-| `read_file` | Read file contents (up to 100 KB) |
-| `write_file` | Write or overwrite a file |
-| `edit_file` | Exact-string replacement (uniqueness-guarded) |
-| `bash` | Run shell commands (timeout-protected via Task) |
-| `grep` | ripgrep search with glob filtering |
-| `glob` | Find files by pattern |
-| `ls` | List directory contents with sizes |
-| `rlm_query` | Delegate data processing to the RLM engine |
 
 ---
 
 ## Tracing and observability
 
-### Event log (RLM engine)
+### Event log
 
 ```elixir
-{:ok, _result, run_id} = RLM.run(context, query)
+{:ok, _result, span_id} = RLM.run(context, query)
 
 # Tree of nodes with per-iteration detail
-tree = RLM.EventLog.get_tree(run_id)
+tree = RLM.EventLog.get_tree(span_id)
 
 # Export as JSONL
-jsonl = RLM.EventLog.to_jsonl(run_id)
+jsonl = RLM.EventLog.to_jsonl(span_id)
 File.write!("trace.jsonl", jsonl)
 ```
 
@@ -244,11 +218,16 @@ Event families: `[:rlm, :node, :*]`, `[:rlm, :iteration, :*]`,
 ### PubSub live stream
 
 ```elixir
-# Agent session events
-Phoenix.PubSub.subscribe(RLM.PubSub, "agent:session:#{session_id}")
+Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:worker:#{span_id}")
 
-# Events: :turn_start, :text_chunk, :tool_call_start,
-#         :tool_call_end, :turn_complete, :error
+# Events: :iteration_start, :iteration_stop, :complete, :error
+receive do
+  {:rlm_event, :iteration_start, %{iteration: n}} ->
+    IO.puts("Iteration #{n} starting...")
+
+  {:rlm_event, :complete, %{result: result}} ->
+    IO.puts("Done: #{inspect(result)}")
+end
 ```
 
 ---
@@ -268,18 +247,19 @@ From IEx:
 iex -S mix
 
 # Test the RLM engine on a real file
-{:ok, result, run_id} = RLM.run(
+{:ok, result, span_id} = RLM.run(
   File.read!("apps/rlm/lib/rlm/worker.ex"),
   "What is the purpose of the pending_subcalls field? Answer in one sentence."
 )
 IO.puts(result)
 
 # Inspect the trace
-RLM.EventLog.get_tree(run_id) |> IO.inspect(pretty: true)
+RLM.EventLog.get_tree(span_id) |> IO.inspect(pretty: true)
 
-# Test the coding agent
-import RLM.Agent.IEx
-{session, _} = start_chat("Count how many public functions are in apps/rlm/lib/rlm/worker.ex")
+# Interactive multi-turn session
+import RLM.IEx
+{id, _} = start_chat("Count how many public functions are in apps/rlm/lib/rlm/worker.ex")
+chat(id, "Which one has the most complexity?")
 ```
 
 ---
@@ -292,25 +272,28 @@ import RLM.Agent.IEx
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
 │  │ RLM.Registry │  │ RLM.PubSub   │  │ RLM.TaskSupervisor│  │
 │  └──────────────┘  └──────────────┘  └──────────────────┘  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │  WorkerSup   │  │  EventStore  │  │    AgentSup      │  │
-│  │ (RLM workers)│  │(trace agents)│  │ (agent sessions) │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐                         │
+│  │  WorkerSup   │  │  EventStore  │                         │
+│  │ (RLM workers)│  │(trace agents)│                         │
+│  └──────────────┘  └──────────────┘                         │
 │  ┌──────────────┐  ┌──────────────┐                         │
 │  │ RLM.Telemetry│  │EventLog.Sweep│                         │
 │  └──────────────┘  └──────────────┘                         │
 └─────────────────────────────────────────────────────────────┘
 
-RLM Engine (code-eval loop):          Coding Agent (tool-use loop):
-  RLM.run/3 → {:ok, answer, run_id}    RLM.Agent.Session.send_message/3
-    → Worker GenServer                    → Agent.LLM.call/4 (tool_use API)
-      → RLM.LLM.chat (sync)               → Tool execution (parallel)
-      → spawn(RLM.Eval.run)               → Append tool results
-        ↕ {:spawn_subcall} calls          → LLM again...
-      → {:eval_complete, result}          → Final text response
+RLM Engine (unified code-eval + tool loop):
+  RLM.run/3 → {:ok, answer, span_id}
+    → Worker GenServer
+      → RLM.LLM.chat (sync)
+      → spawn(RLM.Eval.run)
+        ↕ {:spawn_subcall} calls
+        ↕ Tool calls (read_file, bash, etc.)
+      → {:eval_complete, result}
       → Repeat or complete
+    → Optional: keep_alive for multi-turn
+      → RLM.send_message/2 resumes iterate loop
 ```
 
-The **`rlm_query` tool** connects both engines: the coding agent can delegate
-heavy data-processing to the RLM engine, which handles it with its persistent
-Elixir REPL loop. This is the key architectural integration point.
+Tools are normal Elixir functions injected via `import RLM.Sandbox` into every
+eval'd code block. No JSON schema marshalling — the LLM calls them directly
+as part of the Elixir code it writes.

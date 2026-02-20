@@ -9,46 +9,42 @@ rlm_umbrella/
 ├── apps/
 │   └── rlm/                    # Core engine (no web framework)
 │       ├── lib/rlm/
-│       │   ├── rlm.ex          # Public API: run/3, run_async/3
-│       │   ├── worker.ex       # RLM GenServer (iterate loop)
+│       │   ├── rlm.ex          # Public API: run/3, send_message/3, history/1, status/1
+│       │   ├── worker.ex       # RLM GenServer (iterate loop + multi-turn)
 │       │   ├── eval.ex         # Sandboxed Code.eval_string
-│       │   ├── llm.ex          # Anthropic Messages API client (RLM path)
+│       │   ├── llm.ex          # Anthropic Messages API client
 │       │   ├── helpers.ex      # chunks/2, grep/2, preview/2, list_bindings/0
-│       │   ├── sandbox.ex      # Bindings injected into eval'd code
+│       │   ├── sandbox.ex      # Functions injected into eval'd code (tools + helpers)
 │       │   ├── prompt.ex       # System prompt + message formatting
 │       │   ├── config.ex       # Config struct + loader
 │       │   ├── span.ex         # Span/run ID generation
 │       │   ├── truncate.ex     # Head+tail string truncation
 │       │   ├── event_log.ex    # Per-run trace Agent
 │       │   ├── event_log_sweeper.ex  # Periodic EventLog GC (GenServer)
-│       │   ├── telemetry/      # Telemetry events + handlers
-│       │   └── agent/
-│       │       ├── llm.ex          # Anthropic tool_use API + SSE parsing
-│       │       ├── message.ex      # Message type helpers
-│       │       ├── session.ex      # Agent GenServer (tool-use loop)
-│       │       ├── prompt.ex       # Composable system prompt
-│       │       ├── tool.ex         # Tool behaviour
-│       │       ├── tool_registry.ex# Tool dispatch + spec assembly
-│       │       ├── iex.ex          # IEx convenience helpers
-│       │       └── tools/
-│       │           ├── read_file.ex
-│       │           ├── write_file.ex
-│       │           ├── edit_file.ex
-│       │           ├── bash.ex
-│       │           ├── grep.ex
-│       │           ├── glob.ex
-│       │           ├── ls.ex
-│       │           └── rlm_query.ex  # Bridge: agent → RLM engine
+│       │   ├── iex.ex          # IEx convenience helpers (start, chat, watch)
+│       │   ├── tool.ex         # Tool behaviour (@callback name/0, doc/0)
+│       │   ├── tools/          # Tool implementations
+│       │   │   ├── registry.ex     # Central tool listing + doc lookup
+│       │   │   ├── read_file.ex
+│       │   │   ├── write_file.ex
+│       │   │   ├── edit_file.ex
+│       │   │   ├── bash.ex
+│       │   │   ├── grep.ex
+│       │   │   ├── glob.ex
+│       │   │   └── ls.ex
+│       │   └── telemetry/      # Telemetry events + handlers
 │       ├── test/
 │       │   ├── support/        # MockLLM, test helpers
 │       │   └── rlm/
-│       │       ├── agent/      # Agent unit + live API tests
 │       │       ├── integration_test.exs
 │       │       ├── helpers_test.exs
 │       │       ├── live_api_test.exs
-│       │       └── worker_test.exs
+│       │       ├── worker_test.exs
+│       │       ├── worker_multiturn_test.exs
+│       │       ├── tools_test.exs
+│       │       └── sandbox_test.exs
 │       └── priv/
-│           └── agent_system_prompt.md
+│           └── system_prompt.md
 ├── config/
 │   └── config.exs
 └── mix.exs
@@ -87,6 +83,23 @@ to handle `{:spawn_subcall, ...}` calls from eval'd code. This prevents deadlock
 - Child result arrives as `{:rlm_result, child_span_id, result}` → Worker replies to blocked caller
 - Eval finishes → sends `{:eval_complete, result}` → Worker processes the result
 
+### Tool Architecture (Three Layers)
+1. **`RLM.Tools.*`** — implementation modules with `@behaviour RLM.Tool` (name/0, doc/0)
+   and an `execute/N` function that returns `{:ok, value} | {:error, message}`
+2. **`RLM.Tools.Registry`** — central listing (`all/0`, `list/0`, `doc/1`) for runtime discovery
+3. **`RLM.Sandbox`** — unwrapping delegates (`read_file/1`, `bash/1`, etc.) that call
+   the tool's `execute/N` and raise on error, so LLM-generated code reads naturally.
+   Also exposes `list_tools/0` and `tool_help/1` for self-discovery.
+
+The `import RLM.Sandbox` line is prepended to every eval'd code block in `RLM.Eval`,
+making all sandbox functions available as bare calls in the LLM's generated code.
+
+### Multi-Turn Conversations
+When `keep_alive: true`, the Worker stays alive after `final_answer` instead of
+terminating. New messages can be sent via `RLM.send_message/2-3`, which resumes the
+iterate loop with accumulated message history and persistent bindings. This enables
+multi-turn interactive sessions without the overhead of a separate agent subsystem.
+
 ### Three Invariants
 1. Raw input data never enters the LLM context window — only metadata/preview
 2. Sub-LLM outputs stay in variables, never shown to parent LLM directly
@@ -97,29 +110,21 @@ to handle `{:spawn_subcall, ...}` calls from eval'd code. This prevents deadlock
 RLM.Supervisor (one_for_one)
 ├── Registry      (RLM.Registry)
 ├── Phoenix.PubSub (RLM.PubSub)
-├── Task.Supervisor (RLM.TaskSupervisor)   ← bash tool, session tasks
+├── Task.Supervisor (RLM.TaskSupervisor)   ← bash tool tasks
 ├── DynamicSupervisor (RLM.WorkerSup)      ← Workers are :temporary
 ├── DynamicSupervisor (RLM.EventStore)     ← EventLog Agents
-├── DynamicSupervisor (RLM.AgentSup)       ← coding agent sessions
 ├── RLM.Telemetry   (GenServer)
 └── RLM.EventLog.Sweeper (GenServer)       ← GCs stale trace agents
 ```
 
 ### RLM.run/3 Return Value
-`RLM.run/3` returns `{:ok, answer, run_id}` (3-tuple). The `run_id` can be used to
-retrieve the execution trace via `RLM.EventLog`. On failure it returns `{:error, reason}`.
+`RLM.run/3` returns `{:ok, answer, span_id}` (3-tuple). The `span_id` can be used to
+send follow-up messages (`RLM.send_message/2`), inspect history (`RLM.history/1`),
+or check status (`RLM.status/1`). On failure it returns `{:error, reason}`.
 A `Process.monitor` on the Worker ensures crashes surface as errors rather than hangs.
 
-### SSE Streaming (Coding Agent)
-`RLM.Agent.LLM` sends `stream: true` to Anthropic, which responds in SSE format. Rather
-than using Req's `into:` option (which conflicts with Finch's adapter contract in Req
-0.5.x), the full SSE response body is buffered as a binary and then parsed synchronously.
-Anthropic closes the connection after `message_stop`, so no indefinite blocking occurs.
-`on_chunk` callbacks fire during parsing (post-receipt). A future LiveView integration
-can add real-time streaming via a different transport layer.
-
 ### LLM Client
-Both engines use the Anthropic Messages API (not OpenAI format). System messages are
+The engine uses the Anthropic Messages API (not OpenAI format). System messages are
 extracted and sent as the top-level `system` field. Requires `CLAUDE_API_KEY` env var.
 
 Default models:
@@ -128,15 +133,15 @@ Default models:
 
 ## Module Map
 
-### RLM Engine
+### Core Engine
 
 | Module | Purpose |
 |---|---|
-| `RLM` | Public API: `run/3` → `{:ok, answer, run_id}`, `run_async/3` |
+| `RLM` | Public API: `run/3`, `send_message/2-3`, `history/1`, `status/1` |
 | `RLM.Config` | Config struct; loads from app env + keyword overrides |
-| `RLM.Worker` | GenServer per execution node; drives the iterate loop |
+| `RLM.Worker` | GenServer per execution; iterate loop + multi-turn support |
 | `RLM.Eval` | Sandboxed `Code.eval_string` with async IO capture |
-| `RLM.Sandbox` | Functions injected into eval'd code (`lm_query`, `chunks`, etc.) |
+| `RLM.Sandbox` | Functions injected into eval'd code (tool wrappers + helpers) |
 | `RLM.LLM` | Anthropic Messages API client + code-block extraction |
 | `RLM.Prompt` | System prompt loading and user/assistant message formatting |
 | `RLM.Helpers` | `chunks/2`, `grep/2`, `preview/2`, `list_bindings/0` |
@@ -144,30 +149,30 @@ Default models:
 | `RLM.Span` | Span/run ID generation |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |
 | `RLM.EventLog.Sweeper` | GenServer; periodically GCs stale EventLog agents |
+| `RLM.IEx` | IEx helpers: `start/1`, `chat/3`, `start_chat/2`, `watch/2`, `history/1`, `status/1` |
+
+### Tools
+
+| Module | Purpose |
+|---|---|
+| `RLM.Tool` | `@behaviour` with `name/0` and `doc/0` callbacks |
+| `RLM.Tools.Registry` | Central tool listing; `all/0`, `list/0`, `doc/1` |
+| `RLM.Tools.ReadFile` | Read file contents (≤ 100 KB) |
+| `RLM.Tools.WriteFile` | Write or overwrite a file (creates parents) |
+| `RLM.Tools.EditFile` | Exact-string replacement (uniqueness-guarded) |
+| `RLM.Tools.Bash` | Shell commands via `Task.yield` timeout guard |
+| `RLM.Tools.Grep` | ripgrep search with glob filtering |
+| `RLM.Tools.Glob` | Find files by pattern |
+| `RLM.Tools.Ls` | List directory with sizes |
+
+### Telemetry
+
+| Module | Purpose |
+|---|---|
 | `RLM.Telemetry` | Handler attachment GenServer |
 | `RLM.Telemetry.Logger` | Structured logging handler |
 | `RLM.Telemetry.PubSub` | Phoenix.PubSub broadcast handler |
 | `RLM.Telemetry.EventLogHandler` | Routes telemetry events to EventLog Agent |
-
-### Coding Agent
-
-| Module | Purpose |
-|---|---|
-| `RLM.Agent.LLM` | Anthropic tool_use API client; parses SSE response body |
-| `RLM.Agent.Message` | Message constructors and API serialisation helpers |
-| `RLM.Agent.Session` | GenServer; multi-turn tool-use loop with PubSub events |
-| `RLM.Agent.Prompt` | Composable system prompt builder (`build/1`) |
-| `RLM.Agent.Tool` | `@behaviour` with `spec/0` and `execute/1` callbacks |
-| `RLM.Agent.ToolRegistry` | Lists all tools; provides `specs/0`, `execute/2` |
-| `RLM.Agent.IEx` | `start/1`, `chat/3`, `start_chat/2`, `watch/2`, `history/1`, `status/1` |
-| `RLM.Agent.Tools.ReadFile` | Read file contents (≤ 100 KB) |
-| `RLM.Agent.Tools.WriteFile` | Write or overwrite a file (creates parents) |
-| `RLM.Agent.Tools.EditFile` | Exact-string replacement (uniqueness-guarded) |
-| `RLM.Agent.Tools.Bash` | Shell commands via `Task.yield` timeout guard |
-| `RLM.Agent.Tools.Grep` | ripgrep search with glob filtering |
-| `RLM.Agent.Tools.Glob` | Find files by pattern |
-| `RLM.Agent.Tools.Ls` | List directory with sizes |
-| `RLM.Agent.Tools.RlmQuery` | Bridge: delegate to RLM engine from agent |
 
 ## Config Fields
 
@@ -181,16 +186,16 @@ Default models:
 | `eval_timeout` | `300_000` | ms per eval (5 min) |
 | `llm_timeout` | `120_000` | ms per LLM request (2 min) |
 | `llm_module` | `RLM.LLM` | Swappable for `RLM.Test.MockLLM` |
-| `agent_llm_module` | `RLM.Agent.LLM` | Swappable LLM for the coding agent; inject `MockAgentLLM` in session tests |
+| `keep_alive` | `false` | When true, Worker stays alive after `final_answer` for multi-turn |
 
 ## Testing Conventions
 
 - Tests use `RLM.Test.MockLLM` (global ETS-based response queue) for deterministic testing
-- All tests run `async: false` since MockLLM uses global state
+- All tests run `async: false` since MockLLM uses global state (except `tools_test.exs` which is `async: true`)
 - Live API tests tagged with `@moduletag :live_api` and excluded by default
 - `mix test --include live_api` requires `CLAUDE_API_KEY` env var
 - Test support files in `apps/rlm/test/support/`
-- Agent tool tests use a per-test temp directory (created in `setup`, cleaned in `on_exit`)
+- Tool tests use a per-test temp directory (created in `setup`, cleaned in `on_exit`)
 - Worker concurrency/depth tests spawn real Workers via `DynamicSupervisor`
 
 ## Important Notes
@@ -202,6 +207,8 @@ Default models:
 - `.env` file with `CLAUDE_API_KEY` should exist at project root but must not be committed
 - `RLM.run/3` monitors the Worker with `Process.monitor` so crashes return `{:error, reason}`
   rather than hanging indefinitely
+- PubSub broadcasts on topic `"rlm:worker:<span_id>"` with events `:iteration_start`,
+  `:iteration_stop`, `:complete`, `:error` — suitable for LiveView integration
 
 ## Orientation for Coding Agents
 
