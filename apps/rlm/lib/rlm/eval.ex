@@ -16,6 +16,7 @@ defmodule RLM.Eval do
     timeout = Keyword.get(opts, :timeout, 300_000)
     worker_pid = Keyword.get(opts, :worker_pid)
     bindings_info = Keyword.get(opts, :bindings_info, [])
+    cwd = Keyword.get(opts, :cwd, File.cwd!())
 
     caller = self()
 
@@ -28,6 +29,7 @@ defmodule RLM.Eval do
         # Inject runtime state for sandbox functions
         Process.put(:rlm_worker_pid, worker_pid)
         Process.put(:rlm_bindings_info, bindings_info)
+        Process.put(:rlm_cwd, cwd)
 
         wrapped_code = "import RLM.Sandbox\n#{code}"
 
