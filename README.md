@@ -1,5 +1,14 @@
 # RLM Umbrella — Recursive Language Model Engine
 
+This project is my exploration of coding agents and Recursive Language Models, built in
+Elixir because OTP's supervision trees and process model felt like a natural fit for
+managing recursive LLM spawning. I was inspired by a few things: the
+[RLM paper](https://alexzhang13.github.io/blog/2025/rlm/) and its idea of LLMs writing
+code in a loop, [Jbollenbacher's Elixir RLM](https://github.com/Jbollenbacher/RLM) which
+I wanted to take further, and the design philosophy behind
+[pi](https://github.com/badlogic/pi-mono/) — a coding agent that keeps things simple and
+transparent. This is very much a learning project, but it works and it's been fun to build.
+
 An Elixir umbrella project implementing a unified AI execution engine where the LLM writes
 Elixir code that runs in a persistent REPL, with recursive sub-LLM spawning and built-in
 filesystem tools.
