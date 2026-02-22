@@ -32,11 +32,12 @@ defmodule RLM.Sandbox do
     else
       model_size = Keyword.get(opts, :model_size, :small)
       schema = Keyword.get(opts, :schema)
+      timeout = Process.get(:rlm_subcall_timeout, 600_000)
 
       if schema do
-        GenServer.call(worker_pid, {:direct_query, text, model_size, schema}, :infinity)
+        GenServer.call(worker_pid, {:direct_query, text, model_size, schema}, timeout)
       else
-        GenServer.call(worker_pid, {:spawn_subcall, text, model_size}, :infinity)
+        GenServer.call(worker_pid, {:spawn_subcall, text, model_size}, timeout)
       end
     end
   end
@@ -65,7 +66,7 @@ defmodule RLM.Sandbox do
           lm_query(text, opts)
         end)
       end)
-      |> Task.await_many(:infinity)
+      |> Task.await_many(Process.get(:rlm_subcall_timeout, 600_000))
     end
   end
 

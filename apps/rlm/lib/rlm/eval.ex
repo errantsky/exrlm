@@ -29,6 +29,7 @@ defmodule RLM.Eval do
         Process.put(:rlm_worker_pid, worker_pid)
         Process.put(:rlm_bindings_info, bindings_info)
         Process.put(:rlm_cwd, Keyword.get(opts, :cwd, File.cwd!()))
+        Process.put(:rlm_subcall_timeout, Keyword.get(opts, :subcall_timeout, 600_000))
 
         wrapped_code = "import RLM.Sandbox\n#{code}"
 

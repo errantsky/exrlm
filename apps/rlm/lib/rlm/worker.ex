@@ -44,7 +44,9 @@ defmodule RLM.Worker do
     :keep_alive,
     :cwd,
     :pending_from,
-    pending_subcalls: %{}
+    pending_subcalls: %{},
+    # Maps monitor ref → child_span_id for crash cleanup
+    pending_monitors: %{}
   ]
 
   # -- Public API --
@@ -424,8 +426,35 @@ defmodule RLM.Worker do
           }
         )
 
+        # Clean up the monitor for this child
+        {monitor_ref, remaining_monitors} =
+          pop_monitor_by_span(state.pending_monitors, child_span_id)
+
+        if monitor_ref, do: Process.demonitor(monitor_ref, [:flush])
+
         GenServer.reply(from, result)
-        {:noreply, %{state | pending_subcalls: remaining}}
+        {:noreply, %{state | pending_subcalls: remaining, pending_monitors: remaining_monitors}}
+    end
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
+    case Map.pop(state.pending_monitors, ref) do
+      {nil, _} ->
+        {:noreply, state}
+
+      {child_span_id, remaining_monitors} ->
+        Logger.warning("Child worker #{child_span_id} crashed: #{inspect(reason)}")
+
+        case Map.pop(state.pending_subcalls, child_span_id) do
+          {nil, _} ->
+            {:noreply, %{state | pending_monitors: remaining_monitors}}
+
+          {from, remaining_subcalls} ->
+            GenServer.reply(from, {:error, "Subcall crashed: #{inspect(reason)}"})
+
+            {:noreply,
+             %{state | pending_subcalls: remaining_subcalls, pending_monitors: remaining_monitors}}
+        end
     end
   end
 
@@ -552,9 +581,11 @@ defmodule RLM.Worker do
         ]
 
         case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, child_opts}) do
-          {:ok, _child_pid} ->
+          {:ok, child_pid} ->
+            ref = Process.monitor(child_pid)
             pending = Map.put(state.pending_subcalls, child_span_id, from)
-            {:noreply, %{state | pending_subcalls: pending}}
+            monitors = Map.put(state.pending_monitors, ref, child_span_id)
+            {:noreply, %{state | pending_subcalls: pending, pending_monitors: monitors}}
 
           {:error, reason} ->
             {:reply, {:error, "Failed to spawn subcall: #{inspect(reason)}"}, state}
@@ -563,6 +594,14 @@ defmodule RLM.Worker do
   end
 
   # -- Private --
+
+  # Reverse-lookup: find the monitor ref for a given child_span_id and remove it.
+  defp pop_monitor_by_span(monitors, span_id) do
+    case Enum.find(monitors, fn {_ref, sid} -> sid == span_id end) do
+      nil -> {nil, monitors}
+      {ref, _} -> {ref, Map.delete(monitors, ref)}
+    end
+  end
 
   defp start_async_eval(state, response, code, reasoning, llm_duration, usage, iter_start) do
     assistant_msg = %{role: :assistant, content: response}
@@ -584,7 +623,8 @@ defmodule RLM.Worker do
           timeout: state.config.eval_timeout,
           worker_pid: worker_pid,
           bindings_info: RLM.Helpers.list_bindings(state.bindings),
-          cwd: state.cwd
+          cwd: state.cwd,
+          subcall_timeout: state.config.subcall_timeout
         )
 
       send(worker_pid, {:eval_complete, result})
