@@ -2,6 +2,7 @@ defmodule RLM.IntegrationTest do
   use ExUnit.Case, async: false
 
   alias RLM.Test.MockLLM
+  import RLM.Test.Helpers
 
   # The application starts the supervision tree automatically.
   # No manual setup needed.
@@ -65,6 +66,8 @@ defmodule RLM.IntegrationTest do
       run_id = RLM.Span.generate_run_id()
       span_id = RLM.Span.generate_id()
 
+      %{run_pid: run_pid} = start_test_run(run_id: run_id, config: config)
+
       worker_opts = [
         span_id: span_id,
         run_id: run_id,
@@ -76,7 +79,7 @@ defmodule RLM.IntegrationTest do
         caller: self()
       ]
 
-      {:ok, _pid} = DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts})
+      {:ok, _pid} = RLM.Run.start_worker(run_pid, worker_opts)
 
       receive do
         {:rlm_result, ^span_id, {:ok, 2}} -> :ok
@@ -104,6 +107,8 @@ defmodule RLM.IntegrationTest do
       run_id = RLM.Span.generate_run_id()
       span_id = RLM.Span.generate_id()
 
+      %{run_pid: run_pid} = start_test_run(run_id: run_id, config: config)
+
       worker_opts = [
         span_id: span_id,
         run_id: run_id,
@@ -115,7 +120,7 @@ defmodule RLM.IntegrationTest do
         caller: self()
       ]
 
-      {:ok, _pid} = DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts})
+      {:ok, _pid} = RLM.Run.start_worker(run_pid, worker_opts)
 
       receive do
         {:rlm_result, ^span_id, _} -> :ok

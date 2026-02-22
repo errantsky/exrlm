@@ -2,6 +2,7 @@ defmodule RLM.WorkerPubSubTest do
   use ExUnit.Case, async: false
 
   alias RLM.Test.MockLLM
+  import RLM.Test.Helpers
 
   setup do
     Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:runs")
@@ -34,22 +35,21 @@ defmodule RLM.WorkerPubSubTest do
       ])
 
       span_id = RLM.Span.generate_id()
-      run_id = RLM.Span.generate_run_id()
-      Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
-
       config = RLM.Config.load(llm_module: MockLLM)
 
-      {:ok, _pid} =
-        DynamicSupervisor.start_child(
-          RLM.WorkerSup,
-          {RLM.Worker,
-           [
-             span_id: span_id,
-             run_id: run_id,
-             config: config,
-             keep_alive: true
-           ]}
-        )
+      %{run_pid: run_pid, run_id: run_id} =
+        start_test_run(config: config, keep_alive: true)
+
+      Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
+
+      worker_opts = [
+        span_id: span_id,
+        run_id: run_id,
+        config: config,
+        keep_alive: true
+      ]
+
+      {:ok, _pid} = RLM.Run.start_worker(run_pid, worker_opts)
 
       via = {:via, Registry, {RLM.Registry, {:worker, span_id}}}
       {:ok, :ka_pub} = GenServer.call(via, {:send_message, "test turn"}, 5000)

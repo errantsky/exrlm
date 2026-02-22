@@ -398,7 +398,10 @@
 &#x251C;&#x2500; Registry         (RLM.Registry)          &mdash; named process lookup
 &#x251C;&#x2500; Phoenix.PubSub   (RLM.PubSub)            &mdash; event broadcasting
 &#x251C;&#x2500; Task.Supervisor  (RLM.TaskSupervisor)     &mdash; bash tool task processes
-&#x251C;&#x2500; DynamicSupervisor(RLM.WorkerSup)          &mdash; Worker GenServers (:temporary)
+&#x251C;&#x2500; DynamicSupervisor(RLM.RunSup)             &mdash; per-run coordinators
+&#x2502;   &#x2514;&#x2500; RLM.Run (per-run GenServer, :temporary)
+&#x2502;       &#x251C;&#x2500; DynamicSupervisor (workers)    &mdash; Worker GenServers, linked
+&#x2502;       &#x2514;&#x2500; Task.Supervisor (eval tasks)   &mdash; supervised eval processes, linked
 &#x251C;&#x2500; DynamicSupervisor(RLM.EventStore)         &mdash; EventLog Agents (:temporary)
 &#x251C;&#x2500; RLM.Telemetry    (GenServer)              &mdash; handler attachment on init
 &#x251C;&#x2500; RLM.TraceStore   (GenServer)              &mdash; :dets persistence
@@ -409,7 +412,7 @@
   <tr><td><code>RLM.Registry</code></td><td>Registry</td><td>:permanent</td><td>Named process lookup for Workers and EventLog agents via <code>{:via, Registry, ...}</code></td></tr>
   <tr><td><code>RLM.PubSub</code></td><td>Phoenix.PubSub</td><td>:permanent</td><td>Broadcasting telemetry events to LiveView and IEx watchers</td></tr>
   <tr><td><code>RLM.TaskSupervisor</code></td><td>Task.Supervisor</td><td>:permanent</td><td>Supervises bash tool tasks with timeout enforcement</td></tr>
-  <tr><td><code>RLM.WorkerSup</code></td><td>DynamicSupervisor</td><td>:permanent</td><td>Hosts Worker GenServers; children are <code>:temporary</code> (one-shot + keep-alive)</td></tr>
+  <tr><td><code>RLM.RunSup</code></td><td>DynamicSupervisor</td><td>:permanent</td><td>Hosts <code>RLM.Run</code> coordinators; each Run owns a DynamicSupervisor for Workers and a Task.Supervisor for eval tasks</td></tr>
   <tr><td><code>RLM.EventStore</code></td><td>DynamicSupervisor</td><td>:permanent</td><td>Hosts per-run EventLog Agents for in-memory trace storage</td></tr>
   <tr><td><code>RLM.Telemetry</code></td><td>GenServer</td><td>:permanent</td><td>Attaches all <code>:telemetry</code> handlers on init (Logger, EventLog, PubSub)</td></tr>
   <tr><td><code>RLM.TraceStore</code></td><td>GenServer</td><td>:permanent</td><td>Owns <code>:dets</code> table for persistent trace storage across restarts</td></tr>
@@ -435,8 +438,8 @@
   <li><strong>Parse structured response</strong> &mdash; <code>RLM.LLM.extract_structured/1</code> decodes the JSON response into <code>%{reasoning: ..., code: ...}</code>. If the code field is empty, sends feedback and loops.</li>
   <li><strong>Spawn async eval</strong> &mdash; <code>start_async_eval/7</code> spawns a new process that runs <code>RLM.Eval.run/3</code>. The Worker stores eval context (code, timing, usage) and stays free to handle messages.</li>
   <li><strong>Eval runs</strong> &mdash; The spawned process captures stdout via <code>StringIO</code>, injects sandbox imports, and calls <code>Code.eval_string/3</code> with the current bindings.</li>
-  <li><strong>Handle subcalls / direct queries</strong> &mdash; If eval'd code calls <code>lm_query(text)</code>, it does <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>. The Worker spawns a child Worker via DynamicSupervisor and stores the caller's <code>from</code> in <code>pending_subcalls</code>. If called with <code>schema:</code> option, the Worker instead handles a <code>{:direct_query, ...}</code> &mdash; a single LLM call with constrained output that returns a parsed JSON map (no child Worker, no iterate loop).</li>
-  <li><strong>Receive eval result</strong> &mdash; <code>{:eval_complete, result}</code> arrives. On success: update bindings, append assistant+feedback messages to history. On error: keep original bindings, send error feedback.</li>
+  <li><strong>Handle subcalls / direct queries</strong> &mdash; If eval'd code calls <code>lm_query(text)</code>, it does <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>. The Worker delegates to <code>RLM.Run.start_worker/2</code> which spawns a child Worker under the run's DynamicSupervisor, and stores the caller's <code>from</code> in <code>pending_subcalls</code>. If called with <code>schema:</code> option, the Worker instead handles a <code>{:direct_query, ...}</code> &mdash; a single LLM call with constrained output that returns a parsed JSON map (no child Worker, no iterate loop).</li>
+  <li><strong>Receive eval result</strong> &mdash; The eval Task sends <code>{ref, result}</code> on success (via <code>Task.Supervisor.async_nolink</code>). On success: update bindings, append assistant+feedback messages to history. On crash: <code>{:DOWN, ref, ...}</code> arrives and the Worker sends error feedback and continues.</li>
   <li><strong>Repetition detection</strong> &mdash; <code>maybe_nudge/1</code> checks if the last 3 code blocks are &gt;85% similar (Jaccard). If so, injects a nudge message.</li>
   <li><strong>Check final_answer</strong> &mdash; If the <code>final_answer</code> binding is non-nil, call <code>complete/2</code>. Otherwise, send <code>:iterate</code> to self and loop.</li>
 </ol>
@@ -447,42 +450,46 @@
   <strong>Why async?</strong> The Worker must remain responsive to <code>{:spawn_subcall, ...}</code> calls from eval'd code. If eval ran synchronously, the Worker's mailbox would be blocked, and <code>GenServer.call</code> from within eval would deadlock.
 </div>
 
-<div class="diagram">Worker GenServer                     Spawned eval process
+<div class="diagram">Worker GenServer                     Supervised eval Task
 &#x2502;                                    &#x2502;
 &#x2502;&#x2500;&#x2500; handle_info(:iterate) &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2192;    &#x2502;
 &#x2502;   1. Call LLM (sync)               &#x2502;
 &#x2502;   2. Extract code                   &#x2502;
-&#x2502;   3. spawn(fn -&gt;                    &#x2502;
+&#x2502;   3. Task.Supervisor.async_nolink(  &#x2502;
+&#x2502;        eval_sup, fn -&gt;              &#x2502;
 &#x2502;        Eval.run(code, bindings)   &#x2500;&#x2500;&#x2500;&#x2500;&#x2192; Code.eval_string(...)
 &#x2502;      end)                           &#x2502;
-&#x2502;   4. Store eval_context             &#x2502;
+&#x2502;   4. Store eval_context + task_ref  &#x2502;
 &#x2502;   5. {:noreply, state}              &#x2502;
 &#x2502;                                     &#x2502; eval'd code calls lm_query()
 &#x2502;&#x2500;&#x2500; handle_call(:spawn_subcall) &#x2500;&#x2500;&#x2190;   GenServer.call(worker, ...)
-&#x2502;   6a. Spawn child Worker            &#x2502;
-&#x2502;   6a'. Process.monitor(child_pid)   &#x2502;
+&#x2502;   6a. RLM.Run.start_worker(run_pid) &#x2502;
+&#x2502;       (Run monitors child)          &#x2502;
 &#x2502;   7a. Store from in pending_subcalls&#x2502; ...waiting for reply...
-&#x2502;       Store ref in pending_monitors &#x2502;
 &#x2502;                                     &#x2502;
 &#x2502;&#x2500;&#x2500; OR handle_call(:direct_query) &#x2500;&#x2190;  lm_query(text, schema: ...)
-&#x2502;   6b. Spawn LLM call process        &#x2502;
+&#x2502;   6b. Task.Supervisor.start_child   &#x2502;
+&#x2502;       + Process.monitor             &#x2502;
 &#x2502;   7b. Store from in pending_subcalls&#x2502; ...waiting for reply...
 &#x2502;                                     &#x2502;
 &#x2502;&#x2500;&#x2500; handle_info(:rlm_result)          &#x2502;
-&#x2502;   8a. Process.demonitor(ref)        &#x2502;
+&#x2502;   8a. Notify Run (cast :worker_done)&#x2502;
 &#x2502;   8a'. GenServer.reply(from, result)&#x2502;
 &#x2502;                                     &#x2502;
 &#x2502;&#x2500;&#x2500; OR handle_info(:direct_query_result)
 &#x2502;   8b. GenServer.reply(from, result) &#x2502;
 &#x2502;                                     &#x2502; lm_query returns
-&#x2502;&#x2500;&#x2500; OR handle_info({:DOWN, ...})      &#x2502; eval continues...
-&#x2502;   8c. Crash recovery: reply error   &#x2502;
-&#x2502;       to blocked caller, clean up   &#x2502;
+&#x2502;&#x2500;&#x2500; OR handle_info({:child_crashed})  &#x2502; eval continues...
+&#x2502;   8c. Crash propagated from Run     &#x2502;
+&#x2502;       Reply error to blocked caller  &#x2502;
 &#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; handle_info(:eval_complete) &#x2500;&#x2500;&#x2190;  send(worker, {:eval_complete, result})
+&#x2502;&#x2500;&#x2500; handle_info({ref, result}) &#x2500;&#x2500;&#x2190;   Task sends {ref, eval_result}
 &#x2502;   9. Update bindings                &#x2502;
 &#x2502;  10. Check final_answer             &#x2502;
-&#x2502;      &#x2514;&#x2500; loop or complete             &#x2502;</div>
+&#x2502;      &#x2514;&#x2500; loop or complete             &#x2502;
+&#x2502;                                     &#x2502;
+&#x2502;&#x2500;&#x2500; OR handle_info({:DOWN, ref, ...}) &#x2502; Task crashed
+&#x2502;   9'. Send error feedback, continue &#x2502;</div>
 
 <h3>State Machine</h3>
 
@@ -802,7 +809,11 @@ iex&gt; status(session)       # Print session stats</code></pre>
   </div>
   <div class="card-sm">
     <h4>RLM.Worker</h4>
-    <p>GenServer per execution node. Iterate loop, async-eval, subcall handling, direct query (schema mode), keep-alive mode, compaction, nudging, subcall crash monitoring via <code>pending_monitors</code></p>
+    <p>GenServer per execution node. Iterate loop, async-eval (supervised Task), subcall handling (delegated to Run), direct query (schema mode), keep-alive mode, compaction, nudging</p>
+  </div>
+  <div class="card-sm">
+    <h4>RLM.Run</h4>
+    <p>Per-run coordinator. Owns worker DynamicSupervisor + eval Task.Supervisor. ETS worker tree tracking, crash propagation to parent workers, cascade shutdown</p>
   </div>
   <div class="card-sm">
     <h4>RLM.Eval</h4>

@@ -404,6 +404,15 @@
       <span class="meta-item">Scope: <strong>Worker, Eval, Sandbox, OTP</strong></span>
       <span class="meta-item">Generated: <strong>Feb 2026</strong></span>
     </div>
+    <div style="background: var(--accent-dim); border: 1px solid var(--accent-border); border-radius: 8px; padding: 1em 1.2em; margin-top: 1em;">
+      <strong style="color: var(--accent);">Note (Feb 2026):</strong> This document was written before the
+      run-scoped supervision refactor. The &ldquo;Alternative 4: Supervisor-Per-Subtree&rdquo; architecture
+      discussed in Section 10 has since been implemented as <code>RLM.Run</code>. Key changes:
+      <code>RLM.WorkerSup</code> replaced by <code>RLM.RunSup</code>;
+      <code>pending_monitors</code> eliminated (Run monitors all workers);
+      eval promoted from bare <code>spawn</code> to supervised <code>Task.Supervisor.async_nolink</code>.
+      Sections referencing the old flat-supervision topology are retained for historical context.
+    </div>
   </div>
 </header>
 

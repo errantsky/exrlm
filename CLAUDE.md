@@ -10,6 +10,7 @@ rlm_umbrella/
 │   ├── rlm/                    # Core engine (no web framework)
 │   │   ├── lib/rlm/
 │   │   │   ├── rlm.ex          # Public API: run/3, start_session/1, send_message/3
+│   │   │   ├── run.ex          # Per-run coordinator GenServer (worker tree, cascade shutdown)
 │   │   │   ├── worker.ex       # RLM GenServer (iterate loop + keep_alive mode)
 │   │   │   ├── eval.ex         # Sandboxed Code.eval_string
 │   │   │   ├── llm.ex          # Anthropic Messages API client
@@ -100,14 +101,27 @@ iex -S mix
 
 ## Key Design Decisions
 
+### Run-Scoped Supervision
+Each `RLM.run/3` or `RLM.start_session/1` call creates an `RLM.Run` GenServer that owns
+all workers and eval tasks for that run. The Run process:
+- Starts a linked `DynamicSupervisor` (workers) and `Task.Supervisor` (eval tasks)
+- Tracks the worker tree in an ETS table: `{span_id, parent_span_id, pid, depth, status, ref}`
+- Monitors all workers for crash propagation to parent workers
+- Provides cascade shutdown: killing the Run kills all its workers and eval tasks
+- Auto-shuts down (non-keep-alive) when all workers complete
+
+**Deadlock prevention:** Run → Worker communication is always `send/2`, never `GenServer.call`.
+
 ### Async Eval Pattern (Critical)
-The Worker GenServer spawns eval in a separate process so the Worker mailbox stays free
-to handle `{:spawn_subcall, ...}` calls from eval'd code. This prevents deadlock:
-- Worker receives `:iterate` → calls LLM synchronously → spawns eval async
+The Worker GenServer spawns eval as a supervised `Task` (via `Task.Supervisor.async_nolink`)
+so the Worker mailbox stays free to handle `{:spawn_subcall, ...}` calls from eval'd code.
+This prevents deadlock:
+- Worker receives `:iterate` → calls LLM synchronously → spawns eval as supervised Task
 - Eval'd code may call `lm_query()` → `GenServer.call(worker_pid, {:spawn_subcall, ...})`
-- Worker handles the subcall, spawns a child Worker, stores `from` in `pending_subcalls`
+- Worker handles the subcall, delegates to `RLM.Run.start_worker/2`, stores `from` in `pending_subcalls`
 - Child result arrives as `{:rlm_result, child_span_id, result}` → Worker replies to blocked caller
-- Eval finishes → sends `{:eval_complete, result}` → Worker processes the result
+- Eval Task succeeds → sends `{ref, result}` → Worker processes the result
+- Eval Task crashes → sends `{:DOWN, ref, ...}` → Worker handles crash gracefully
 
 ### Direct Query (Schema Mode)
 `lm_query(text, schema: json_schema)` takes a different path from regular subcalls.
@@ -130,7 +144,10 @@ RLM.Supervisor (one_for_one)
 ├── Registry      (RLM.Registry)
 ├── Phoenix.PubSub (RLM.PubSub)
 ├── Task.Supervisor (RLM.TaskSupervisor)   ← bash tool tasks
-├── DynamicSupervisor (RLM.WorkerSup)      ← Workers (:temporary) — one-shot + keep_alive
+├── DynamicSupervisor (RLM.RunSup)         ← per-run coordinators
+│   └── RLM.Run (per-run GenServer, :temporary)
+│       ├── DynamicSupervisor (workers)    ← Workers (:temporary) — linked
+│       └── Task.Supervisor (eval tasks)   ← supervised eval processes — linked
 ├── DynamicSupervisor (RLM.EventStore)     ← EventLog Agents
 ├── RLM.Telemetry   (GenServer)
 ├── RLM.TraceStore  (GenServer)            ← :dets persistence (rlm_traces table)
@@ -162,8 +179,9 @@ Default models:
 | Module | Purpose |
 |---|---|
 | `RLM` | Public API: `run/3`, `start_session/1`, `send_message/3`, `history/1`, `status/1` |
+| `RLM.Run` | Per-run coordinator; owns worker DynSup + eval TaskSup, ETS worker tree, crash propagation |
 | `RLM.Config` | Config struct; loads from app env + keyword overrides |
-| `RLM.Worker` | GenServer per execution node; iterate loop + keep_alive mode |
+| `RLM.Worker` | GenServer per execution node; iterate loop + keep_alive mode; delegates spawning to Run |
 | `RLM.Eval` | Sandboxed `Code.eval_string` with async IO capture + cwd injection |
 | `RLM.Sandbox` | Functions injected into eval'd code (helpers + LLM calls + tool wrappers) |
 | `RLM.LLM` | Anthropic Messages API client with structured output (`extract_structured/1`) |
@@ -230,7 +248,7 @@ Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000
 - `mix test --include live_api` requires `CLAUDE_API_KEY` env var
 - Test support files in `apps/rlm/test/support/`
 - Tool tests use a per-test temp directory (created in `setup`, cleaned in `on_exit`)
-- Worker concurrency/depth tests spawn real Workers via `DynamicSupervisor`
+- Worker concurrency/depth tests use `RLM.Test.Helpers.start_test_run/1` to create a Run, then spawn Workers via `RLM.Run.start_worker/2`
 
 ## Important Notes
 
@@ -287,9 +305,9 @@ documentation artifacts **as part of the same commit or PR**:
 
 ### Update for significant architectural changes
 
-- [ ] **`GUIDE.html`** — regenerate by asking a subagent to produce an updated
+- [ ] **`docs/GUIDE.html`** — regenerate by asking a subagent to produce an updated
       self-contained HTML architecture reference based on the current source files;
-      commit the result to the repo root
+      commit the result to the `docs/` directory
 
 ### Regenerate ExDoc
 

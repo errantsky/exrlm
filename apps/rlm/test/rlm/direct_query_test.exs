@@ -2,6 +2,7 @@ defmodule RLM.DirectQueryTest do
   use ExUnit.Case, async: false
 
   alias RLM.Test.MockLLM
+  import RLM.Test.Helpers
 
   @entity_schema %{
     "type" => "object",
@@ -137,6 +138,8 @@ defmodule RLM.DirectQueryTest do
         MockLLM.mock_response("Process.sleep(200)\nfinal_answer = :done")
       ])
 
+      %{run_pid: run_pid} = start_test_run(run_id: run_id, config: config)
+
       worker_opts = [
         span_id: span_id,
         run_id: run_id,
@@ -148,7 +151,7 @@ defmodule RLM.DirectQueryTest do
         caller: self()
       ]
 
-      {:ok, pid} = DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts})
+      {:ok, pid} = RLM.Run.start_worker(run_pid, worker_opts)
 
       # Wait for eval to start
       Process.sleep(50)

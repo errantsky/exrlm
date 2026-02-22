@@ -8,7 +8,7 @@ defmodule RLM.Application do
       {Registry, keys: :unique, name: RLM.Registry},
       {Phoenix.PubSub, name: RLM.PubSub},
       {Task.Supervisor, name: RLM.TaskSupervisor},
-      {DynamicSupervisor, name: RLM.WorkerSup, strategy: :one_for_one},
+      {DynamicSupervisor, name: RLM.RunSup, strategy: :one_for_one},
       {DynamicSupervisor, name: RLM.EventStore, strategy: :one_for_one},
       {RLM.Telemetry, []},
       {RLM.TraceStore, []},

@@ -2,10 +2,10 @@ defmodule RLM.WorkerKeepAliveTest do
   use ExUnit.Case, async: false
 
   alias RLM.Test.MockLLM
+  import RLM.Test.Helpers
 
   defp start_keep_alive_worker(extra_opts \\ []) do
     span_id = RLM.Span.generate_id()
-    run_id = RLM.Span.generate_run_id()
 
     config =
       RLM.Config.load(
@@ -15,6 +15,9 @@ defmodule RLM.WorkerKeepAliveTest do
         )
       )
 
+    %{run_pid: run_pid, run_id: run_id} =
+      start_test_run(config: config, keep_alive: true)
+
     worker_opts = [
       span_id: span_id,
       run_id: run_id,
@@ -23,7 +26,7 @@ defmodule RLM.WorkerKeepAliveTest do
       cwd: System.tmp_dir!()
     ]
 
-    {:ok, pid} = DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts})
+    {:ok, pid} = RLM.Run.start_worker(run_pid, worker_opts)
     via = {:via, Registry, {RLM.Registry, {:worker, span_id}}}
 
     %{pid: pid, via: via, span_id: span_id, run_id: run_id}
