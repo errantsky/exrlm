@@ -8,6 +8,25 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Testing examples for multi-iteration, depth, and parallel subcalls**
+
+- Three example scenarios in `examples/` designed to exercise the full RLM
+  feature set and produce rich traces viewable in the web dashboard:
+  - `map_reduce_analysis.exs` — chunks a long text, uses `parallel_query` with
+    `schema:` to extract structured data from each chunk, then synthesizes via
+    a full `lm_query` subcall. Exercises: parallel fan-out, schema-mode direct
+    queries, multi-iteration variable accumulation, chunking helpers.
+  - `code_review.exs` — reads an Elixir source file with `read_file`, runs three
+    parallel schema-mode analyses (structure, quality, patterns), then a full
+    subcall for narrative synthesis. Exercises: filesystem tools, parallel schema
+    queries, full subcalls, multi-iteration aggregation.
+  - `research_synthesis.exs` — extracts structured facts from four research
+    sources via parallel schema queries, cross-references them with agreement/
+    contradiction analysis, then synthesizes a narrative via full subcall.
+    Exercises: mixed direct+subcall modes, complex schemas, multi-phase reasoning.
+- `mix rlm.examples` Mix task — run all examples, a specific one by name, or
+  `--list` to see available examples. Prints run_id and dashboard URL for each.
+
 **Structured sub-call results (`schema:` option for `lm_query`)**
 
 - `lm_query(text, schema: json_schema)` makes a single direct LLM call with constrained
