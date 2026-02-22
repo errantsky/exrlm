@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLM Engine — Consolidated Design &amp; Specification</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface-2: #252834; --border: #2e3140;
+    --text: #e1e4ed; --text-dim: #8b8fa3; --accent: #7c6cf0; --accent-light: #9d8ff7;
+    --green: #4ade80; --green-dim: #166534; --amber: #fbbf24; --amber-dim: #78350f;
+    --red: #f87171; --red-dim: #7f1d1d; --blue: #60a5fa; --cyan: #22d3ee;
+    --mono: 'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,'SF Mono',monospace;
+    --sans: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;font-size:15px}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:100;background:#13151f;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:0;height:48px;padding:0 24px;overflow-x:auto}
+  nav a{color:#a5b4fc;text-decoration:none;font-size:12.5px;font-weight:500;white-space:nowrap;
+        padding:0 12px;height:48px;display:flex;align-items:center;border-bottom:2px solid transparent;transition:.15s}
+  nav a:hover{color:#e0e7ff;border-bottom-color:var(--accent)}
+  nav .brand{color:#f5f3ff;font-weight:700;font-size:13px;margin-right:12px;padding-left:0;border-bottom:none}
+
+  /* HEADER */
+  header{text-align:center;padding:56px 24px 48px;border-bottom:1px solid var(--border);
+         background:linear-gradient(135deg,#13151f 0%,#1e1640 50%,#13151f 100%)}
+  header h1{font-size:2.4rem;font-weight:800;
+    background:linear-gradient(135deg,var(--accent-light),var(--cyan));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+  header .subtitle{color:var(--text-dim);font-size:1.05rem;max-width:700px;margin:0 auto 20px}
+  .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .badge{display:inline-block;padding:3px 10px;border-radius:9999px;font-size:.78rem;font-weight:600;
+         border:1px solid var(--border);background:var(--surface);color:var(--text-dim)}
+  .badge.hl{border-color:var(--accent);color:var(--accent-light)}
+
+  /* LAYOUT */
+  .container{max-width:1140px;margin:0 auto;padding:0 32px}
+  main{padding:48px 0 80px}
+  section{padding:40px 0;border-bottom:1px solid var(--border)}
+  section:last-child{border-bottom:none}
+
+  /* HEADINGS */
+  h2{font-size:1.55rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+  h2 .num{color:var(--accent);font-family:var(--mono);font-size:.85rem;background:var(--surface);
+    border:1px solid var(--border);width:28px;height:28px;border-radius:50%;display:flex;
+    align-items:center;justify-content:center;flex-shrink:0}
+  h3{font-size:1.12rem;font-weight:600;margin:24px 0 10px;color:var(--text)}
+  h4{font-size:.92rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 6px}
+  p{margin-bottom:10px;color:var(--text-dim)}
+  ul,ol{padding-left:20px;margin-bottom:10px;color:var(--text-dim)}
+  li{margin-bottom:4px}
+  strong{color:var(--text)}
+  a{color:var(--accent-light);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* CARDS */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .card h4{font-family:var(--mono);font-size:.9rem;color:var(--accent-light);margin-bottom:6px;text-transform:none;letter-spacing:0}
+  .card p{font-size:.88rem;margin-bottom:0}
+  .tag{display:inline-block;margin-top:8px;padding:2px 7px;border-radius:4px;font-size:.72rem;
+       font-family:var(--mono);background:var(--surface-2);color:var(--text-dim)}
+
+  /* CODE */
+  pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px 20px;
+      overflow-x:auto;margin:10px 0 16px;font-family:var(--mono);font-size:.82rem;line-height:1.6;color:var(--text)}
+  code{font-family:var(--mono);font-size:.82rem}
+  p code,li code,td code{background:var(--surface-2);color:var(--accent-light);padding:1px 5px;border-radius:3px;
+    font-size:.78rem;border:1px solid var(--border)}
+
+  /* DIAGRAM */
+  .diagram{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+           padding:20px 24px;overflow-x:auto;margin:12px 0 16px;font-family:var(--mono);
+           font-size:.8rem;line-height:1.6;white-space:pre;color:#7fdbca}
+  .diagram .hl{color:#ffcb6b;font-weight:700}
+  .diagram .cm{color:#546e7a;font-style:italic}
+  .diagram .ar{color:#89ddff}
+
+  /* TABLE */
+  .tw{overflow-x:auto;margin:10px 0 16px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th{text-align:left;padding:8px 12px;background:var(--surface);border-bottom:2px solid var(--accent);
+     color:var(--text-dim);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:top}
+  td:first-child{font-family:var(--mono);color:var(--accent-light);font-size:.82rem;white-space:nowrap}
+  tr:hover td{background:var(--surface-2)}
+
+  /* CALLOUT */
+  .callout{border-left:3px solid;padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:.9rem}
+  .callout-info{border-color:var(--blue);background:rgba(96,165,250,.08)}
+  .callout-warn{border-color:var(--amber);background:rgba(251,191,36,.06)}
+  .callout-ok{border-color:var(--green);background:rgba(74,222,128,.06)}
+  .callout strong{display:block;margin-bottom:4px;font-size:.85rem;color:var(--text)}
+
+  /* INVARIANT */
+  .inv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}
+  .inv{background:var(--surface);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:14px 16px}
+  .inv strong{display:block;margin-bottom:4px;color:var(--text);font-size:.9rem}
+  .inv span{color:var(--text-dim);font-size:.85rem}
+  @media(max-width:800px){.inv-grid{grid-template-columns:1fr}.card-grid{grid-template-columns:1fr}}
+
+  /* FLOW */
+  .flow{position:relative;padding-left:28px;margin:12px 0}
+  .flow::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border)}
+  .flow .step{position:relative;padding:8px 0}
+  .flow .step::before{content:'';position:absolute;left:-23px;top:14px;width:10px;height:10px;
+    border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+  .flow .step .label{font-weight:600;color:var(--text);font-size:.92rem}
+  .flow .step .detail{color:var(--text-dim);font-size:.85rem;margin-top:2px}
+
+  /* FOOTER */
+  footer{padding:24px;text-align:center;color:var(--text-dim);font-size:.82rem;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#top" class="brand">RLM Engine</a>
+  <a href="#overview">Overview</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#supervision">OTP Tree</a>
+  <a href="#engine">Engine Loop</a>
+  <a href="#sessions">Sessions</a>
+  <a href="#tools">Tools</a>
+  <a href="#telemetry">Telemetry</a>
+  <a href="#config">Config</a>
+  <a href="#safety">Safety</a>
+  <a href="#modules">Modules</a>
+  <a href="#testing">Testing</a>
+</nav>
+
+<header id="top">
+  <div class="container">
+    <h1>RLM Engine &mdash; Design &amp; Specification</h1>
+    <p class="subtitle">
+      A unified Elixir/OTP Recursive Language Model engine with interactive sessions,
+      filesystem tools, and a real-time LiveView trace dashboard.
+    </p>
+    <div class="badges">
+      <span class="badge hl">Elixir &ge; 1.19</span>
+      <span class="badge hl">OTP 27+</span>
+      <span class="badge">Anthropic Messages API</span>
+      <span class="badge">Phoenix.PubSub</span>
+      <span class="badge">Umbrella Project</span>
+      <span class="badge">February 2026</span>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+
+<!-- ================================================================ 1 -->
+<section id="overview">
+<h2><span class="num">1</span> Overview</h2>
+
+<p>
+  <strong>RLM (Recursive Language Model)</strong> is an inference strategy where an LLM never sees raw input data.
+  Instead, it receives metadata and writes Elixir code in a persistent REPL. The code runs in a sandboxed
+  <code>Code.eval_string</code> environment with persistent bindings. The LLM can recursively delegate sub-tasks to child LLMs,
+  enabling tree-structured decomposition of arbitrarily large inputs.
+</p>
+
+<p>
+  The engine operates in <strong>two modes</strong> from a single codebase:
+</p>
+
+<div class="card-grid">
+  <div class="card">
+    <h4>One-shot Mode</h4>
+    <p>
+      <code>RLM.run(context, query)</code> &mdash; starts a Worker that iterates until <code>final_answer</code>
+      is set, then terminates. Returns <code>{:ok, answer, run_id}</code>. The Worker is <code>:temporary</code>
+      and is not restarted after completion.
+    </p>
+    <span class="tag">RLM.run/3</span>
+  </div>
+  <div class="card">
+    <h4>Keep-alive (Interactive) Mode</h4>
+    <p>
+      <code>RLM.start_session(opts)</code> &mdash; starts a Worker that stays idle between turns.
+      <code>RLM.send_message(session_id, text)</code> triggers an iterate loop for each message.
+      Bindings persist across turns. The LLM has filesystem tools available.
+    </p>
+    <span class="tag">RLM.start_session/1 + RLM.send_message/3</span>
+  </div>
+</div>
+
+<h3>The Three Invariants</h3>
+<div class="inv-grid">
+  <div class="inv">
+    <strong>1. Input Isolation</strong>
+    <span>Raw input data is stored in the <code>context</code> binding. The LLM only sees metadata
+    (byte size, line count) and a 500-char preview. It must write code to process the actual data.</span>
+  </div>
+  <div class="inv">
+    <strong>2. Sub-call Isolation</strong>
+    <span>Results from <code>lm_query/2</code> subcalls are stored in variables within the REPL.
+    The parent LLM never sees child outputs in its context &mdash; only variable bindings.</span>
+  </div>
+  <div class="inv">
+    <strong>3. Stdout Truncation</strong>
+    <span>Stdout from code execution is truncated using a head+tail strategy (default 4000+4000 chars).
+    Important results must be stored in variables, not printed.</span>
+  </div>
+</div>
+</section>
+
+<!-- ================================================================ 2 -->
+<section id="architecture">
+<h2><span class="num">2</span> Architecture</h2>
+
+<p>The system is an Elixir umbrella project with two apps:</p>
+
+<div class="diagram"><span class="hl">rlm_umbrella/</span>
+├── apps/
+│   ├── <span class="hl">rlm/</span>                         <span class="cm"># Core engine (no web framework)</span>
+│   │   ├── lib/rlm/
+│   │   │   ├── rlm.ex               <span class="cm"># Public API: run/3, start_session/1, send_message/3</span>
+│   │   │   ├── worker.ex            <span class="cm"># GenServer: iterate loop + keep_alive mode</span>
+│   │   │   ├── eval.ex              <span class="cm"># Sandboxed Code.eval_string</span>
+│   │   │   ├── llm.ex               <span class="cm"># Anthropic Messages API client</span>
+│   │   │   ├── sandbox.ex           <span class="cm"># Functions injected into eval scope</span>
+│   │   │   ├── prompt.ex            <span class="cm"># System prompt + message formatting</span>
+│   │   │   ├── config.ex            <span class="cm"># Config struct + loader</span>
+│   │   │   ├── helpers.ex           <span class="cm"># chunks/2, grep/2, preview/2, list_bindings/0</span>
+│   │   │   ├── truncate.ex          <span class="cm"># Head+tail string truncation</span>
+│   │   │   ├── span.ex              <span class="cm"># Span/run ID generation</span>
+│   │   │   ├── iex.ex               <span class="cm"># IEx convenience helpers</span>
+│   │   │   ├── event_log.ex         <span class="cm"># Per-run trace Agent</span>
+│   │   │   ├── event_log_sweeper.ex <span class="cm"># Periodic EventLog GC</span>
+│   │   │   ├── trace_store.ex       <span class="cm"># :dets persistence GenServer</span>
+│   │   │   ├── tool.ex              <span class="cm"># Tool behaviour</span>
+│   │   │   ├── tool_registry.ex     <span class="cm"># Tool dispatch + discovery</span>
+│   │   │   ├── telemetry/           <span class="cm"># Telemetry events + 3 handlers</span>
+│   │   │   └── tools/               <span class="cm"># 7 filesystem tools</span>
+│   │   ├── test/
+│   │   └── priv/system_prompt.md
+│   │
+│   └── <span class="hl">rlm_web/</span>                     <span class="cm"># Phoenix 1.8 LiveView dashboard (read-only)</span>
+│       ├── lib/rlm_web_web/
+│       │   ├── live/
+│       │   │   ├── run_list_live.ex  <span class="cm"># GET / &mdash; all runs</span>
+│       │   │   └── run_detail_live.ex<span class="cm"># GET /runs/:run_id &mdash; span tree</span>
+│       │   └── components/
+│       │       └── trace_components.ex
+│       └── test/
+│
+├── config/                          <span class="cm"># config.exs, dev.exs, test.exs, runtime.exs</span>
+└── mix.exs</div>
+
+<h3>Data Flow</h3>
+
+<div class="diagram"><span class="cm">── ONE-SHOT MODE ──────────────────────  ── KEEP-ALIVE MODE ─────────────────────</span>
+
+RLM.run(context, query)                 RLM.start_session(opts)
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+DynamicSupervisor.start_child           DynamicSupervisor.start_child
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+RLM.Worker (GenServer)                  RLM.Worker (GenServer, status: :idle)
+  <span class="ar">↓</span>  send(self(), :iterate)                 <span class="ar">↓</span>  awaits send_message/3
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>  user msg → status: :running → :iterate
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+RLM.LLM.chat/3 (sync)                  RLM.LLM.chat/3 (sync)
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+extract_code → spawn eval              extract_code → spawn eval
+  <span class="ar">↕</span>  subcalls ↔ child Workers                <span class="ar">↕</span>  sandbox has filesystem tools
+{:eval_complete, result}                {:eval_complete, result}
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+final_answer? → complete                final_answer? → reply, status: :idle
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+send caller {:rlm_result, ...}          GenServer.reply(from, result)
+  <span class="ar">↓</span>                                        <span class="ar">↓</span>
+{:stop, :normal, state}                 {:noreply, idle_state}  <span class="cm"># stays alive</span></div>
+</section>
+
+<!-- ================================================================ 3 -->
+<section id="supervision">
+<h2><span class="num">3</span> OTP Supervision Tree</h2>
+
+<div class="diagram"><span class="hl">RLM.Supervisor</span>  <span class="cm">strategy: :one_for_one</span>
+├── <span class="hl">Registry</span>                  <span class="cm">name: RLM.Registry — unique lookup for Workers + EventLogs</span>
+├── <span class="hl">Phoenix.PubSub</span>            <span class="cm">name: RLM.PubSub — event broadcast bus</span>
+├── <span class="hl">Task.Supervisor</span>           <span class="cm">name: RLM.TaskSupervisor — bash tool timeout tasks</span>
+├── <span class="hl">DynamicSupervisor</span>         <span class="cm">name: RLM.WorkerSup — RLM Workers (:temporary)</span>
+├── <span class="hl">DynamicSupervisor</span>         <span class="cm">name: RLM.EventStore — per-run EventLog Agents</span>
+├── <span class="hl">RLM.Telemetry</span>             <span class="cm">GenServer — attaches Logger, PubSub, EventLog handlers</span>
+├── <span class="hl">RLM.TraceStore</span>            <span class="cm">GenServer — :dets persistence (rlm_traces table)</span>
+└── <span class="hl">RLM.EventLog.Sweeper</span>      <span class="cm">GenServer — GCs stale agents + :dets TTL sweep</span></div>
+
+<div class="tw">
+<table>
+  <tr><th>Child</th><th>OTP Type</th><th>Restart</th><th>Role</th></tr>
+  <tr><td>RLM.Registry</td><td>Registry</td><td>permanent</td><td>Named process lookup: <code>{:worker, span_id}</code>, <code>{:event_log, run_id}</code></td></tr>
+  <tr><td>RLM.PubSub</td><td>Phoenix.PubSub</td><td>permanent</td><td>Pub/sub bus. Topics: <code>"rlm:runs"</code>, <code>"rlm:run:&lt;id&gt;"</code></td></tr>
+  <tr><td>RLM.TaskSupervisor</td><td>Task.Supervisor</td><td>permanent</td><td>Supervises bash tool tasks with timeout yield</td></tr>
+  <tr><td>RLM.WorkerSup</td><td>DynamicSupervisor</td><td>permanent</td><td>Spawns <code>RLM.Worker</code> GenServers. Workers are <code>:temporary</code></td></tr>
+  <tr><td>RLM.EventStore</td><td>DynamicSupervisor</td><td>permanent</td><td>Spawns per-run <code>RLM.EventLog</code> Agents</td></tr>
+  <tr><td>RLM.Telemetry</td><td>GenServer</td><td>permanent</td><td>Attaches 3 telemetry handlers at boot</td></tr>
+  <tr><td>RLM.TraceStore</td><td>GenServer</td><td>permanent</td><td>Owns <code>:dets</code> bag table; survives restarts</td></tr>
+  <tr><td>RLM.EventLog.Sweeper</td><td>GenServer</td><td>permanent</td><td>GCs stale EventLog agents (TTL: 1h, interval: 5m)</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ================================================================ 4 -->
+<section id="engine">
+<h2><span class="num">4</span> RLM Engine &mdash; The Iterate Loop</h2>
+
+<h3>The Async-Eval Pattern</h3>
+
+<div class="callout callout-info">
+  <strong>Deadlock prevention</strong>
+  Eval runs in a separate <code>spawn</code>ed process. The Worker GenServer mailbox stays free.
+  When eval calls <code>lm_query()</code>, it does <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>.
+  The Worker handles it, spawns a child Worker, stores <code>from</code> in <code>pending_subcalls</code>,
+  and returns <code>{:noreply, state}</code>. When the child finishes, its <code>{:rlm_result, ...}</code>
+  message triggers <code>GenServer.reply/2</code>, unblocking the eval process.
+</div>
+
+<div class="diagram">Worker (GenServer)                       Eval Process (spawned)
+==================                       =====================
+      |
+      |  handle_info(:iterate)
+      |  ─── call LLM (sync) ──────<span class="ar">→</span>
+      |  ─── extract code ────────<span class="ar">→</span>
+      |  ─── spawn eval process ──<span class="ar">→</span>   Code.eval_string(code, bindings)
+      |  {:noreply, state}                    |
+      |                                       |  lm_query("sub input")
+      |  <span class="ar">←</span>── GenServer.call(:spawn_subcall) ─|
+      |  spawn child Worker                   |
+      |  store `from` in pending_subcalls     |  <span class="cm">(blocked, waiting for reply)</span>
+      |                                       |
+      |  <span class="ar">←</span>── {:rlm_result, child_id, val}     |  <span class="cm">(child finishes)</span>
+      |  GenServer.reply(from, val)           |
+      |                                 <span class="ar">──→</span>  |  <span class="cm">(unblocked, continues)</span>
+      |                                       |
+      |  <span class="ar">←</span>── {:eval_complete, result} ────────|  <span class="cm">(eval done)</span>
+      |  process result, check final_answer
+      |</div>
+
+<h3>Step-by-Step Flow</h3>
+<div class="flow">
+  <div class="step"><div class="label">1. Worker.init/1</div>
+    <div class="detail">Builds system + user message from context/query metadata. Emits <code>[:rlm, :node, :start]</code>. Sends <code>:iterate</code> to self (one-shot) or enters idle (keep-alive).</div></div>
+  <div class="step"><div class="label">2. handle_info(:iterate)</div>
+    <div class="detail">Checks iteration limit. Calls <code>maybe_compact/1</code> if history exceeds 80% of context window.</div></div>
+  <div class="step"><div class="label">3. LLM.chat/3 (synchronous)</div>
+    <div class="detail">Calls Anthropic Messages API. Emits <code>[:rlm, :llm, :request, :start/:stop]</code>.</div></div>
+  <div class="step"><div class="label">4. Code extraction</div>
+    <div class="detail"><code>RLM.LLM.extract_code/1</code> finds the <code>```elixir</code> block via regex. If absent, asks LLM to wrap its code.</div></div>
+  <div class="step"><div class="label">5. Async eval</div>
+    <div class="detail">Spawns eval in a new process. Worker remains free for subcall requests. <code>import RLM.Sandbox</code> is prepended to all eval'd code.</div></div>
+  <div class="step"><div class="label">6. {:eval_complete, result}</div>
+    <div class="detail">Truncates stdout. Builds feedback message. If <code>final_answer != nil</code>, calls <code>complete/2</code>. Otherwise loops.</div></div>
+  <div class="step"><div class="label">7. maybe_nudge/1</div>
+    <div class="detail">Detects Jaccard similarity &gt; 0.85 across last 3 code blocks. Injects a nudge prompt to break loops.</div></div>
+  <div class="step"><div class="label">8. complete/2</div>
+    <div class="detail">One-shot: emits <code>[:rlm, :node, :stop]</code>, sends <code>{:rlm_result, ...}</code> to caller, stops with <code>:normal</code>.<br>
+    Keep-alive: emits <code>[:rlm, :turn, :complete]</code>, replies to <code>pending_from</code>, resets to <code>:idle</code>.</div></div>
+</div>
+
+<h3>Context Compaction</h3>
+<p>When estimated tokens exceed 80% of the model's context window, <code>maybe_compact/1</code> fires.
+It serializes the history into a single string, truncates it head+tail, and rebuilds the history as
+<code>[system_msg, compaction_addendum]</code>. The serialized text is stored in the <code>compacted_history</code> binding.</p>
+
+<h3>Worker GenServer State</h3>
+<div class="tw">
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td>span_id</td><td>String</td><td>Unique ID for this Worker node</td></tr>
+  <tr><td>parent_span_id</td><td>String | nil</td><td>Parent's span_id (for subcalls)</td></tr>
+  <tr><td>run_id</td><td>String</td><td>Run-level trace correlation ID</td></tr>
+  <tr><td>depth</td><td>integer</td><td>Recursion depth (0 = root)</td></tr>
+  <tr><td>iteration</td><td>integer</td><td>Current iteration count</td></tr>
+  <tr><td>history</td><td>[map]</td><td>LLM message history (system + user/assistant)</td></tr>
+  <tr><td>bindings</td><td>keyword</td><td>Persistent REPL bindings (incl. <code>context</code>, <code>final_answer</code>)</td></tr>
+  <tr><td>model</td><td>String</td><td>Model identifier for this Worker</td></tr>
+  <tr><td>config</td><td>RLM.Config</td><td>Engine configuration</td></tr>
+  <tr><td>status</td><td>atom</td><td><code>:idle</code> | <code>:running</code> | <code>:ok</code> | <code>:error</code></td></tr>
+  <tr><td>eval_context</td><td>map | nil</td><td>In-flight eval metadata (code, timing, usage)</td></tr>
+  <tr><td>pending_subcalls</td><td>map</td><td><code>%{child_span_id => from}</code> for in-flight subcalls</td></tr>
+  <tr><td>keep_alive</td><td>boolean</td><td>Mode flag</td></tr>
+  <tr><td>cwd</td><td>String</td><td>Working directory for tool path resolution</td></tr>
+  <tr><td>pending_from</td><td>from | nil</td><td>Caller to reply to (keep-alive mode)</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ================================================================ 5 -->
+<section id="sessions">
+<h2><span class="num">5</span> Interactive Sessions</h2>
+
+<p>The keep-alive mode reuses the existing Worker GenServer with additional state management:</p>
+
+<ul>
+  <li><code>RLM.start_session(cwd: ".", model: "...")</code> &mdash; starts a Worker in <code>:idle</code> status</li>
+  <li><code>RLM.send_message(session_id, text)</code> &mdash; adds user message, triggers iterate loop, replies when <code>final_answer</code> is set</li>
+  <li><code>RLM.history(session_id)</code> / <code>RLM.status(session_id)</code> &mdash; introspection</li>
+  <li>Bindings persist across turns; <code>final_answer</code> resets to <code>nil</code> each turn</li>
+  <li>Filesystem tools are available in eval scope via <code>RLM.Sandbox</code></li>
+</ul>
+
+<h3>IEx Helpers</h3>
+<pre>
+iex&gt; session = RLM.IEx.start(cwd: ".")
+iex&gt; RLM.IEx.chat(session, "Count the lines in README.md")
+iex&gt; RLM.IEx.watch(session)       # subscribe to live telemetry
+iex&gt; RLM.IEx.history(session)     # print message history
+iex&gt; RLM.IEx.status(session)      # print session stats
+iex&gt; {s, _} = RLM.IEx.start_chat("List .ex files")  # one-liner
+</pre>
+</section>
+
+<!-- ================================================================ 6 -->
+<section id="tools">
+<h2><span class="num">6</span> Tool System</h2>
+
+<h3>Tool Behaviour</h3>
+<p>Each tool implements <code>RLM.Tool</code> with three callbacks: <code>name/0</code>, <code>description/0</code>, <code>execute/1</code>.</p>
+
+<div class="tw">
+<table>
+  <tr><th>Module</th><th>Name</th><th>Description</th></tr>
+  <tr><td>RLM.Tools.ReadFile</td><td>read_file</td><td>Read file contents (up to 100 KB), returns with line numbers</td></tr>
+  <tr><td>RLM.Tools.WriteFile</td><td>write_file</td><td>Write/overwrite a file; creates parent directories</td></tr>
+  <tr><td>RLM.Tools.EditFile</td><td>edit_file</td><td>Exact string replacement (uniqueness-guarded)</td></tr>
+  <tr><td>RLM.Tools.Bash</td><td>bash</td><td>Shell command via Task.async + Task.yield timeout guard</td></tr>
+  <tr><td>RLM.Tools.Grep</td><td>grep</td><td>ripgrep search with glob filtering</td></tr>
+  <tr><td>RLM.Tools.Glob</td><td>glob</td><td>Find files by pattern via Path.wildcard</td></tr>
+  <tr><td>RLM.Tools.Ls</td><td>ls</td><td>List directory with file types and sizes</td></tr>
+</table>
+</div>
+
+<h3>Sandbox Wrappers (available inside eval)</h3>
+<div class="tw">
+<table>
+  <tr><th>Function</th><th>Signature</th><th>Description</th></tr>
+  <tr><td>lm_query</td><td><code>lm_query(text, opts \\ [])</code></td><td>Invoke sub-LLM. Blocks until child completes. Returns <code>{:ok, answer}</code> | <code>{:error, reason}</code></td></tr>
+  <tr><td>parallel_query</td><td><code>parallel_query(inputs, opts)</code></td><td>Concurrent sub-LLMs via Task.async. Returns results in order</td></tr>
+  <tr><td>chunks</td><td><code>chunks(string, size)</code></td><td>Lazy string chunking via Stream.unfold</td></tr>
+  <tr><td>grep</td><td><code>grep(pattern, string)</code></td><td>Search lines matching substring/regex. Returns <code>[{line_no, line}]</code></td></tr>
+  <tr><td>preview</td><td><code>preview(term, n \\ 500)</code></td><td>Truncated inspect of any term</td></tr>
+  <tr><td>list_bindings</td><td><code>list_bindings()</code></td><td>Returns <code>[{name, type, byte_size}]</code> for current REPL bindings</td></tr>
+  <tr><td>read_file</td><td><code>read_file(path)</code></td><td>Read file (resolves relative to session cwd)</td></tr>
+  <tr><td>write_file</td><td><code>write_file(path, content)</code></td><td>Write file</td></tr>
+  <tr><td>edit_file</td><td><code>edit_file(path, old, new)</code></td><td>Exact string replacement in file</td></tr>
+  <tr><td>bash</td><td><code>bash(command, opts \\ [])</code></td><td>Shell command with timeout</td></tr>
+  <tr><td>rg</td><td><code>rg(pattern, path \\ cwd, opts)</code></td><td>ripgrep search</td></tr>
+  <tr><td>find_files</td><td><code>find_files(pattern, base \\ cwd)</code></td><td>Glob file search</td></tr>
+  <tr><td>ls</td><td><code>ls(path \\ cwd)</code></td><td>Directory listing</td></tr>
+  <tr><td>list_tools</td><td><code>list_tools()</code></td><td>List all available tools with descriptions</td></tr>
+  <tr><td>tool_help</td><td><code>tool_help(name)</code></td><td>Get description for a specific tool</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ================================================================ 7 -->
+<section id="telemetry">
+<h2><span class="num">7</span> Telemetry &amp; Tracing</h2>
+
+<p>The engine emits 15 fine-grained telemetry events via <code>:telemetry.execute/3</code>. Three consumers are attached at boot:</p>
+
+<div class="card-grid">
+  <div class="card">
+    <h4>RLM.Telemetry.Logger</h4>
+    <p>Structured logging via Elixir Logger for every event.</p>
+  </div>
+  <div class="card">
+    <h4>RLM.Telemetry.EventLogHandler</h4>
+    <p>Routes events to per-run EventLog Agent AND TraceStore (:dets). Write-through persistence.</p>
+  </div>
+  <div class="card">
+    <h4>RLM.Telemetry.PubSub</h4>
+    <p>Broadcasts via Phoenix.PubSub to <code>"rlm:runs"</code> and <code>"rlm:run:&lt;run_id&gt;"</code> topics.</p>
+  </div>
+</div>
+
+<h3>Event Names</h3>
+<div class="tw">
+<table>
+  <tr><th>Event</th><th>Measurements</th><th>Key Metadata</th></tr>
+  <tr><td>[:rlm, :node, :start]</td><td>&mdash;</td><td>context_bytes, query_preview</td></tr>
+  <tr><td>[:rlm, :node, :stop]</td><td>duration_ms, total_iterations</td><td>status, result_preview</td></tr>
+  <tr><td>[:rlm, :node, :exception]</td><td>&mdash;</td><td>error</td></tr>
+  <tr><td>[:rlm, :iteration, :start]</td><td>&mdash;</td><td>iteration</td></tr>
+  <tr><td>[:rlm, :iteration, :stop]</td><td>duration_ms</td><td>code, stdout_preview, eval_status, final_answer, bindings_snapshot, llm tokens</td></tr>
+  <tr><td>[:rlm, :llm, :request, :start]</td><td>&mdash;</td><td>messages_count</td></tr>
+  <tr><td>[:rlm, :llm, :request, :stop]</td><td>duration_ms, prompt_tokens, completion_tokens, total_tokens</td><td>response_preview, code_extracted</td></tr>
+  <tr><td>[:rlm, :llm, :request, :exception]</td><td>duration_ms</td><td>error</td></tr>
+  <tr><td>[:rlm, :eval, :start]</td><td>&mdash;</td><td>code, iteration</td></tr>
+  <tr><td>[:rlm, :eval, :stop]</td><td>duration_ms</td><td>status, stdout_bytes</td></tr>
+  <tr><td>[:rlm, :eval, :exception]</td><td>&mdash;</td><td>error</td></tr>
+  <tr><td>[:rlm, :subcall, :spawn]</td><td>&mdash;</td><td>child_span_id, child_depth, model_size</td></tr>
+  <tr><td>[:rlm, :subcall, :result]</td><td>duration_ms</td><td>child_span_id, status, result_preview</td></tr>
+  <tr><td>[:rlm, :compaction, :run]</td><td>before_tokens, after_tokens</td><td>history_bytes_compacted</td></tr>
+  <tr><td>[:rlm, :turn, :complete]</td><td>duration_ms, total_iterations</td><td>status, result_preview</td></tr>
+</table>
+</div>
+
+<p>All events include base metadata: <code>span_id</code>, <code>parent_span_id</code>, <code>run_id</code>, <code>depth</code>, <code>model</code>.</p>
+
+<h3>Trace Persistence</h3>
+<ul>
+  <li><strong>Hot path:</strong> <code>RLM.EventLog</code> Agent stores events in-memory per run. Builds a span tree for the dashboard.</li>
+  <li><strong>Cold path:</strong> <code>RLM.TraceStore</code> writes every event to a <code>:dets</code> bag table at <code>priv/traces.dets</code>. Survives restarts.</li>
+  <li><strong>GC:</strong> <code>RLM.EventLog.Sweeper</code> terminates stale Agents (TTL: 1 hour) and purges old :dets records.</li>
+  <li><strong>Dashboard:</strong> <code>RunDetailLive</code> falls back to TraceStore when the in-memory Agent has been swept.</li>
+</ul>
+</section>
+
+<!-- ================================================================ 8 -->
+<section id="config">
+<h2><span class="num">8</span> Configuration</h2>
+
+<p><code>RLM.Config.load(overrides)</code> loads from app env with runtime keyword overrides.</p>
+
+<div class="tw">
+<table>
+  <tr><th>Field</th><th>Default</th><th>Description</th></tr>
+  <tr><td>api_base_url</td><td>"https://api.anthropic.com"</td><td>Anthropic API base URL</td></tr>
+  <tr><td>api_key</td><td>$CLAUDE_API_KEY</td><td>API key from env var</td></tr>
+  <tr><td>model_large</td><td>claude-sonnet-4-5-20250929</td><td>Model for root Workers</td></tr>
+  <tr><td>model_small</td><td>claude-haiku-4-5-20251001</td><td>Model for subcall Workers</td></tr>
+  <tr><td>max_iterations</td><td>25</td><td>Max REPL iterations before forced stop</td></tr>
+  <tr><td>max_depth</td><td>5</td><td>Max recursion depth for subcalls</td></tr>
+  <tr><td>max_concurrent_subcalls</td><td>10</td><td>Max parallel subcalls per Worker</td></tr>
+  <tr><td>context_window_tokens_large</td><td>200,000</td><td>Context window size (large model)</td></tr>
+  <tr><td>context_window_tokens_small</td><td>200,000</td><td>Context window size (small model)</td></tr>
+  <tr><td>truncation_head</td><td>4,000</td><td>Chars to keep from start of stdout</td></tr>
+  <tr><td>truncation_tail</td><td>4,000</td><td>Chars to keep from end of stdout</td></tr>
+  <tr><td>eval_timeout</td><td>300,000 ms</td><td>Per-eval execution timeout (5 min)</td></tr>
+  <tr><td>llm_timeout</td><td>120,000 ms</td><td>Per-LLM HTTP timeout (2 min)</td></tr>
+  <tr><td>subcall_timeout</td><td>600,000 ms</td><td>Overall subcall timeout</td></tr>
+  <tr><td>cost_per_1k_*</td><td>varies</td><td>Token cost fields (defined but unused)</td></tr>
+  <tr><td>enable_otel</td><td>false</td><td>OpenTelemetry export (reserved)</td></tr>
+  <tr><td>enable_event_log</td><td>true</td><td>Enable per-run EventLog</td></tr>
+  <tr><td>llm_module</td><td>RLM.LLM</td><td>Swappable LLM client (for testing)</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ================================================================ 9 -->
+<section id="safety">
+<h2><span class="num">9</span> Safety Mechanisms</h2>
+
+<div class="card-grid">
+  <div class="card">
+    <h4>Iteration Cap</h4>
+    <p>Workers stop after <code>max_iterations</code> (default 25) to prevent runaway loops.</p>
+  </div>
+  <div class="card">
+    <h4>Depth Cap</h4>
+    <p>Subcall depth limited to <code>max_depth</code> (default 5). Prevents unbounded recursion.</p>
+  </div>
+  <div class="card">
+    <h4>Concurrency Cap</h4>
+    <p><code>max_concurrent_subcalls</code> (default 10) enforced per Worker. Prevents runaway parallel_query.</p>
+  </div>
+  <div class="card">
+    <h4>Eval Timeout</h4>
+    <p>5-minute timeout per eval. Process killed with <code>Process.exit(pid, :kill)</code>.</p>
+  </div>
+  <div class="card">
+    <h4>Run Timeout + Monitor</h4>
+    <p><code>RLM.run/3</code> uses <code>Process.monitor</code>. Crashes surface as errors. Overall timeout: <code>eval_timeout * 2</code>.</p>
+  </div>
+  <div class="card">
+    <h4>Repetition Detection</h4>
+    <p>Jaccard similarity &gt; 0.85 across last 3 code blocks triggers a nudge message.</p>
+  </div>
+  <div class="card">
+    <h4>History Compaction</h4>
+    <p>At 80% of context window, history is serialized and compressed into a binding.</p>
+  </div>
+  <div class="card">
+    <h4>Stdout Truncation</h4>
+    <p>Head+tail truncation (4000+4000 chars). Middle omitted with character count.</p>
+  </div>
+</div>
+</section>
+
+<!-- ================================================================ 10 -->
+<section id="modules">
+<h2><span class="num">10</span> Module Reference</h2>
+
+<div class="card-grid">
+  <div class="card"><h4>RLM</h4><p>Public API: <code>run/3</code>, <code>run_async/3</code>, <code>start_session/1</code>, <code>send_message/3</code>, <code>history/1</code>, <code>status/1</code></p><span class="tag">lib/rlm.ex</span></div>
+  <div class="card"><h4>RLM.Worker</h4><p>GenServer per execution node. Iterate loop (LLM → eval → check) + keep_alive mode with send_message. Handles subcall spawning.</p><span class="tag">lib/rlm/worker.ex &bull; ~670 lines</span></div>
+  <div class="card"><h4>RLM.Eval</h4><p>Sandboxed <code>Code.eval_string</code> with IO capture, timeout, process monitoring. Injects worker PID + cwd for sandbox functions.</p><span class="tag">lib/rlm/eval.ex</span></div>
+  <div class="card"><h4>RLM.Sandbox</h4><p>Functions injected into eval scope: LLM subcalls, data helpers, filesystem tool wrappers. Paths resolve relative to session cwd.</p><span class="tag">lib/rlm/sandbox.ex</span></div>
+  <div class="card"><h4>RLM.LLM</h4><p>Anthropic Messages API client via Req. Extracts system messages, formats for Claude API, parses code blocks and token usage.</p><span class="tag">lib/rlm/llm.ex</span></div>
+  <div class="card"><h4>RLM.Config</h4><p>Config struct with 20+ fields. Loads from app env + keyword overrides. Supports DI via <code>llm_module</code>.</p><span class="tag">lib/rlm/config.ex</span></div>
+  <div class="card"><h4>RLM.Prompt</h4><p>System prompt loading from <code>priv/system_prompt.md</code>. Builds user, feedback, nudge, and compaction messages.</p><span class="tag">lib/rlm/prompt.ex</span></div>
+  <div class="card"><h4>RLM.Helpers</h4><p>Utility functions: lazy chunking, regex grep, truncated preview, binding introspection.</p><span class="tag">lib/rlm/helpers.ex</span></div>
+  <div class="card"><h4>RLM.Truncate</h4><p>Head+tail string truncation with configurable sizes and omission marker.</p><span class="tag">lib/rlm/truncate.ex</span></div>
+  <div class="card"><h4>RLM.Span</h4><p>Generates hex span IDs (8 bytes) and run IDs (<code>run_</code> prefix) via <code>:crypto.strong_rand_bytes</code>.</p><span class="tag">lib/rlm/span.ex</span></div>
+  <div class="card"><h4>RLM.IEx</h4><p>IEx helpers: <code>start/1</code>, <code>chat/2</code>, <code>start_chat/2</code>, <code>watch/2</code>, <code>history/1</code>, <code>status/1</code>.</p><span class="tag">lib/rlm/iex.ex</span></div>
+  <div class="card"><h4>RLM.EventLog</h4><p>Per-run Agent storing structured events. Builds tree representation. Exports to JSONL.</p><span class="tag">lib/rlm/event_log.ex</span></div>
+  <div class="card"><h4>RLM.EventLog.Sweeper</h4><p>GenServer that periodically GCs stale EventLog agents + :dets records. TTL: 1h, interval: 5m.</p><span class="tag">lib/rlm/event_log_sweeper.ex</span></div>
+  <div class="card"><h4>RLM.TraceStore</h4><p>GenServer owning :dets bag table. <code>put_event/2</code>, <code>get_events/1</code>, <code>list_run_ids/0</code>, <code>delete_older_than/1</code>.</p><span class="tag">lib/rlm/trace_store.ex</span></div>
+  <div class="card"><h4>RLM.Tool</h4><p>Behaviour with <code>name/0</code>, <code>description/0</code>, <code>execute/1</code> callbacks.</p><span class="tag">lib/rlm/tool.ex</span></div>
+  <div class="card"><h4>RLM.ToolRegistry</h4><p>Central dispatch: <code>all/0</code>, <code>names/0</code>, <code>descriptions/0</code>, <code>execute/2</code>, <code>description_for/1</code>.</p><span class="tag">lib/rlm/tool_registry.ex</span></div>
+  <div class="card"><h4>RLM.Telemetry</h4><p>GenServer attaching 3 handlers to 15 events at boot.</p><span class="tag">lib/rlm/telemetry/</span></div>
+</div>
+
+<h3>Dashboard (apps/rlm_web)</h3>
+<div class="card-grid">
+  <div class="card"><h4>RlmWebWeb.RunListLive</h4><p><code>GET /</code> &mdash; live table of all runs from TraceStore. New rows via PubSub.</p></div>
+  <div class="card"><h4>RlmWebWeb.RunDetailLive</h4><p><code>GET /runs/:run_id</code> &mdash; recursive span tree with expandable iteration cards.</p></div>
+  <div class="card"><h4>RlmWebWeb.TraceComponents</h4><p>HEEx components: <code>span_node/1</code>, <code>iteration_card/1</code>.</p></div>
+</div>
+</section>
+
+<!-- ================================================================ 11 -->
+<section id="testing">
+<h2><span class="num">11</span> Testing</h2>
+
+<p>Tests use <code>RLM.Test.MockLLM</code> &mdash; an ETS-based FIFO response queue that implements the LLM behaviour.</p>
+
+<pre>
+# Program mock responses
+RLM.Test.MockLLM.program_responses(self(), [
+  "```elixir\nresult = String.length(context)\nfinal_answer = result\n```"
+])
+
+# Run with mock
+assert {:ok, 11, _run_id} = RLM.run("hello world", "count chars",
+  llm_module: RLM.Test.MockLLM
+)
+</pre>
+
+<h3>Test Categories</h3>
+<div class="tw">
+<table>
+  <tr><th>Suite</th><th>Async</th><th>Coverage</th></tr>
+  <tr><td>worker_test.exs</td><td>false</td><td>Single/multi-iteration, binding persistence, subcall depth/concurrency limits, 3-tuple return</td></tr>
+  <tr><td>worker_keep_alive_test.exs</td><td>false</td><td>Session lifecycle, multi-turn binding persistence, tool access in eval</td></tr>
+  <tr><td>worker_pubsub_test.exs</td><td>false</td><td>PubSub event broadcasting for iterations, node lifecycle</td></tr>
+  <tr><td>sandbox_test.exs</td><td>true</td><td>Sandbox helpers: chunks, grep, preview, list_bindings, tool wrappers</td></tr>
+  <tr><td>tools_test.exs</td><td>true</td><td>All 7 tools + ToolRegistry dispatch. Per-test temp directory.</td></tr>
+  <tr><td>integration_test.exs</td><td>false</td><td>Full pipeline with MockLLM including EventLog recording</td></tr>
+  <tr><td>helpers_test.exs</td><td>true</td><td>Helpers module: chunks, grep, preview</td></tr>
+  <tr><td>live_api_test.exs</td><td>false</td><td>Real Claude API (tagged <code>:live_api</code>, excluded by default)</td></tr>
+</table>
+</div>
+
+<h3>Commands</h3>
+<pre>
+mix test                      # all mock tests
+mix test --trace              # verbose output
+mix test --include live_api   # include real API tests (requires CLAUDE_API_KEY)
+</pre>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <p>RLM Engine &mdash; Consolidated Design &amp; Specification &mdash; February 2026</p>
+  <p>Consolidates: GUIDE.html, design_guide.html, SPEC.md, REVIEW.html</p>
+</footer>
+
+</body>
+</html>

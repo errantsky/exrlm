@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLM Engine — System Review &amp; OTP Assessment</title>
+<style>
+  :root {
+    --bg: #fafbfc; --surface: #ffffff; --surface-alt: #f4f5f7; --border: #d8dde6;
+    --text: #1a1e27; --text-dim: #5a6478; --accent: #5b21b6; --accent-mid: #7c3aed;
+    --accent-light: #ede9fe; --green: #15803d; --green-light: #dcfce7;
+    --blue: #1d4ed8; --blue-light: #dbeafe; --amber: #b45309; --amber-light: #fef3c7;
+    --red: #b91c1c; --red-light: #fee2e2; --teal: #0e7490; --teal-light: #cffafe;
+    --code-bg: #1e2130; --code-text: #e2e8f0;
+    --mono: 'JetBrains Mono','Fira Code',ui-monospace,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;font-size:15px}
+
+  /* HEADER */
+  header{background:linear-gradient(135deg,#1a1028 0%,#2d1b69 50%,#1e1040 100%);
+         color:white;padding:56px 40px 48px;text-align:center}
+  header h1{font-size:2.2rem;font-weight:800;margin-bottom:8px}
+  header .sub{color:#c4b5fd;font-size:1.05rem;max-width:700px;margin:0 auto 16px}
+  header .date{color:#a78bfa;font-size:.85rem;font-family:var(--mono)}
+
+  .container{max-width:1100px;margin:0 auto;padding:0 36px}
+  main{padding:48px 0 80px}
+  section{margin-bottom:52px}
+
+  h2{font-size:1.5rem;font-weight:700;margin-bottom:18px;padding-bottom:10px;
+     border-bottom:2px solid var(--border);display:flex;align-items:center;gap:10px}
+  h2 .num{background:var(--accent);color:white;font-size:.7rem;font-weight:800;
+    width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  h3{font-size:1.1rem;font-weight:700;margin:22px 0 8px}
+  h4{font-size:.92rem;font-weight:700;color:var(--text-dim);margin:14px 0 6px}
+  p{margin-bottom:10px}
+  ul,ol{padding-left:20px;margin-bottom:10px}
+  li{margin-bottom:4px}
+  strong{color:var(--text)}
+  a{color:var(--accent-mid);text-decoration:none}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+  pre{background:var(--code-bg);color:var(--code-text);font-family:var(--mono);font-size:.82rem;
+      line-height:1.6;border-radius:8px;padding:18px 20px;overflow-x:auto;margin:10px 0 16px;border:1px solid #2d3548}
+  code{font-family:var(--mono);font-size:.82rem}
+  p code,li code,td code{background:var(--surface-alt);color:var(--accent);padding:1px 5px;
+    border-radius:3px;font-size:.78rem;border:1px solid var(--border)}
+
+  .tw{overflow-x:auto;margin:10px 0 16px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th{text-align:left;padding:8px 12px;background:var(--surface-alt);border:1px solid var(--border);
+     font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim)}
+  td{padding:7px 12px;border:1px solid var(--border);vertical-align:top}
+  tr:nth-child(even) td{background:#fafbfd}
+
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:700}
+  .good{background:var(--green-light);color:var(--green)}
+  .warn{background:var(--amber-light);color:var(--amber)}
+  .err{background:var(--red-light);color:var(--red)}
+  .info{background:var(--blue-light);color:var(--blue)}
+  .teal{background:var(--teal-light);color:var(--teal)}
+
+  .callout{border-left:3px solid;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0;font-size:.9rem}
+  .callout-info{border-color:var(--blue);background:var(--blue-light)}
+  .callout-warn{border-color:var(--amber);background:var(--amber-light)}
+  .callout-ok{border-color:var(--green);background:var(--green-light)}
+  .callout-accent{border-color:var(--accent-mid);background:var(--accent-light)}
+  .callout strong{display:block;margin-bottom:4px;font-size:.85rem}
+
+  .score{font-size:2rem;font-weight:800;color:var(--accent);font-family:var(--mono)}
+  .score-label{font-size:.85rem;color:var(--text-dim);margin-top:2px}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:800px){.two-col,.card-grid{grid-template-columns:1fr}}
+
+  footer{padding:24px;text-align:center;color:var(--text-dim);font-size:.82rem;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RLM Engine &mdash; System Review</h1>
+  <p class="sub">Thorough architecture review with OTP-nativeness assessment, code quality findings, and module reorganization proposals.</p>
+  <p class="date">February 2026 &bull; Post-consolidation (Agent.* removed)</p>
+</header>
+
+<main>
+<div class="container">
+
+<!-- ================================================================ 1 -->
+<section>
+<h2><span class="num">1</span> Executive Summary</h2>
+
+<div class="card">
+<p>The RLM engine is a <strong>well-structured Elixir/OTP system</strong> that correctly implements the recursive language model pattern using native OTP primitives. The recent consolidation that merged the <code>RLM.Agent.*</code> namespace back into the core engine was the right call &mdash; it eliminated a half-baked abstraction layer and unified the codebase around one Worker model.</p>
+
+<div class="two-col" style="margin-top:16px">
+  <div>
+    <div class="score">7.5/10</div>
+    <div class="score-label">OTP Nativeness</div>
+  </div>
+  <div>
+    <div class="score">7/10</div>
+    <div class="score-label">Overall Code Quality</div>
+  </div>
+</div>
+
+<p style="margin-top:16px"><strong>Key strengths:</strong> The async-eval deadlock prevention pattern is elegant and correct. The telemetry pipeline with 3 independent handlers is well-separated. MockLLM-based testing enables deterministic CI. The supervision tree is simple and idiomatic.</p>
+
+<p><strong>Key concerns:</strong> The Worker GenServer does too much (670 lines, two modes, all orchestration). Cost tracking fields exist but are dead code. The tool system doesn't leverage OTP patterns (no processes, static registry). Module naming has some inconsistencies that hurt discoverability.</p>
+</div>
+</section>
+
+<!-- ================================================================ 2 -->
+<section>
+<h2><span class="num">2</span> OTP Nativeness Assessment</h2>
+
+<h3>What's Genuinely OTP-Native</h3>
+
+<div class="card-grid">
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Supervision Tree</h4>
+    <p>Clean <code>one_for_one</code> strategy. Workers are <code>:temporary</code>. Infrastructure processes are permanent. DynamicSupervisors for runtime children. Start order is correct.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Async-Eval Pattern</h4>
+    <p>This is genuine OTP thinking: keep the GenServer mailbox responsive by offloading blocking work to a spawned process. The <code>pending_subcalls</code> map with deferred <code>GenServer.reply/2</code> is textbook.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Registry Usage</h4>
+    <p>Workers and EventLogs discovered by <code>{:via, Registry, ...}</code> with semantic tuple keys. No ETS lookup hacks or global name registration.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> PubSub Decoupling</h4>
+    <p>Telemetry events → PubSub → LiveView. Producers and consumers are completely decoupled. The dashboard can crash without affecting the engine. No direct process coupling.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Good</span> EventLog as Agent</h4>
+    <p>Using an <code>Agent</code> for append-only trace storage is the right tool. Simple state, no complex message handling needed. Correctly supervised under DynamicSupervisor.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Good</span> Crash Isolation</h4>
+    <p><code>Process.monitor</code> in <code>RLM.run/3</code> ensures caller doesn't hang on Worker crash. Child Worker crashes don't take down parents (separate DynamicSupervisor children).</p>
+  </div>
+</div>
+
+<h3>What's Not OTP-Native (But Could Be)</h3>
+
+<div class="card-grid">
+  <div class="card">
+    <h4><span class="badge warn">Missed Opportunity</span> Eval Process is Bare spawn</h4>
+    <p>Eval runs in <code>spawn(fn -> ... end)</code> — an unsupervised, unlinked process. If the Worker crashes mid-eval, the eval process keeps running as an orphan. Should use <code>Task.Supervisor</code> or at least <code>spawn_link</code>.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge warn">Missed Opportunity</span> Tool Registry is Static</h4>
+    <p><code>RLM.ToolRegistry</code> is a pure module with <code>@tools</code> as a compile-time list. No process, no runtime registration. Fine for now, but prevents dynamic tool loading and doesn't leverage OTP's registry patterns.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge warn">Missed Opportunity</span> Config is a Struct, Not a Process</h4>
+    <p><code>RLM.Config.load/1</code> creates a struct from app env on every call. No caching, no runtime reconfiguration. An ETS-based config or a simple Agent would allow live config changes without restarting Workers.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge warn">Missed Opportunity</span> TraceStore Uses GenServer for :dets</h4>
+    <p><code>RLM.TraceStore</code> serializes all :dets access through a single GenServer. Since :dets is process-safe, the GenServer adds unnecessary serialization. However, it does provide clean lifecycle management (open/close in init/terminate).</p>
+  </div>
+</div>
+
+<h3>OTP Patterns Scorecard</h3>
+<div class="tw">
+<table>
+  <tr><th>OTP Pattern</th><th>Used?</th><th>Quality</th><th>Notes</th></tr>
+  <tr><td>Supervision tree</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>Clean one_for_one with correct child ordering</td></tr>
+  <tr><td>GenServer</td><td><span class="badge good">Yes</span></td><td><span class="badge warn">B</span></td><td>Worker is overloaded; Telemetry/TraceStore/Sweeper are clean</td></tr>
+  <tr><td>DynamicSupervisor</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>Used for Workers and EventLogs — exactly right</td></tr>
+  <tr><td>Registry</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>Semantic keys, via tuples, clean lookup</td></tr>
+  <tr><td>Agent</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>EventLog — perfect use case for Agent</td></tr>
+  <tr><td>Task / Task.Supervisor</td><td><span class="badge warn">Partial</span></td><td><span class="badge warn">B-</span></td><td>Bash tool uses it; eval does not (bare spawn)</td></tr>
+  <tr><td>Phoenix.PubSub</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>Clean decoupling between engine and dashboard</td></tr>
+  <tr><td>:telemetry</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>15 events, 3 handlers, standard patterns</td></tr>
+  <tr><td>Process.monitor</td><td><span class="badge good">Yes</span></td><td><span class="badge good">A</span></td><td>Caller monitors Worker to catch crashes</td></tr>
+  <tr><td>GenStage / Flow</td><td><span class="badge info">No</span></td><td>&mdash;</td><td>Not needed yet; would help if streaming is added</td></tr>
+  <tr><td>ETS</td><td><span class="badge info">Indirect</span></td><td><span class="badge good">A</span></td><td>MockLLM uses ETS; Registry uses it internally</td></tr>
+  <tr><td>:dets</td><td><span class="badge good">Yes</span></td><td><span class="badge warn">B</span></td><td>TraceStore — works but :dets is deprecated-ish in OTP</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ================================================================ 3 -->
+<section>
+<h2><span class="num">3</span> Code Quality Findings</h2>
+
+<h3>Critical Issues</h3>
+
+<div class="card">
+<p><span class="badge err">Critical</span> <strong>Eval process is unsupervised</strong></p>
+<p><code>Worker.start_async_eval/6</code> uses bare <code>spawn(fn -> ... end)</code>. If the Worker crashes or is terminated while eval is running, the eval process becomes an orphan — still holding IO resources and potentially making GenServer.calls to a dead Worker. It should use <code>spawn_link</code> (so eval dies with the Worker) or <code>Task.Supervisor.async_nolink</code> (for supervised independent execution).</p>
+<p><strong>File:</strong> <code>worker.ex:467</code></p>
+</div>
+
+<div class="card">
+<p><span class="badge err">Critical</span> <strong>Cost tracking is dead code</strong></p>
+<p><code>RLM.Config</code> defines 4 cost fields (<code>cost_per_1k_prompt_tokens_large</code>, etc.) that are loaded on every config initialization but <strong>never used anywhere</strong>. No cost calculation, no cost accumulation in Worker state, no cost telemetry emission. This is confusing to readers and wastes struct memory.</p>
+<p><strong>Action:</strong> Either implement cost tracking (accumulate in Worker state, emit via telemetry, propagate through subcall tree) or remove the fields.</p>
+</div>
+
+<h3>Important Issues</h3>
+
+<div class="card">
+<p><span class="badge warn">Important</span> <strong>Worker GenServer is overloaded (~670 lines)</strong></p>
+<p>The Worker handles: one-shot mode, keep-alive mode, iterate loop, LLM calls, async eval spawning, eval result processing, subcall management, compaction, nudge detection, telemetry emission, and completion logic. This makes it hard to understand and test individual concerns.</p>
+<p><strong>Suggestion:</strong> Extract at least these concerns into separate modules:
+<ul>
+  <li>Compaction logic → <code>RLM.Compaction</code></li>
+  <li>Nudge/loop detection → <code>RLM.LoopDetector</code></li>
+  <li>Telemetry emission helpers → already partially in <code>RLM.Telemetry</code>, could extract <code>emit_telemetry/4</code></li>
+</ul></p>
+</div>
+
+<div class="card">
+<p><span class="badge warn">Important</span> <strong>parallel_query error handling is weak</strong></p>
+<p><code>RLM.Sandbox.parallel_query/2</code> uses <code>Task.await_many(:infinity)</code> with no error aggregation. If one task crashes, the entire <code>await_many</code> raises. Remaining tasks may continue running (resource leak). Should use <code>Task.yield_many/2</code> with a timeout and proper cleanup of unyielded tasks.</p>
+<p><strong>File:</strong> <code>sandbox.ex:53</code></p>
+</div>
+
+<div class="card">
+<p><span class="badge warn">Important</span> <strong>No streaming support</strong></p>
+<p>The previous <code>RLM.Agent.LLM</code> had SSE streaming support that was removed during consolidation. <code>RLM.LLM.chat/3</code> blocks until the full response arrives. For interactive sessions, this means the user sees nothing until the entire LLM response is complete. The CHANGELOG notes "can be re-added to RLM.LLM if needed."</p>
+</div>
+
+<div class="card">
+<p><span class="badge warn">Important</span> <strong>History compaction is lossy and naive</strong></p>
+<p><code>maybe_compact/1</code> serializes all messages into a string and truncates it. The LLM only sees a head+tail preview of past reasoning. Fine details (specific bindings, intermediate results) are lost. The original Python RLM uses LLM summarization which preserves more semantic information. Consider at minimum a sliding-window approach that keeps the last N messages intact.</p>
+</div>
+
+<h3>Minor Issues</h3>
+
+<div class="card-grid">
+  <div class="card">
+    <p><span class="badge warn">Minor</span> <strong>Token estimation is rough</strong></p>
+    <p><code>estimate_tokens/1</code> divides string length by 4. Real tokenization varies significantly. Could cause premature or late compaction.</p>
+  </div>
+  <div class="card">
+    <p><span class="badge warn">Minor</span> <strong>EventLog.append rescues all errors silently</strong></p>
+    <p><code>rescue _ -> :ok</code> swallows all exceptions including genuine bugs. Should at minimum log the error.</p>
+  </div>
+  <div class="card">
+    <p><span class="badge warn">Minor</span> <strong>Span ID uses hex_encode32 not hex_encode16</strong></p>
+    <p><code>Base.hex_encode32/2</code> produces IDs like <code>"c1g3i7..."</code>. This is unusual — most span IDs use hex (base16). Not a bug, but unexpected.</p>
+  </div>
+  <div class="card">
+    <p><span class="badge warn">Minor</span> <strong>:dets is soft-deprecated in OTP</strong></p>
+    <p>The OTP team has signaled that :dets is not actively maintained. Consider CubDB, SQLite (via Exqlite), or JSONL files for persistence.</p>
+  </div>
+  <div class="card">
+    <p><span class="badge warn">Minor</span> <strong>No backpressure on subcalls</strong></p>
+    <p>While <code>max_concurrent_subcalls</code> is enforced, there's no queuing — calls that exceed the limit get an immediate error. A proper bounded queue would be more resilient.</p>
+  </div>
+  <div class="card">
+    <p><span class="badge warn">Minor</span> <strong>Telemetry GenServer is fragile</strong></p>
+    <p>If <code>RLM.Telemetry.init/1</code> fails (e.g., duplicate handler IDs from a previous crash), it brings down the supervisor. <code>detach_all_handlers</code> in init would make it idempotent.</p>
+  </div>
+</div>
+</section>
+
+<!-- ================================================================ 4 -->
+<section>
+<h2><span class="num">4</span> What Works Well</h2>
+
+<div class="card-grid">
+  <div class="card">
+    <h4><span class="badge good">Strength</span> Unified Worker Model</h4>
+    <p>The consolidation from <code>RLM.Agent.Session</code> + <code>RLM.Worker</code> into a single Worker with two modes was the right architectural decision. One process model, one set of tests, one supervision strategy. The keep-alive mode adds minimal complexity.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Strength</span> Telemetry Pipeline</h4>
+    <p>15 event types with 3 independent handlers is excellent observability. The write-through to both EventLog (hot) and TraceStore (cold) is a solid dual-path design. PubSub broadcasting enables LiveView without coupling.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Strength</span> Test Infrastructure</h4>
+    <p>MockLLM with ETS-based FIFO queue enables fully deterministic testing of the async iterate loop. The <code>llm_module</code> config injection is clean dependency inversion. Test categories (async/non-async, live/mock) are well-organized.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Strength</span> Sandbox Design</h4>
+    <p>Injecting <code>import RLM.Sandbox</code> into eval'd code with process dictionary for runtime state (<code>:rlm_worker_pid</code>, <code>:rlm_cwd</code>, <code>:rlm_bindings_info</code>) is pragmatic and clean. The tool wrappers with path resolution are well-designed.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Strength</span> Tool Behaviour</h4>
+    <p>Simple 3-callback behaviour (<code>name</code>, <code>description</code>, <code>execute</code>) with <code>use RLM.Tool</code> macro. Easy to add new tools. Registry with <code>try/rescue</code> wrapping prevents tool crashes from taking down the Worker.</p>
+  </div>
+  <div class="card">
+    <h4><span class="badge good">Strength</span> Sweeper + TTL</h4>
+    <p>The EventLog Sweeper with dual-clock awareness (monotonic for Agents, wall-clock for :dets) is a nice detail. Prevents memory leaks in long-running systems.</p>
+  </div>
+</div>
+</section>
+
+<!-- ================================================================ 5 -->
+<section>
+<h2><span class="num">5</span> Module Reorganization Proposal</h2>
+
+<p>The current flat <code>RLM.*</code> namespace puts 16+ modules at one level. As the system grows, this becomes hard to navigate. Here's a proposed reorganization for better legibility:</p>
+
+<div class="callout callout-accent">
+<strong>Guiding principle</strong>
+Group by <em>responsibility domain</em>, not by OTP behaviour type. A reader should be able to find all trace-related code in one place, all tool-related code in one place, etc.
+</div>
+
+<h3>Current vs. Proposed</h3>
+<div class="tw">
+<table>
+  <tr><th>Current Module</th><th>Proposed Module</th><th>Rationale</th></tr>
+  <tr><td>RLM</td><td><code>RLM</code></td><td>Keep as-is. Clean public API.</td></tr>
+  <tr><td>RLM.Worker</td><td><code>RLM.Engine.Worker</code></td><td>Group engine internals under <code>Engine</code></td></tr>
+  <tr><td>RLM.Eval</td><td><code>RLM.Engine.Eval</code></td><td>Engine internal — eval is Worker's concern</td></tr>
+  <tr><td>RLM.Sandbox</td><td><code>RLM.Engine.Sandbox</code></td><td>Engine internal — injected into eval</td></tr>
+  <tr><td>RLM.LLM</td><td><code>RLM.LLM</code></td><td>Keep at top level — cross-cutting concern</td></tr>
+  <tr><td>RLM.Prompt</td><td><code>RLM.Engine.Prompt</code></td><td>Engine internal — builds Worker messages</td></tr>
+  <tr><td>RLM.Config</td><td><code>RLM.Config</code></td><td>Keep at top level — cross-cutting</td></tr>
+  <tr><td>RLM.Helpers</td><td><code>RLM.Engine.Helpers</code></td><td>Engine internal — used in Sandbox</td></tr>
+  <tr><td>RLM.Truncate</td><td><code>RLM.Util.Truncate</code></td><td>Pure utility — no engine dependency</td></tr>
+  <tr><td>RLM.Span</td><td><code>RLM.Util.Span</code></td><td>Pure utility — ID generation</td></tr>
+  <tr><td>RLM.IEx</td><td><code>RLM.IEx</code></td><td>Keep at top level — user-facing</td></tr>
+  <tr><td>RLM.EventLog</td><td><code>RLM.Trace.EventLog</code></td><td>Group all trace/observability modules</td></tr>
+  <tr><td>RLM.EventLog.Sweeper</td><td><code>RLM.Trace.Sweeper</code></td><td>Trace subsystem</td></tr>
+  <tr><td>RLM.TraceStore</td><td><code>RLM.Trace.Store</code></td><td>Trace subsystem</td></tr>
+  <tr><td>RLM.Tool</td><td><code>RLM.Tool</code></td><td>Keep at top level — behaviour definition</td></tr>
+  <tr><td>RLM.ToolRegistry</td><td><code>RLM.Tool.Registry</code></td><td>Nest under Tool</td></tr>
+  <tr><td>RLM.Tools.*</td><td><code>RLM.Tool.*</code></td><td>Rename <code>Tools</code> → <code>Tool</code> for consistency with behaviour</td></tr>
+  <tr><td>RLM.Telemetry</td><td><code>RLM.Trace.Telemetry</code></td><td>Part of trace/observability subsystem</td></tr>
+  <tr><td>RLM.Telemetry.*</td><td><code>RLM.Trace.Telemetry.*</code></td><td>Group handlers with their parent</td></tr>
+</table>
+</div>
+
+<h3>Proposed Directory Structure</h3>
+<pre>
+lib/rlm/
+├── rlm.ex                    # Public API (unchanged)
+├── config.ex                 # Config struct (unchanged)
+├── llm.ex                    # LLM client (unchanged)
+├── iex.ex                    # IEx helpers (unchanged)
+├── application.ex
+│
+├── engine/                   # The iterate-loop core
+│   ├── worker.ex             # GenServer (iterate + keep_alive)
+│   ├── eval.ex               # Sandboxed Code.eval_string
+│   ├── sandbox.ex            # Functions injected into eval scope
+│   ├── prompt.ex             # Message formatting
+│   └── helpers.ex            # chunks, grep, preview
+│
+├── tool/                     # Tool system
+│   ├── tool.ex               # Behaviour definition
+│   ├── registry.ex           # Dispatch + discovery
+│   ├── read_file.ex
+│   ├── write_file.ex
+│   ├── edit_file.ex
+│   ├── bash.ex
+│   ├── grep.ex
+│   ├── glob.ex
+│   └── ls.ex
+│
+├── trace/                    # Observability subsystem
+│   ├── event_log.ex          # Per-run Agent
+│   ├── store.ex              # :dets persistence
+│   ├── sweeper.ex            # GC for stale traces
+│   ├── telemetry.ex          # Handler attachment
+│   └── handlers/
+│       ├── logger.ex
+│       ├── pubsub.ex
+│       └── event_log_handler.ex
+│
+└── util/                     # Pure utilities
+    ├── truncate.ex
+    └── span.ex
+</pre>
+
+<div class="callout callout-info">
+<strong>Migration note</strong>
+This reorganization is purely cosmetic and can be done incrementally. Start by moving the <code>trace/</code> group (most self-contained), then <code>engine/</code>, then <code>tool/</code>. Each move is one commit with a find-and-replace of module references.
+</div>
+</section>
+
+<!-- ================================================================ 6 -->
+<section>
+<h2><span class="num">6</span> Naming Improvements</h2>
+
+<p>Some module and function names could be more self-documenting:</p>
+
+<div class="tw">
+<table>
+  <tr><th>Current</th><th>Proposed</th><th>Why</th></tr>
+  <tr><td><code>RLM.EventStore</code> (supervisor name)</td><td><code>RLM.Trace.EventLogSup</code></td><td>"EventStore" suggests a different pattern (event sourcing). It's a DynamicSupervisor for EventLog Agents.</td></tr>
+  <tr><td><code>RLM.WorkerSup</code></td><td><code>RLM.Engine.WorkerSup</code></td><td>Clearer that it belongs to the engine subsystem</td></tr>
+  <tr><td><code>handle_call({:spawn_subcall, ...})</code></td><td><code>handle_call({:delegate, ...})</code></td><td>"spawn_subcall" is implementation detail. "delegate" is the semantic intent.</td></tr>
+  <tr><td><code>start_async_eval/6</code></td><td><code>dispatch_eval/6</code></td><td>"start_async" is redundant — all eval is async. "dispatch" is clearer.</td></tr>
+  <tr><td><code>maybe_compact/1</code></td><td><code>compact_if_needed/1</code></td><td>More descriptive; "maybe" is vague</td></tr>
+  <tr><td><code>maybe_nudge/1</code></td><td><code>detect_and_break_loop/1</code></td><td>Describes what it actually does</td></tr>
+  <tr><td><code>complete/2</code></td><td><code>finish_execution/2</code></td><td>"complete" is too generic</td></tr>
+  <tr><td><code>emit_telemetry/4</code></td><td><code>emit/4</code> or move to Telemetry module</td><td>Could be <code>RLM.Trace.Telemetry.emit(event, measurements, state, extra)</code></td></tr>
+  <tr><td><code>RLM.Sandbox.rg/3</code></td><td><code>RLM.Sandbox.grep/3</code></td><td>Rename to match the tool name. <code>rg</code> is a CLI tool name, not a concept.</td></tr>
+  <tr><td><code>RLM.Sandbox.find_files/2</code></td><td><code>RLM.Sandbox.glob/2</code></td><td>Match the tool name for consistency</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ================================================================ 7 -->
+<section>
+<h2><span class="num">7</span> Architecture Recommendations</h2>
+
+<h3>7.1 Short-Term (Low Effort, High Impact)</h3>
+
+<div class="card">
+<h4>Link eval process to Worker</h4>
+<p>Change <code>spawn(fn -> ... end)</code> to <code>spawn_link(fn -> ... end)</code> in <code>start_async_eval</code>. This ensures eval dies when the Worker dies, preventing orphaned processes. The Worker already handles <code>:eval_complete</code>, so a linked exit from eval will be caught by the Worker's terminate callback or propagated correctly.</p>
+<p>Alternatively, use <code>Task.Supervisor.async_nolink(RLM.TaskSupervisor, fn -> ... end)</code> for supervised-but-unlinked execution, then <code>Task.yield/2</code> for the result.</p>
+</div>
+
+<div class="card">
+<h4>Fix parallel_query error handling</h4>
+<p>Replace <code>Task.await_many(:infinity)</code> with <code>Task.yield_many(tasks, timeout)</code> + cleanup of unyielded tasks. Return <code>{:error, :timeout}</code> for tasks that didn't complete.</p>
+</div>
+
+<div class="card">
+<h4>Remove or implement cost tracking</h4>
+<p>The 4 cost config fields are dead code. Either:
+(a) Remove them and the <code>subcall_timeout</code> field to reduce noise, or
+(b) Implement cost accumulation in Worker state, emit <code>[:rlm, :cost, :update]</code> telemetry, and propagate child costs to parent via the <code>:rlm_result</code> message.</p>
+</div>
+
+<div class="card">
+<h4>Make Telemetry.init idempotent</h4>
+<p>Call <code>detach_all_handlers()</code> before <code>attach_all_handlers()</code> in <code>init/1</code>. This prevents crashes from duplicate handler IDs if the Telemetry GenServer restarts.</p>
+</div>
+
+<h3>7.2 Medium-Term (Moderate Effort)</h3>
+
+<div class="card">
+<h4>Extract Worker concerns</h4>
+<p>The 670-line Worker could be split:</p>
+<ul>
+  <li><code>RLM.Engine.Compaction</code> — <code>compact_if_needed/1</code>, <code>estimate_tokens/1</code>, <code>serialize_history/1</code></li>
+  <li><code>RLM.Engine.LoopDetector</code> — <code>detect_loop/1</code>, <code>similarity/2</code>, <code>codes_similar?/1</code></li>
+  <li>Keep the GenServer callbacks and core iterate logic in Worker</li>
+</ul>
+<p>This would bring Worker down to ~400 lines focused purely on the state machine.</p>
+</div>
+
+<div class="card">
+<h4>Add streaming to RLM.LLM</h4>
+<p>Re-implement SSE streaming (removed during consolidation) directly in <code>RLM.LLM</code>. Add a <code>stream/4</code> function that sends <code>{:llm_chunk, text}</code> messages to a caller PID. The Worker can forward these via PubSub for real-time display. This was working in the Agent.LLM module and just needs to be ported back.</p>
+</div>
+
+<div class="card">
+<h4>Improve compaction strategy</h4>
+<p>Replace the serialize-and-truncate approach with a sliding window that keeps the last N messages intact while summarizing older ones. Even a simple "keep last 6 messages + summary header" would preserve more useful context than the current head+tail truncation.</p>
+</div>
+
+<h3>7.3 Long-Term (Larger Effort)</h3>
+
+<div class="card">
+<h4>Replace :dets with SQLite or CubDB</h4>
+<p>:dets has a 2 GB file size limit, is not actively maintained by the OTP team, and has known performance issues with large tables. SQLite (via Exqlite/Ecto) or CubDB would be more robust. This also enables richer queries (e.g., "all runs from today" without scanning the entire table).</p>
+</div>
+
+<div class="card">
+<h4>Add a tool_use API mode</h4>
+<p>The current system always uses code-block extraction. For interactive sessions, Anthropic's native <code>tool_use</code> API (where the LLM directly specifies tool calls in structured JSON) would be more reliable than regex parsing of code blocks. This was the approach of the removed Agent.Session. Consider adding it as a third Worker mode or a configurable strategy.</p>
+</div>
+
+<div class="card">
+<h4>Module reorganization</h4>
+<p>Apply the reorganization proposed in Section 5. Do it incrementally: trace/ first, then engine/, then tool/. Each move is a single commit.</p>
+</div>
+</section>
+
+<!-- ================================================================ 8 -->
+<section>
+<h2><span class="num">8</span> Summary Scorecard</h2>
+
+<div class="tw">
+<table>
+  <tr><th>Dimension</th><th>Score</th><th>Notes</th></tr>
+  <tr><td>OTP nativeness</td><td><span class="badge good">7.5/10</span></td><td>Strong use of supervision, registry, pubsub. Loses points for unsupervised eval spawn and static tool registry.</td></tr>
+  <tr><td>Code organization</td><td><span class="badge warn">6.5/10</span></td><td>Flat namespace gets crowded. Worker is too large. Consolidation was right but left naming inconsistencies.</td></tr>
+  <tr><td>Correctness</td><td><span class="badge good">8/10</span></td><td>Core async-eval pattern is correct. Subcall limits enforced. Run timeout works. Orphaned eval is the main gap.</td></tr>
+  <tr><td>Observability</td><td><span class="badge good">8.5/10</span></td><td>15 telemetry events, 3 handlers, dual-path persistence, LiveView dashboard. Excellent for the project size.</td></tr>
+  <tr><td>Testing</td><td><span class="badge good">8/10</span></td><td>MockLLM enables deterministic tests. Good coverage of both modes. Live API tests tagged and excluded by default.</td></tr>
+  <tr><td>Documentation</td><td><span class="badge warn">7/10</span></td><td>CLAUDE.md is thorough. Module docs exist but vary in quality. Multiple outdated guide files (this review addresses that).</td></tr>
+  <tr><td>Error handling</td><td><span class="badge warn">6.5/10</span></td><td>Run-level error handling is good. parallel_query is weak. EventLog silently swallows errors.</td></tr>
+  <tr><td>Security</td><td><span class="badge warn">6/10</span></td><td>Code.eval_string is intentional but inherently dangerous. No sandboxing beyond what Elixir provides. No permission model for tools. Acceptable for a research/personal tool.</td></tr>
+</table>
+</div>
+
+<div class="callout callout-ok">
+<strong>Bottom line</strong>
+This is a well-built Elixir/OTP system with solid foundations. The async-eval pattern is the star of the design. The main areas for improvement are: (1) supervise the eval process, (2) break up the Worker, (3) reorganize modules for legibility, and (4) decide whether to implement or remove cost tracking. The consolidation from Agent.* into the core engine was the right call and simplified the architecture significantly.
+</div>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <p>RLM Engine System Review &mdash; February 2026</p>
+</footer>
+
+</body>
+</html>
