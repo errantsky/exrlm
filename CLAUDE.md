@@ -66,7 +66,10 @@ rlm_umbrella/
 │   ├── test.exs
 │   └── runtime.exs
 ├── examples/
-│   └── smoke_test.exs          # Live API smoke tests (mix rlm.smoke)
+│   ├── smoke_test.exs          # Live API smoke tests (mix rlm.smoke)
+│   ├── map_reduce_analysis.exs # Map-reduce text chunking + parallel analysis
+│   ├── code_review.exs         # Recursive code review with file tools
+│   └── research_synthesis.exs  # Multi-source structured extraction + synthesis
 └── mix.exs
 ```
 
@@ -170,6 +173,7 @@ Default models:
 | `RLM.Span` | Span/run ID generation |
 | `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2` |
 | `Mix.Tasks.Rlm.Smoke` | `mix rlm.smoke` — live API smoke tests (delegates to `examples/smoke_test.exs`) |
+| `Mix.Tasks.Rlm.Examples` | `mix rlm.examples` — run example scenarios (all or by name) |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |
 | `RLM.EventLog.Sweeper` | GenServer; periodically GCs stale EventLog agents + :dets TTL sweep |
 | `RLM.TraceStore` | GenServer owning `:dets` table; persists events across restarts |
