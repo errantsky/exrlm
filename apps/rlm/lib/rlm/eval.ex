@@ -19,8 +19,11 @@ defmodule RLM.Eval do
 
     caller = self()
 
-    {pid, ref} =
-      spawn_monitor(fn ->
+    # Link + monitor: link ensures the inner eval process dies when the outer
+    # Task is killed (e.g., cascade shutdown via terminate_run), while monitor
+    # lets us detect crashes and timeouts.
+    pid =
+      spawn_link(fn ->
         # Capture stdout
         {:ok, string_io} = StringIO.open("")
         Process.group_leader(self(), string_io)
@@ -53,6 +56,8 @@ defmodule RLM.Eval do
 
         send(caller, {:eval_result, self(), result})
       end)
+
+    ref = Process.monitor(pid)
 
     receive do
       {:eval_result, ^pid, {:ok, stdout, _value, new_bindings}} ->

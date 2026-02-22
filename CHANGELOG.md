@@ -8,6 +8,39 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Run-scoped supervision with centralized worker tree**
+
+- `RLM.Run` — new per-run coordinator GenServer that owns all workers and eval tasks
+  for a single execution. Each Run starts a linked `DynamicSupervisor` (workers) and
+  `Task.Supervisor` (eval tasks), tracks the worker tree in an ETS table, monitors all
+  workers for crash propagation, and provides cascade shutdown when the run completes
+  or times out. Registered as `{:run, run_id}` in `RLM.Registry`.
+- `RLM.RunSup` — new top-level `DynamicSupervisor` replacing the former `RLM.WorkerSup`.
+  Hosts `RLM.Run` processes instead of flat worker siblings.
+- `RLM.Test.Helpers` — `start_test_run/1` helper for tests that need to start workers
+  directly via `RLM.Run.start_worker/2` instead of `DynamicSupervisor.start_child`.
+
+### Changed
+
+- `RLM.Worker` — eval processes promoted from unsupervised `spawn` to supervised
+  `Task.Supervisor.async_nolink` under the run's Task.Supervisor. Direct query processes
+  also supervised with `Task.Supervisor.start_child` + `Process.monitor`. Worker no longer
+  manages `pending_monitors` — crash detection delegated to `RLM.Run`. New struct fields:
+  `run_pid`, `eval_sup`, `direct_query_monitors`. Subcall spawning delegated to
+  `RLM.Run.start_worker/2` instead of directly calling `DynamicSupervisor.start_child`.
+- `RLM` public API — `run/3`, `run_async/2`, `start_session/1` now start an `RLM.Run`
+  coordinator first, then spawn the root worker through it. Timeout kills the entire
+  Run (cascade cleanup of all workers + eval tasks).
+- `RLM.Application` — supervision tree uses `RLM.RunSup` instead of `RLM.WorkerSup`.
+- All worker tests updated to use `start_test_run/1` + `RLM.Run.start_worker/2` pattern.
+
+### Removed
+
+- `RLM.WorkerSup` — replaced by `RLM.RunSup` + per-run `DynamicSupervisor` inside `RLM.Run`.
+- `pending_monitors` field from `RLM.Worker` struct — Run handles all worker monitoring.
+
+### Added
+
 **Testing examples for multi-iteration, depth, and parallel subcalls**
 
 - Three example scenarios in `examples/` designed to exercise the full RLM

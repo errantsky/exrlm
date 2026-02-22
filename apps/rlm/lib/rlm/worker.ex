@@ -2,10 +2,10 @@ defmodule RLM.Worker do
   @moduledoc """
   GenServer that owns one RLM node's state.
   Each Worker runs the iterate loop: call LLM -> run code -> check final_answer -> repeat.
-  Sub-calls spawn child Workers via DynamicSupervisor.
+  Sub-calls are spawned via the run's coordinator (`RLM.Run`).
 
-  Eval runs asynchronously so the Worker can process subcall requests
-  from the eval process without deadlocking.
+  Eval runs asynchronously (as a supervised `Task`) so the Worker can process
+  subcall requests from the eval process without deadlocking.
 
   ## Modes
 
@@ -38,15 +38,19 @@ defmodule RLM.Worker do
     :prev_codes,
     :caller,
     :started_at,
-    # Tracks in-flight eval context
+    # Tracks in-flight eval context (includes task_ref for supervised eval)
     :eval_context,
     # keep_alive mode fields
     :keep_alive,
     :cwd,
     :pending_from,
+    # PID of the RLM.Run coordinator for this run
+    :run_pid,
+    # PID of the run-scoped Task.Supervisor for eval tasks
+    :eval_sup,
     pending_subcalls: %{},
-    # Maps monitor ref → child_span_id for crash cleanup
-    pending_monitors: %{}
+    # Maps monitor ref → query_id for direct query crash detection
+    direct_query_monitors: %{}
   ]
 
   # -- Public API --
@@ -76,6 +80,8 @@ defmodule RLM.Worker do
     caller = Keyword.get(opts, :caller)
     keep_alive = Keyword.get(opts, :keep_alive, false)
     cwd = Keyword.get(opts, :cwd, File.cwd!())
+    run_pid = Keyword.get(opts, :run_pid)
+    eval_sup = Keyword.get(opts, :eval_sup)
 
     if keep_alive do
       # Keep-alive mode: start idle, wait for send_message
@@ -99,7 +105,9 @@ defmodule RLM.Worker do
         eval_context: nil,
         keep_alive: true,
         cwd: cwd,
-        pending_from: nil
+        pending_from: nil,
+        run_pid: run_pid,
+        eval_sup: eval_sup
       }
 
       emit_telemetry([:rlm, :node, :start], %{}, state, %{
@@ -143,7 +151,9 @@ defmodule RLM.Worker do
         eval_context: nil,
         keep_alive: false,
         cwd: cwd,
-        pending_from: nil
+        pending_from: nil,
+        run_pid: run_pid,
+        eval_sup: eval_sup
       }
 
       emit_telemetry([:rlm, :node, :start], %{}, state, %{
@@ -266,9 +276,249 @@ defmodule RLM.Worker do
     end
   end
 
-  # Async eval result — NOTE: Code.eval_string is the intentional REPL mechanism
-  # for the RLM architecture. See RLM.Eval for full documentation.
-  def handle_info({:eval_complete, eval_result}, state) do
+  # Eval task succeeded — Task.Supervisor.async_nolink sends {ref, result}
+  # NOTE: Code.eval_string is the intentional REPL mechanism for the RLM
+  # architecture. See RLM.Eval for full documentation.
+  def handle_info({ref, eval_result}, state) when is_reference(ref) do
+    if state.eval_context && ref == state.eval_context.task_ref do
+      Process.demonitor(ref, [:flush])
+      handle_eval_complete(eval_result, state)
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:direct_query_result, query_id, result}, state) do
+    case Map.pop(state.pending_subcalls, query_id) do
+      {nil, _} ->
+        Logger.warning("Received result for unknown direct query #{query_id}")
+        {:noreply, state}
+
+      {from, remaining} ->
+        # Clean up the monitor for this direct query
+        {dq_ref, remaining_dq_monitors} =
+          pop_dq_monitor_by_query(state.direct_query_monitors, query_id)
+
+        if dq_ref, do: Process.demonitor(dq_ref, [:flush])
+
+        emit_telemetry(
+          [:rlm, :direct_query, :stop],
+          %{},
+          state,
+          %{
+            query_id: query_id,
+            status: elem(result, 0),
+            result_preview: result |> inspect() |> String.slice(0, 500)
+          }
+        )
+
+        GenServer.reply(from, result)
+
+        {:noreply,
+         %{state | pending_subcalls: remaining, direct_query_monitors: remaining_dq_monitors}}
+    end
+  end
+
+  def handle_info({:rlm_result, child_span_id, result}, state) do
+    case Map.pop(state.pending_subcalls, child_span_id) do
+      {nil, _} ->
+        Logger.warning("Received result for unknown subcall #{child_span_id}")
+        {:noreply, state}
+
+      {from, remaining} ->
+        emit_telemetry(
+          [:rlm, :subcall, :result],
+          %{
+            duration_ms: 0
+          },
+          state,
+          %{
+            child_span_id: child_span_id,
+            status: elem(result, 0),
+            result_preview: result |> inspect() |> String.slice(0, 500)
+          }
+        )
+
+        # Notify Run that child is done
+        if state.run_pid do
+          GenServer.cast(state.run_pid, {:worker_done, child_span_id})
+        end
+
+        GenServer.reply(from, result)
+        {:noreply, %{state | pending_subcalls: remaining}}
+    end
+  end
+
+  # Child worker crashed — notification from RLM.Run coordinator
+  def handle_info({:child_crashed, child_span_id, reason}, state) do
+    case Map.pop(state.pending_subcalls, child_span_id) do
+      {nil, _} ->
+        Logger.warning("Received crash notification for unknown subcall #{child_span_id}")
+        {:noreply, state}
+
+      {from, remaining} ->
+        GenServer.reply(from, {:error, "Subcall crashed: #{inspect(reason)}"})
+        {:noreply, %{state | pending_subcalls: remaining}}
+    end
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
+    cond do
+      # Eval task crashed before returning a result
+      state.eval_context && ref == state.eval_context.task_ref ->
+        handle_eval_crash(reason, state)
+
+      # Direct query process crashed
+      Map.has_key?(state.direct_query_monitors, ref) ->
+        handle_direct_query_crash(ref, reason, state)
+
+      true ->
+        {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:send_message, text}, from, state) do
+    case state.status do
+      :running ->
+        {:reply, {:error, "Worker is busy"}, state}
+
+      :idle ->
+        user_msg = %{role: :user, content: text}
+
+        state = %{
+          state
+          | history: state.history ++ [user_msg],
+            status: :running,
+            pending_from: from,
+            iteration: 0,
+            prev_codes: [],
+            bindings: Keyword.put(state.bindings, :final_answer, nil)
+        }
+
+        send(self(), :iterate)
+        {:noreply, state}
+    end
+  end
+
+  def handle_call(:history, _from, state) do
+    {:reply, state.history, state}
+  end
+
+  def handle_call(:status, _from, state) do
+    {:reply,
+     %{
+       session_id: state.span_id,
+       run_id: state.run_id,
+       status: state.status,
+       iteration: state.iteration,
+       message_count: length(state.history),
+       keep_alive: state.keep_alive,
+       cwd: state.cwd
+     }, state}
+  end
+
+  def handle_call({:direct_query, text, model_size, schema}, from, state) do
+    model =
+      if model_size == :large,
+        do: state.config.model_large,
+        else: state.config.model_small
+
+    if map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls do
+      {:reply,
+       {:error, "Max concurrent subcalls (#{state.config.max_concurrent_subcalls}) reached"},
+       state}
+    else
+      query_id = RLM.Span.generate_id()
+
+      emit_telemetry([:rlm, :direct_query, :start], %{}, state, %{
+        query_id: query_id,
+        model_size: model_size,
+        text_bytes: byte_size(text)
+      })
+
+      llm_module = state.config.llm_module
+      config = state.config
+      worker_pid = self()
+
+      # Spawn under the run's Task.Supervisor for supervised cleanup.
+      # Use start_child (not async_nolink) so we control the result delivery.
+      {:ok, pid} =
+        Task.Supervisor.start_child(state.eval_sup, fn ->
+          result =
+            case llm_module.chat([%{role: :user, content: text}], model, config, schema: schema) do
+              {:ok, response_text, _usage} ->
+                case Jason.decode(response_text) do
+                  {:ok, parsed} -> {:ok, parsed}
+                  {:error, err} -> {:error, "JSON decode failed: #{inspect(err)}"}
+                end
+
+              {:error, reason} ->
+                {:error, reason}
+            end
+
+          send(worker_pid, {:direct_query_result, query_id, result})
+        end)
+
+      ref = Process.monitor(pid)
+      pending = Map.put(state.pending_subcalls, query_id, from)
+      dq_monitors = Map.put(state.direct_query_monitors, ref, query_id)
+      {:noreply, %{state | pending_subcalls: pending, direct_query_monitors: dq_monitors}}
+    end
+  end
+
+  def handle_call({:spawn_subcall, text, model_size}, from, state) do
+    model =
+      if model_size == :large,
+        do: state.config.model_large,
+        else: state.config.model_small
+
+    cond do
+      state.depth >= state.config.max_depth ->
+        {:reply, {:error, "Maximum recursion depth (#{state.config.max_depth}) exceeded"}, state}
+
+      map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls ->
+        {:reply,
+         {:error, "Max concurrent subcalls (#{state.config.max_concurrent_subcalls}) reached"},
+         state}
+
+      true ->
+        child_span_id = RLM.Span.generate_id()
+
+        emit_telemetry([:rlm, :subcall, :spawn], %{}, state, %{
+          child_span_id: child_span_id,
+          child_depth: state.depth + 1,
+          context_bytes: byte_size(text),
+          model_size: model_size
+        })
+
+        child_opts = [
+          span_id: child_span_id,
+          context: text,
+          query: text,
+          model: model,
+          config: state.config,
+          depth: state.depth + 1,
+          parent_span_id: state.span_id,
+          run_id: state.run_id,
+          caller: self()
+        ]
+
+        # Delegate worker spawning to the Run coordinator
+        case RLM.Run.start_worker(state.run_pid, child_opts) do
+          {:ok, _child_pid} ->
+            pending = Map.put(state.pending_subcalls, child_span_id, from)
+            {:noreply, %{state | pending_subcalls: pending}}
+
+          {:error, reason} ->
+            {:reply, {:error, "Failed to spawn subcall: #{inspect(reason)}"}, state}
+        end
+    end
+  end
+
+  # -- Private --
+
+  defp handle_eval_complete(eval_result, state) do
     ctx = state.eval_context
     code_duration = System.monotonic_time(:millisecond) - ctx.code_start
 
@@ -383,221 +633,78 @@ defmodule RLM.Worker do
     end
   end
 
-  def handle_info({:direct_query_result, query_id, result}, state) do
+  defp handle_eval_crash(reason, state) do
+    ctx = state.eval_context
+    code_duration = System.monotonic_time(:millisecond) - ctx.code_start
+
+    emit_telemetry([:rlm, :eval, :stop], %{duration_ms: code_duration}, state, %{
+      status: :error,
+      stdout_bytes: 0
+    })
+
+    error_msg = "Eval process crashed: #{inspect(reason)}"
+    bindings_info = RLM.Helpers.list_bindings(state.bindings)
+
+    feedback =
+      RLM.Prompt.build_feedback_message(error_msg, :error, bindings_info, false)
+
+    state = %{
+      state
+      | history: state.history ++ [ctx.assistant_msg, feedback],
+        iteration: state.iteration + 1,
+        prev_codes: Enum.take([ctx.code | state.prev_codes], 3),
+        eval_context: nil
+    }
+
+    iter_duration = System.monotonic_time(:millisecond) - ctx.iter_start
+
+    emit_iteration_stop(
+      state,
+      iter_duration,
+      ctx.code,
+      error_msg,
+      ctx.usage,
+      ctx.llm_duration,
+      :error
+    )
+
+    send(self(), :iterate)
+    {:noreply, state}
+  end
+
+  defp handle_direct_query_crash(ref, reason, state) do
+    {query_id, remaining_dq_monitors} = Map.pop(state.direct_query_monitors, ref)
+
     case Map.pop(state.pending_subcalls, query_id) do
       {nil, _} ->
-        Logger.warning("Received result for unknown direct query #{query_id}")
-        {:noreply, state}
+        {:noreply, %{state | direct_query_monitors: remaining_dq_monitors}}
 
-      {from, remaining} ->
+      {from, remaining_subcalls} ->
         emit_telemetry(
           [:rlm, :direct_query, :stop],
           %{},
           state,
           %{
             query_id: query_id,
-            status: elem(result, 0),
-            result_preview: result |> inspect() |> String.slice(0, 500)
+            status: :error,
+            result_preview: "Direct query crashed: #{inspect(reason)}"
           }
         )
 
-        GenServer.reply(from, result)
-        {:noreply, %{state | pending_subcalls: remaining}}
+        GenServer.reply(from, {:error, "Direct query crashed: #{inspect(reason)}"})
+
+        {:noreply,
+         %{
+           state
+           | pending_subcalls: remaining_subcalls,
+             direct_query_monitors: remaining_dq_monitors
+         }}
     end
   end
 
-  def handle_info({:rlm_result, child_span_id, result}, state) do
-    case Map.pop(state.pending_subcalls, child_span_id) do
-      {nil, _} ->
-        Logger.warning("Received result for unknown subcall #{child_span_id}")
-        {:noreply, state}
-
-      {from, remaining} ->
-        emit_telemetry(
-          [:rlm, :subcall, :result],
-          %{
-            duration_ms: 0
-          },
-          state,
-          %{
-            child_span_id: child_span_id,
-            status: elem(result, 0),
-            result_preview: result |> inspect() |> String.slice(0, 500)
-          }
-        )
-
-        # Clean up the monitor for this child
-        {monitor_ref, remaining_monitors} =
-          pop_monitor_by_span(state.pending_monitors, child_span_id)
-
-        if monitor_ref, do: Process.demonitor(monitor_ref, [:flush])
-
-        GenServer.reply(from, result)
-        {:noreply, %{state | pending_subcalls: remaining, pending_monitors: remaining_monitors}}
-    end
-  end
-
-  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
-    case Map.pop(state.pending_monitors, ref) do
-      {nil, _} ->
-        {:noreply, state}
-
-      {child_span_id, remaining_monitors} ->
-        Logger.warning("Child worker #{child_span_id} crashed: #{inspect(reason)}")
-
-        case Map.pop(state.pending_subcalls, child_span_id) do
-          {nil, _} ->
-            {:noreply, %{state | pending_monitors: remaining_monitors}}
-
-          {from, remaining_subcalls} ->
-            GenServer.reply(from, {:error, "Subcall crashed: #{inspect(reason)}"})
-
-            {:noreply,
-             %{state | pending_subcalls: remaining_subcalls, pending_monitors: remaining_monitors}}
-        end
-    end
-  end
-
-  @impl true
-  def handle_call({:send_message, text}, from, state) do
-    case state.status do
-      :running ->
-        {:reply, {:error, "Worker is busy"}, state}
-
-      :idle ->
-        user_msg = %{role: :user, content: text}
-
-        state = %{
-          state
-          | history: state.history ++ [user_msg],
-            status: :running,
-            pending_from: from,
-            iteration: 0,
-            prev_codes: [],
-            bindings: Keyword.put(state.bindings, :final_answer, nil)
-        }
-
-        send(self(), :iterate)
-        {:noreply, state}
-    end
-  end
-
-  def handle_call(:history, _from, state) do
-    {:reply, state.history, state}
-  end
-
-  def handle_call(:status, _from, state) do
-    {:reply,
-     %{
-       session_id: state.span_id,
-       run_id: state.run_id,
-       status: state.status,
-       iteration: state.iteration,
-       message_count: length(state.history),
-       keep_alive: state.keep_alive,
-       cwd: state.cwd
-     }, state}
-  end
-
-  def handle_call({:direct_query, text, model_size, schema}, from, state) do
-    model =
-      if model_size == :large,
-        do: state.config.model_large,
-        else: state.config.model_small
-
-    if map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls do
-      {:reply,
-       {:error, "Max concurrent subcalls (#{state.config.max_concurrent_subcalls}) reached"},
-       state}
-    else
-      query_id = RLM.Span.generate_id()
-
-      emit_telemetry([:rlm, :direct_query, :start], %{}, state, %{
-        query_id: query_id,
-        model_size: model_size,
-        text_bytes: byte_size(text)
-      })
-
-      llm_module = state.config.llm_module
-      config = state.config
-      worker_pid = self()
-
-      spawn(fn ->
-        result =
-          case llm_module.chat([%{role: :user, content: text}], model, config, schema: schema) do
-            {:ok, response_text, _usage} ->
-              case Jason.decode(response_text) do
-                {:ok, parsed} -> {:ok, parsed}
-                {:error, err} -> {:error, "JSON decode failed: #{inspect(err)}"}
-              end
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-
-        send(worker_pid, {:direct_query_result, query_id, result})
-      end)
-
-      pending = Map.put(state.pending_subcalls, query_id, from)
-      {:noreply, %{state | pending_subcalls: pending}}
-    end
-  end
-
-  def handle_call({:spawn_subcall, text, model_size}, from, state) do
-    model =
-      if model_size == :large,
-        do: state.config.model_large,
-        else: state.config.model_small
-
-    cond do
-      state.depth >= state.config.max_depth ->
-        {:reply, {:error, "Maximum recursion depth (#{state.config.max_depth}) exceeded"}, state}
-
-      map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls ->
-        {:reply,
-         {:error, "Max concurrent subcalls (#{state.config.max_concurrent_subcalls}) reached"},
-         state}
-
-      true ->
-        child_span_id = RLM.Span.generate_id()
-
-        emit_telemetry([:rlm, :subcall, :spawn], %{}, state, %{
-          child_span_id: child_span_id,
-          child_depth: state.depth + 1,
-          context_bytes: byte_size(text),
-          model_size: model_size
-        })
-
-        child_opts = [
-          span_id: child_span_id,
-          context: text,
-          query: text,
-          model: model,
-          config: state.config,
-          depth: state.depth + 1,
-          parent_span_id: state.span_id,
-          run_id: state.run_id,
-          caller: self()
-        ]
-
-        case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, child_opts}) do
-          {:ok, child_pid} ->
-            ref = Process.monitor(child_pid)
-            pending = Map.put(state.pending_subcalls, child_span_id, from)
-            monitors = Map.put(state.pending_monitors, ref, child_span_id)
-            {:noreply, %{state | pending_subcalls: pending, pending_monitors: monitors}}
-
-          {:error, reason} ->
-            {:reply, {:error, "Failed to spawn subcall: #{inspect(reason)}"}, state}
-        end
-    end
-  end
-
-  # -- Private --
-
-  # Reverse-lookup: find the monitor ref for a given child_span_id and remove it.
-  defp pop_monitor_by_span(monitors, span_id) do
-    case Enum.find(monitors, fn {_ref, sid} -> sid == span_id end) do
+  # Reverse-lookup: find the monitor ref for a given query_id and remove it.
+  defp pop_dq_monitor_by_query(monitors, query_id) do
+    case Enum.find(monitors, fn {_ref, qid} -> qid == query_id end) do
       nil -> {nil, monitors}
       {ref, _} -> {ref, Map.delete(monitors, ref)}
     end
@@ -614,11 +721,12 @@ defmodule RLM.Worker do
     worker_pid = self()
     code_start = System.monotonic_time(:millisecond)
 
-    # Spawn eval asynchronously so the Worker can handle subcall requests.
+    # Spawn eval as a supervised Task under the run's Task.Supervisor.
+    # async_nolink sends {ref, result} on success, {:DOWN, ref, ...} on crash.
     # NOTE: RLM.Eval.run uses Code.eval_string — this is the intentional REPL
     # mechanism for the RLM architecture. See RLM.Eval module docs.
-    spawn(fn ->
-      result =
+    task =
+      Task.Supervisor.async_nolink(state.eval_sup, fn ->
         RLM.Eval.run(code, state.bindings,
           timeout: state.config.eval_timeout,
           worker_pid: worker_pid,
@@ -626,9 +734,7 @@ defmodule RLM.Worker do
           cwd: state.cwd,
           subcall_timeout: state.config.subcall_timeout
         )
-
-      send(worker_pid, {:eval_complete, result})
-    end)
+      end)
 
     eval_context = %{
       code: code,
@@ -637,7 +743,8 @@ defmodule RLM.Worker do
       llm_duration: llm_duration,
       usage: usage,
       iter_start: iter_start,
-      code_start: code_start
+      code_start: code_start,
+      task_ref: task.ref
     }
 
     {:noreply, %{state | eval_context: eval_context}}

@@ -26,44 +26,54 @@ defmodule RLM do
     # Generous overall timeout: two full eval cycles worth
     total_timeout = config.eval_timeout * 2
 
-    worker_opts = [
-      span_id: span_id,
-      run_id: run_id,
-      context: context,
-      query: query,
-      config: config,
-      depth: 0,
-      model: config.model_large,
-      caller: self()
-    ]
+    run_opts = [run_id: run_id, config: config]
 
-    case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts}) do
-      {:ok, pid} ->
-        ref = Process.monitor(pid)
+    case DynamicSupervisor.start_child(RLM.RunSup, {RLM.Run, run_opts}) do
+      {:ok, run_pid} ->
+        worker_opts = [
+          span_id: span_id,
+          run_id: run_id,
+          context: context,
+          query: query,
+          config: config,
+          depth: 0,
+          model: config.model_large,
+          caller: self()
+        ]
 
-        receive do
-          {:rlm_result, ^span_id, {:ok, answer}} ->
-            Process.demonitor(ref, [:flush])
-            {:ok, answer, run_id}
+        case RLM.Run.start_worker(run_pid, worker_opts) do
+          {:ok, pid} ->
+            ref = Process.monitor(pid)
 
-          {:rlm_result, ^span_id, {:error, reason}} ->
-            Process.demonitor(ref, [:flush])
-            {:error, reason}
+            receive do
+              {:rlm_result, ^span_id, {:ok, answer}} ->
+                Process.demonitor(ref, [:flush])
+                {:ok, answer, run_id}
 
-          {:DOWN, ^ref, :process, ^pid, :normal} ->
-            {:error, "Worker exited normally without sending a result"}
+              {:rlm_result, ^span_id, {:error, reason}} ->
+                Process.demonitor(ref, [:flush])
+                {:error, reason}
 
-          {:DOWN, ^ref, :process, ^pid, reason} ->
-            {:error, "Worker crashed: #{inspect(reason)}"}
-        after
-          total_timeout ->
-            Process.demonitor(ref, [:flush])
-            DynamicSupervisor.terminate_child(RLM.WorkerSup, pid)
-            {:error, "RLM.run timed out after #{total_timeout}ms"}
+              {:DOWN, ^ref, :process, ^pid, :normal} ->
+                {:error, "Worker exited normally without sending a result"}
+
+              {:DOWN, ^ref, :process, ^pid, reason} ->
+                {:error, "Worker crashed: #{inspect(reason)}"}
+            after
+              total_timeout ->
+                Process.demonitor(ref, [:flush])
+                # Kill the entire run (all workers, eval tasks)
+                terminate_run(run_pid)
+                {:error, "RLM.run timed out after #{total_timeout}ms"}
+            end
+
+          {:error, reason} ->
+            terminate_run(run_pid)
+            {:error, "Failed to start worker: #{inspect(reason)}"}
         end
 
       {:error, reason} ->
-        {:error, "Failed to start worker: #{inspect(reason)}"}
+        {:error, "Failed to start run: #{inspect(reason)}"}
     end
   end
 
@@ -73,20 +83,32 @@ defmodule RLM do
     span_id = RLM.Span.generate_id()
     run_id = RLM.Span.generate_run_id()
 
-    worker_opts = [
-      span_id: span_id,
-      run_id: run_id,
-      context: context,
-      query: query,
-      config: config,
-      depth: 0,
-      model: config.model_large,
-      caller: self()
-    ]
+    run_opts = [run_id: run_id, config: config]
 
-    case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts}) do
-      {:ok, pid} -> {:ok, run_id, pid}
-      {:error, reason} -> {:error, reason}
+    case DynamicSupervisor.start_child(RLM.RunSup, {RLM.Run, run_opts}) do
+      {:ok, run_pid} ->
+        worker_opts = [
+          span_id: span_id,
+          run_id: run_id,
+          context: context,
+          query: query,
+          config: config,
+          depth: 0,
+          model: config.model_large,
+          caller: self()
+        ]
+
+        case RLM.Run.start_worker(run_pid, worker_opts) do
+          {:ok, pid} ->
+            {:ok, run_id, pid}
+
+          {:error, reason} ->
+            terminate_run(run_pid)
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -115,18 +137,30 @@ defmodule RLM do
     cwd = Keyword.get(opts, :cwd, File.cwd!())
     model = Keyword.get(opts, :model, config.model_large)
 
-    worker_opts = [
-      span_id: session_id,
-      run_id: run_id,
-      config: config,
-      keep_alive: true,
-      cwd: cwd,
-      model: model
-    ]
+    run_opts = [run_id: run_id, config: config, keep_alive: true]
 
-    case DynamicSupervisor.start_child(RLM.WorkerSup, {RLM.Worker, worker_opts}) do
-      {:ok, _pid} -> {:ok, session_id}
-      {:error, reason} -> {:error, "Failed to start session: #{inspect(reason)}"}
+    case DynamicSupervisor.start_child(RLM.RunSup, {RLM.Run, run_opts}) do
+      {:ok, run_pid} ->
+        worker_opts = [
+          span_id: session_id,
+          run_id: run_id,
+          config: config,
+          keep_alive: true,
+          cwd: cwd,
+          model: model
+        ]
+
+        case RLM.Run.start_worker(run_pid, worker_opts) do
+          {:ok, _pid} ->
+            {:ok, session_id}
+
+          {:error, reason} ->
+            terminate_run(run_pid)
+            {:error, "Failed to start session: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to start run: #{inspect(reason)}"}
     end
   end
 
@@ -155,6 +189,19 @@ defmodule RLM do
     {:ok, GenServer.call(via(session_id), :status)}
   catch
     :exit, _ -> {:error, :not_found}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Run management
+  # ---------------------------------------------------------------------------
+
+  @doc false
+  def terminate_run(run_pid) when is_pid(run_pid) do
+    if Process.alive?(run_pid) do
+      DynamicSupervisor.terminate_child(RLM.RunSup, run_pid)
+    end
+  rescue
+    _ -> :ok
   end
 
   defp via(session_id) do

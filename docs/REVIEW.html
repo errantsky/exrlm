@@ -288,9 +288,9 @@
 <span class="dim">&#9474;</span>  &#9474; <span class="highlight">RLM.Registry</span> &#9474;  &#9474; <span class="highlight">RLM.PubSub</span>   &#9474;  &#9474; <span class="highlight">RLM.TaskSupervisor</span>&#9474;                    <span class="dim">&#9474;</span>
 <span class="dim">&#9474;</span>  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                    <span class="dim">&#9474;</span>
 <span class="dim">&#9474;</span>  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                                          <span class="dim">&#9474;</span>
-<span class="dim">&#9474;</span>  &#9474; <span class="highlight">WorkerSup</span>    &#9474;  &#9474; <span class="highlight">EventStore</span>   &#9474;                                          <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; <span class="highlight">RunSup</span>       &#9474;  &#9474; <span class="highlight">EventStore</span>   &#9474;                                          <span class="dim">&#9474;</span>
 <span class="dim">&#9474;</span>  &#9474; (Dynamic)    &#9474;  &#9474; (Dynamic)    &#9474;  EventLog Agents (:temporary)             <span class="dim">&#9474;</span>
-<span class="dim">&#9474;</span>  &#9474; Workers      &#9474;  &#9474;              &#9474;                                          <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; Run+Workers  &#9474;  &#9474;              &#9474;                                          <span class="dim">&#9474;</span>
 <span class="dim">&#9474;</span>  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                                          <span class="dim">&#9474;</span>
 <span class="dim">&#9474;</span>  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                    <span class="dim">&#9474;</span>
 <span class="dim">&#9474;</span>  &#9474; <span class="highlight">RLM.Telemetry</span>&#9474;  &#9474; <span class="highlight">TraceStore</span>   &#9474;  &#9474; <span class="highlight">EventLog.Sweeper</span> &#9474;                    <span class="dim">&#9474;</span>
@@ -317,7 +317,7 @@
   |                                              |-- lm_query() ------&gt;|
   |&lt;- {:spawn_subcall} -----------------------------|   <span class="dim">(GenServer.call)</span>     |
   |                                              |   <span class="dim">(blocked)</span>           |
-  |-- start_child(WorkerSup) -----------------------------------------------&gt;|
+  |-- Run.start_worker(run_pid) --------------------------------------------&gt;|
   |   pending_subcalls[child_span] = from        |                      |-- iterate...
   |                                              |                      |-- final_answer
   |&lt;- {:rlm_result, span, result} -----------------------------------------|
@@ -422,7 +422,7 @@
 
   <h3>Supervision Strategy Fit</h3>
   <div class="card">
-    <p>The <code>:one_for_one</code> strategy at the top level is correct: Registry, PubSub, TraceStore, and WorkerSup are independent. If TraceStore crashes, Workers should continue. If WorkerSup restarts, existing Workers are lost (acceptable for <code>:temporary</code> children).</p>
+    <p>The <code>:one_for_one</code> strategy at the top level is correct: Registry, PubSub, TraceStore, and RunSup are independent. If TraceStore crashes, Workers should continue. Each run is scoped under its own <code>RLM.Run</code> coordinator with linked DynamicSupervisor (workers) and Task.Supervisor (eval tasks), providing cascade shutdown and crash propagation.</p>
     <p><strong>Verdict:</strong> Supervision tree is well-designed for this workload. No cascading failure risks between siblings. The main improvement is adding process group cleanup for orphaned children.</p>
   </div>
 </div>
