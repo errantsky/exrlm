@@ -166,7 +166,9 @@ defmodule RLM.IntegrationTest do
 
     test "grep helper is available in sandbox code" do
       MockLLM.program_responses(self(), [
-        MockLLM.mock_response("matches = grep(\"hello\", context)\nfinal_answer = length(matches)")
+        MockLLM.mock_response(
+          "matches = grep(\"hello\", context)\nfinal_answer = length(matches)"
+        )
       ])
 
       assert {:ok, 2, _} =

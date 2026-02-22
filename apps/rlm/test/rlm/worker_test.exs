@@ -109,9 +109,7 @@ defmodule RLM.WorkerTest do
     end
 
     test "returns error tuple (no run_id) on failure" do
-      MockLLM.program_responses(
-        List.duplicate(MockLLM.mock_response("IO.puts(\"looping\")"), 5)
-      )
+      MockLLM.program_responses(List.duplicate(MockLLM.mock_response("IO.puts(\"looping\")"), 5))
 
       result = RLM.run("test", "test", llm_module: MockLLM, max_iterations: 2)
       assert {:error, _msg} = result

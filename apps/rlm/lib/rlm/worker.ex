@@ -199,7 +199,15 @@ defmodule RLM.Worker do
               )
 
               if code != "" do
-                start_async_eval(state, response, code, reasoning, llm_duration, usage, iter_start)
+                start_async_eval(
+                  state,
+                  response,
+                  code,
+                  reasoning,
+                  llm_duration,
+                  usage,
+                  iter_start
+                )
               else
                 # Empty code — model chose not to execute this turn
                 assistant_msg = %{role: :assistant, content: response}
@@ -596,13 +604,21 @@ defmodule RLM.Worker do
     end
   end
 
-  defp emit_iteration_stop(state, iter_duration, code, stdout, usage, llm_duration) do
+  defp emit_iteration_stop(
+         state,
+         iter_duration,
+         code,
+         stdout,
+         usage,
+         llm_duration,
+         eval_status \\ :skipped
+       ) do
     emit_telemetry([:rlm, :iteration, :stop], %{duration_ms: iter_duration}, state, %{
       iteration: state.iteration - 1,
       code: code,
       stdout_preview: String.slice(stdout || "", 0, 500),
       stdout_bytes: byte_size(stdout || ""),
-      eval_status: :error,
+      eval_status: eval_status,
       eval_duration_ms: 0,
       result_preview: "",
       final_answer: nil,

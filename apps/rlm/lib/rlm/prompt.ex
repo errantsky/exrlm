@@ -87,8 +87,7 @@ defmodule RLM.Prompt do
   def build_nudge_message do
     payload = %{
       "eval_status" => "nudge",
-      "message" =>
-        "You are repeating similar code. Try a different approach or set final_answer."
+      "message" => "You are repeating similar code. Try a different approach or set final_answer."
     }
 
     %{role: :user, content: Jason.encode!(payload)}
