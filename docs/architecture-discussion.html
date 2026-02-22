@@ -935,11 +935,11 @@
       </div>
       <div class="card con">
         <h4><span class="tag tag-otp">OTP</span> Process Dictionary for State Passing</h4>
-        <p>The eval process uses <code>Process.put/get</code> to pass
-        <code>worker_pid</code>, <code>subcall_timeout</code>, and <code>cwd</code> into
-        sandbox functions. This is an OTP anti-pattern&mdash;process dictionary makes
-        dependencies invisible and testing harder. A closure or module attribute would
-        be more explicit.</p>
+        <p>The eval process uses <code>Process.put/get</code> to pass four keys
+        into sandbox functions: <code>worker_pid</code>, <code>bindings_info</code>,
+        <code>cwd</code>, and <code>subcall_timeout</code>. This is an OTP
+        anti-pattern&mdash;process dictionary makes dependencies invisible and testing
+        harder. A closure or module attribute would be more explicit.</p>
       </div>
     </div>
 
