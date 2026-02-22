@@ -354,6 +354,9 @@
 &#x2502;   &#x2502;   &#x2502;       &#x251C;&#x2500;&#x2500; edit_file.ex    &#x251C;&#x2500;&#x2500; bash.ex
 &#x2502;   &#x2502;   &#x2502;       &#x251C;&#x2500;&#x2500; grep.ex         &#x251C;&#x2500;&#x2500; glob.ex
 &#x2502;   &#x2502;   &#x2502;       &#x2514;&#x2500;&#x2500; ls.ex
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; lib/mix/tasks/
+&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; rlm.examples.ex     # mix rlm.examples — run example scenarios
+&#x2502;   &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; rlm.smoke.ex        # mix rlm.smoke — live API smoke tests
 &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; test/
 &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; priv/system_prompt.md
 &#x2502;   &#x2514;&#x2500;&#x2500; rlm_web/                    # Phoenix 1.8 LiveView dashboard
@@ -367,6 +370,13 @@
 &#x2502;       &#x2502;   &#x251C;&#x2500;&#x2500; router.ex
 &#x2502;       &#x2502;   &#x2514;&#x2500;&#x2500; endpoint.ex
 &#x2502;       &#x2514;&#x2500;&#x2500; test/
+&#x251C;&#x2500;&#x2500; docs/
+&#x2502;   &#x2514;&#x2500;&#x2500; architecture-discussion.html  # Architecture deep-dive &amp; review
+&#x251C;&#x2500;&#x2500; examples/
+&#x2502;   &#x251C;&#x2500;&#x2500; map_reduce_analysis.exs      # Map-Reduce text analysis example
+&#x2502;   &#x251C;&#x2500;&#x2500; code_review.exs              # Recursive code review example
+&#x2502;   &#x251C;&#x2500;&#x2500; research_synthesis.exs       # Multi-source research synthesis example
+&#x2502;   &#x2514;&#x2500;&#x2500; smoke_test.exs               # Live API smoke tests
 &#x251C;&#x2500;&#x2500; config/
 &#x2502;   &#x251C;&#x2500;&#x2500; config.exs   &#x251C;&#x2500;&#x2500; dev.exs
 &#x2502;   &#x251C;&#x2500;&#x2500; test.exs     &#x2514;&#x2500;&#x2500; runtime.exs
@@ -423,7 +433,7 @@
   <li><strong>Context compaction</strong> &mdash; <code>maybe_compact/1</code> estimates token count. If above 80% of the model's context window, serializes history into the <code>compacted_history</code> binding and resets to a two-message window.</li>
   <li><strong>Call LLM (synchronous)</strong> &mdash; <code>llm_module.chat(history, model, config, opts)</code> sends the full message history to the Anthropic API with structured output (<code>output_config</code>). Returns <code>{:ok, response, usage}</code> with token counts.</li>
   <li><strong>Parse structured response</strong> &mdash; <code>RLM.LLM.extract_structured/1</code> decodes the JSON response into <code>%{reasoning: ..., code: ...}</code>. If the code field is empty, sends feedback and loops.</li>
-  <li><strong>Spawn async eval</strong> &mdash; <code>start_async_eval/6</code> spawns a new process that runs <code>RLM.Eval.run/3</code>. The Worker stores eval context (code, timing, usage) and stays free to handle messages.</li>
+  <li><strong>Spawn async eval</strong> &mdash; <code>start_async_eval/7</code> spawns a new process that runs <code>RLM.Eval.run/3</code>. The Worker stores eval context (code, timing, usage) and stays free to handle messages.</li>
   <li><strong>Eval runs</strong> &mdash; The spawned process captures stdout via <code>StringIO</code>, injects sandbox imports, and calls <code>Code.eval_string/3</code> with the current bindings.</li>
   <li><strong>Handle subcalls / direct queries</strong> &mdash; If eval'd code calls <code>lm_query(text)</code>, it does <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>. The Worker spawns a child Worker via DynamicSupervisor and stores the caller's <code>from</code> in <code>pending_subcalls</code>. If called with <code>schema:</code> option, the Worker instead handles a <code>{:direct_query, ...}</code> &mdash; a single LLM call with constrained output that returns a parsed JSON map (no child Worker, no iterate loop).</li>
   <li><strong>Receive eval result</strong> &mdash; <code>{:eval_complete, result}</code> arrives. On success: update bindings, append assistant+feedback messages to history. On error: keep original bindings, send error feedback.</li>
@@ -450,17 +460,24 @@
 &#x2502;                                     &#x2502; eval'd code calls lm_query()
 &#x2502;&#x2500;&#x2500; handle_call(:spawn_subcall) &#x2500;&#x2500;&#x2190;   GenServer.call(worker, ...)
 &#x2502;   6a. Spawn child Worker            &#x2502;
-&#x2502;   7a. Store from in pending         &#x2502; ...waiting for reply...
+&#x2502;   6a'. Process.monitor(child_pid)   &#x2502;
+&#x2502;   7a. Store from in pending_subcalls&#x2502; ...waiting for reply...
+&#x2502;       Store ref in pending_monitors &#x2502;
 &#x2502;                                     &#x2502;
 &#x2502;&#x2500;&#x2500; OR handle_call(:direct_query) &#x2500;&#x2190;  lm_query(text, schema: ...)
 &#x2502;   6b. Spawn LLM call process        &#x2502;
-&#x2502;   7b. Store from in pending         &#x2502; ...waiting for reply...
+&#x2502;   7b. Store from in pending_subcalls&#x2502; ...waiting for reply...
 &#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; handle_info(:rlm_result           &#x2502;
-&#x2502;   or :direct_query_result)          &#x2502;
-&#x2502;   8. GenServer.reply(from, result)  &#x2502;
+&#x2502;&#x2500;&#x2500; handle_info(:rlm_result)          &#x2502;
+&#x2502;   8a. Process.demonitor(ref)        &#x2502;
+&#x2502;   8a'. GenServer.reply(from, result)&#x2502;
+&#x2502;                                     &#x2502;
+&#x2502;&#x2500;&#x2500; OR handle_info(:direct_query_result)
+&#x2502;   8b. GenServer.reply(from, result) &#x2502;
 &#x2502;                                     &#x2502; lm_query returns
-&#x2502;                                     &#x2502; eval continues...
+&#x2502;&#x2500;&#x2500; OR handle_info({:DOWN, ...})      &#x2502; eval continues...
+&#x2502;   8c. Crash recovery: reply error   &#x2502;
+&#x2502;       to blocked caller, clean up   &#x2502;
 &#x2502;                                     &#x2502;
 &#x2502;&#x2500;&#x2500; handle_info(:eval_complete) &#x2500;&#x2500;&#x2190;  send(worker, {:eval_complete, result})
 &#x2502;   9. Update bindings                &#x2502;
@@ -588,8 +605,16 @@ iex&gt; status(session)       # Print session stats</code></pre>
 
 <p>Additionally, <code>RLM.Sandbox</code> provides the data-processing helpers (<code>chunks/2</code>, <code>grep/2</code>, <code>preview/2</code>, <code>list_bindings/0</code>) and the LLM sub-call functions (<code>lm_query/1-2</code>, <code>parallel_query/1-2</code>). When <code>lm_query</code> is called with a <code>schema:</code> option, it takes a direct-query path: a single LLM call with constrained JSON output, returning a parsed map instead of a string. Both <code>lm_query</code> and <code>parallel_query</code> support the <code>schema:</code> option.</p>
 
-<h3>CWD Injection</h3>
-<p>When <code>RLM.Eval.run/3</code> spawns the eval process, it stores the working directory in the process dictionary via <code>Process.put(:rlm_cwd, cwd)</code>. Sandbox tool wrappers read this with <code>Process.get(:rlm_cwd, ".")</code> and resolve relative paths against it.</p>
+<h3>Process Dictionary Injection</h3>
+<p>When <code>RLM.Eval.run/3</code> spawns the eval process, it stores four keys in the process dictionary for sandbox functions to access:</p>
+
+<table>
+  <tr><th>Key</th><th>Purpose</th><th>Read By</th></tr>
+  <tr><td><code>:rlm_worker_pid</code></td><td>PID of the parent Worker GenServer</td><td><code>lm_query/2</code>, <code>parallel_query/2</code> &mdash; for subcall/direct query GenServer.call</td></tr>
+  <tr><td><code>:rlm_bindings_info</code></td><td>Pre-formatted bindings summary</td><td><code>list_bindings/0</code> &mdash; returns current bindings metadata</td></tr>
+  <tr><td><code>:rlm_cwd</code></td><td>Session working directory</td><td>All filesystem tool wrappers &mdash; resolve relative paths</td></tr>
+  <tr><td><code>:rlm_subcall_timeout</code></td><td>Bounded timeout for subcalls (default: 600s)</td><td><code>lm_query/2</code>, <code>parallel_query/2</code> &mdash; passed to <code>GenServer.call</code> and <code>Task.await_many</code></td></tr>
+</table>
 </section>
 
 <!-- ============================== 7. TELEMETRY ============================== -->
@@ -777,7 +802,7 @@ iex&gt; status(session)       # Print session stats</code></pre>
   </div>
   <div class="card-sm">
     <h4>RLM.Worker</h4>
-    <p>GenServer per execution node. Iterate loop, async-eval, subcall handling, direct query (schema mode), keep-alive mode, compaction, nudging</p>
+    <p>GenServer per execution node. Iterate loop, async-eval, subcall handling, direct query (schema mode), keep-alive mode, compaction, nudging, subcall crash monitoring via <code>pending_monitors</code></p>
   </div>
   <div class="card-sm">
     <h4>RLM.Eval</h4>
@@ -921,6 +946,18 @@ iex&gt; status(session)       # Print session stats</code></pre>
   </div>
 </div>
 
+<p class="category-label">Mix Tasks</p>
+<div class="card-grid">
+  <div class="card-sm">
+    <h4>Mix.Tasks.Rlm.Examples</h4>
+    <p><code>mix rlm.examples</code> &mdash; run example scenarios (map_reduce, code_review, research_synthesis) against the live API. <code>--list</code> to show available examples</p>
+  </div>
+  <div class="card-sm">
+    <h4>Mix.Tasks.Rlm.Smoke</h4>
+    <p><code>mix rlm.smoke</code> &mdash; live API smoke tests covering basic run, multi-iteration, schema-mode, subcalls, and interactive sessions</p>
+  </div>
+</div>
+
 <p class="category-label">Testing</p>
 <div class="card-grid">
   <div class="card-sm">
@@ -980,6 +1017,22 @@ iex&gt; chat(session, "Now write a test for the first feature")
 
 # Watch telemetry live
 iex&gt; watch(session)</code></pre>
+
+<h3>Example Scenarios</h3>
+<pre><code># List available examples
+mix rlm.examples --list
+
+# Run all examples (produces dashboard traces)
+mix rlm.examples
+
+# Run a specific example
+mix rlm.examples map_reduce
+mix rlm.examples code_review
+mix rlm.examples research_synthesis</code></pre>
+
+<h3>Smoke Tests</h3>
+<pre><code># Run live API smoke tests (5 scenarios)
+mix rlm.smoke</code></pre>
 
 <h3>LiveView Dashboard</h3>
 <pre><code># Start the Phoenix server
