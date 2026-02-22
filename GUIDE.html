@@ -421,11 +421,11 @@
 <ol class="step-list">
   <li><strong>Check iteration limit</strong> &mdash; If <code>iteration >= max_iterations</code> (default: 25), complete with an error.</li>
   <li><strong>Context compaction</strong> &mdash; <code>maybe_compact/1</code> estimates token count. If above 80% of the model's context window, serializes history into the <code>compacted_history</code> binding and resets to a two-message window.</li>
-  <li><strong>Call LLM (synchronous)</strong> &mdash; <code>llm_module.chat(history, model, config)</code> sends the full message history to the Anthropic API. Returns <code>{:ok, response, usage}</code> with token counts.</li>
-  <li><strong>Extract code</strong> &mdash; <code>RLM.LLM.extract_code/1</code> finds the last <code>```elixir</code> code block in the response. If no code block found, sends feedback requesting one and loops.</li>
+  <li><strong>Call LLM (synchronous)</strong> &mdash; <code>llm_module.chat(history, model, config, opts)</code> sends the full message history to the Anthropic API with structured output (<code>output_config</code>). Returns <code>{:ok, response, usage}</code> with token counts.</li>
+  <li><strong>Parse structured response</strong> &mdash; <code>RLM.LLM.extract_structured/1</code> decodes the JSON response into <code>%{reasoning: ..., code: ...}</code>. If the code field is empty, sends feedback and loops.</li>
   <li><strong>Spawn async eval</strong> &mdash; <code>start_async_eval/6</code> spawns a new process that runs <code>RLM.Eval.run/3</code>. The Worker stores eval context (code, timing, usage) and stays free to handle messages.</li>
   <li><strong>Eval runs</strong> &mdash; The spawned process captures stdout via <code>StringIO</code>, injects sandbox imports, and calls <code>Code.eval_string/3</code> with the current bindings.</li>
-  <li><strong>Handle subcalls</strong> &mdash; If eval'd code calls <code>lm_query()</code>, it does <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>. The Worker spawns a child Worker via DynamicSupervisor and stores the caller's <code>from</code> in <code>pending_subcalls</code>.</li>
+  <li><strong>Handle subcalls / direct queries</strong> &mdash; If eval'd code calls <code>lm_query(text)</code>, it does <code>GenServer.call(worker_pid, {:spawn_subcall, ...})</code>. The Worker spawns a child Worker via DynamicSupervisor and stores the caller's <code>from</code> in <code>pending_subcalls</code>. If called with <code>schema:</code> option, the Worker instead handles a <code>{:direct_query, ...}</code> &mdash; a single LLM call with constrained output that returns a parsed JSON map (no child Worker, no iterate loop).</li>
   <li><strong>Receive eval result</strong> &mdash; <code>{:eval_complete, result}</code> arrives. On success: update bindings, append assistant+feedback messages to history. On error: keep original bindings, send error feedback.</li>
   <li><strong>Repetition detection</strong> &mdash; <code>maybe_nudge/1</code> checks if the last 3 code blocks are &gt;85% similar (Jaccard). If so, injects a nudge message.</li>
   <li><strong>Check final_answer</strong> &mdash; If the <code>final_answer</code> binding is non-nil, call <code>complete/2</code>. Otherwise, send <code>:iterate</code> to self and loop.</li>
@@ -449,10 +449,15 @@
 &#x2502;   5. {:noreply, state}              &#x2502;
 &#x2502;                                     &#x2502; eval'd code calls lm_query()
 &#x2502;&#x2500;&#x2500; handle_call(:spawn_subcall) &#x2500;&#x2500;&#x2190;   GenServer.call(worker, ...)
-&#x2502;   6. Spawn child Worker             &#x2502;
-&#x2502;   7. Store from in pending          &#x2502; ...waiting for reply...
+&#x2502;   6a. Spawn child Worker            &#x2502;
+&#x2502;   7a. Store from in pending         &#x2502; ...waiting for reply...
 &#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; handle_info(:rlm_result)          &#x2502;
+&#x2502;&#x2500;&#x2500; OR handle_call(:direct_query) &#x2500;&#x2190;  lm_query(text, schema: ...)
+&#x2502;   6b. Spawn LLM call process        &#x2502;
+&#x2502;   7b. Store from in pending         &#x2502; ...waiting for reply...
+&#x2502;                                     &#x2502;
+&#x2502;&#x2500;&#x2500; handle_info(:rlm_result           &#x2502;
+&#x2502;   or :direct_query_result)          &#x2502;
 &#x2502;   8. GenServer.reply(from, result)  &#x2502;
 &#x2502;                                     &#x2502; lm_query returns
 &#x2502;                                     &#x2502; eval continues...
@@ -581,7 +586,7 @@ iex&gt; status(session)       # Print session stats</code></pre>
   <tr><td><code>tool_help(name)</code></td><td><code>RLM.ToolRegistry.description_for/1</code></td></tr>
 </table>
 
-<p>Additionally, <code>RLM.Sandbox</code> provides the data-processing helpers (<code>chunks/2</code>, <code>grep/2</code>, <code>preview/2</code>, <code>list_bindings/0</code>) and the LLM sub-call functions (<code>lm_query/1-2</code>, <code>parallel_query/1-2</code>).</p>
+<p>Additionally, <code>RLM.Sandbox</code> provides the data-processing helpers (<code>chunks/2</code>, <code>grep/2</code>, <code>preview/2</code>, <code>list_bindings/0</code>) and the LLM sub-call functions (<code>lm_query/1-2</code>, <code>parallel_query/1-2</code>). When <code>lm_query</code> is called with a <code>schema:</code> option, it takes a direct-query path: a single LLM call with constrained JSON output, returning a parsed map instead of a string. Both <code>lm_query</code> and <code>parallel_query</code> support the <code>schema:</code> option.</p>
 
 <h3>CWD Injection</h3>
 <p>When <code>RLM.Eval.run/3</code> spawns the eval process, it stores the working directory in the process dictionary via <code>Process.put(:rlm_cwd, cwd)</code>. Sandbox tool wrappers read this with <code>Process.get(:rlm_cwd, ".")</code> and resolve relative paths against it.</p>
@@ -591,7 +596,7 @@ iex&gt; status(session)       # Print session stats</code></pre>
 <section id="telemetry">
 <h2>7. Telemetry &amp; Observability</h2>
 
-<h3>15 Telemetry Events</h3>
+<h3>17 Telemetry Events</h3>
 <table>
   <tr><th>Event</th><th>Measurements</th><th>Key Metadata</th></tr>
   <tr><td><code>[:rlm, :node, :start]</code></td><td>&mdash;</td><td>span_id, depth, model, context_bytes</td></tr>
@@ -600,13 +605,15 @@ iex&gt; status(session)       # Print session stats</code></pre>
   <tr><td><code>[:rlm, :iteration, :start]</code></td><td>&mdash;</td><td>span_id, iteration</td></tr>
   <tr><td><code>[:rlm, :iteration, :stop]</code></td><td>duration_ms</td><td>iteration, code, stdout_preview, eval_status, bindings_snapshot, llm tokens</td></tr>
   <tr><td><code>[:rlm, :llm, :request, :start]</code></td><td>&mdash;</td><td>messages_count</td></tr>
-  <tr><td><code>[:rlm, :llm, :request, :stop]</code></td><td>duration_ms, prompt/completion/total_tokens</td><td>response_preview, code_extracted</td></tr>
+  <tr><td><code>[:rlm, :llm, :request, :stop]</code></td><td>duration_ms, prompt/completion/total_tokens</td><td>response_preview, code_present, reasoning_preview</td></tr>
   <tr><td><code>[:rlm, :llm, :request, :exception]</code></td><td>duration_ms</td><td>error</td></tr>
   <tr><td><code>[:rlm, :eval, :start]</code></td><td>&mdash;</td><td>code, iteration</td></tr>
   <tr><td><code>[:rlm, :eval, :stop]</code></td><td>duration_ms</td><td>status (:ok/:error), stdout_bytes</td></tr>
   <tr><td><code>[:rlm, :eval, :exception]</code></td><td>&mdash;</td><td>(defined but not currently emitted)</td></tr>
   <tr><td><code>[:rlm, :subcall, :spawn]</code></td><td>&mdash;</td><td>child_span_id, child_depth, context_bytes, model_size</td></tr>
   <tr><td><code>[:rlm, :subcall, :result]</code></td><td>duration_ms</td><td>child_span_id, status, result_preview</td></tr>
+  <tr><td><code>[:rlm, :direct_query, :start]</code></td><td>&mdash;</td><td>query_id, model_size, text_bytes</td></tr>
+  <tr><td><code>[:rlm, :direct_query, :stop]</code></td><td>&mdash;</td><td>query_id, status, result_preview</td></tr>
   <tr><td><code>[:rlm, :compaction, :run]</code></td><td>before_tokens, after_tokens</td><td>history_bytes_compacted</td></tr>
   <tr><td><code>[:rlm, :turn, :complete]</code></td><td>duration_ms, total_iterations</td><td>span_id, status, result_preview (keep-alive only)</td></tr>
 </table>
@@ -770,7 +777,7 @@ iex&gt; status(session)       # Print session stats</code></pre>
   </div>
   <div class="card-sm">
     <h4>RLM.Worker</h4>
-    <p>GenServer per execution node. Iterate loop, async-eval, subcall handling, keep-alive mode, compaction, nudging</p>
+    <p>GenServer per execution node. Iterate loop, async-eval, subcall handling, direct query (schema mode), keep-alive mode, compaction, nudging</p>
   </div>
   <div class="card-sm">
     <h4>RLM.Eval</h4>
@@ -782,7 +789,7 @@ iex&gt; status(session)       # Print session stats</code></pre>
   </div>
   <div class="card-sm">
     <h4>RLM.LLM</h4>
-    <p>Anthropic Messages API client via Req. Code-block extraction. Returns response + usage metadata</p>
+    <p>Anthropic Messages API client via Req. <code>chat/4</code> with structured output and optional <code>schema:</code> override. <code>extract_structured/1</code> for response parsing</p>
   </div>
   <div class="card-sm">
     <h4>RLM.Config</h4>
@@ -858,7 +865,7 @@ iex&gt; status(session)       # Print session stats</code></pre>
 <div class="card-grid">
   <div class="card-sm">
     <h4>RLM.Telemetry</h4>
-    <p>GenServer that defines 15 events and attaches all handlers on init</p>
+    <p>GenServer that defines 17 events and attaches all handlers on init</p>
   </div>
   <div class="card-sm">
     <h4>RLM.Telemetry.Logger</h4>
