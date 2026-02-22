@@ -560,8 +560,6 @@ stateDiagram-v2
 </div>
 </div>
 </div>
-                                          completes with
-                                          final_answer</div>
 
 <h3>Context Compaction</h3>
 <p>When estimated token count exceeds 80% of the context window, the Worker serializes the entire message history (minus system message) into a string, stores it in the <code>compacted_history</code> binding, and resets to a two-message window: the system message plus a compaction addendum that includes a truncated preview. All bindings are preserved &mdash; only the conversation history is compressed.</p>
