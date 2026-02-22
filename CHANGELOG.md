@@ -8,6 +8,30 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+**Structured output for LLM responses and feedback messages**
+
+- LLM responses now use Claude structured output (`output_config` with JSON schema)
+  constraining responses to `{"reasoning": "...", "code": "..."}` objects. This
+  eliminates regex-based code extraction (`extract_code/1`) from the main iterate
+  loop, removing an entire class of `:no_code_block` retry failures.
+- `RLM.LLM.extract_structured/1` added to parse structured JSON responses; returns
+  `{:ok, %{reasoning: ..., code: ...}}` or `{:error, reason}`
+- `RLM.LLM.response_schema/0` exposes the JSON schema used for constrained decoding
+- Feedback messages after eval are now structured JSON with `eval_status`, `stdout`/
+  `error_output`, `bindings` summary, and `final_answer_set` flag — replacing the
+  previous plain-text markdown format
+- `RLM.Prompt.build_feedback_message/4` replaces the old 2-arity version; accepts
+  bindings info and final_answer_set boolean for accurate trace recording
+- `RLM.Prompt.build_empty_code_feedback/0` added for when the LLM returns empty code
+- `RLM.Prompt.build_nudge_message/0` now returns structured JSON
+- `RLM.Worker` telemetry metadata now includes `reasoning_preview` and `code_present`
+  fields (replacing `code_extracted`)
+- System prompt (`priv/system_prompt.md`) updated to document JSON response format
+  and structured feedback fields
+- `RLM.LLM.extract_code/1` retained for backward compatibility but no longer used
+  in the main iterate loop
+- `RLM.Test.MockLLM.mock_response/1,2` helper added for building JSON mock responses
+
 **Documentation consolidation**
 
 - Replaced `GUIDE.html` with a comprehensive 12-section reference covering the

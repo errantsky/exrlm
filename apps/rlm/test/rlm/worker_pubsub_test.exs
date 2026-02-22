@@ -1,6 +1,8 @@
 defmodule RLM.WorkerPubSubTest do
   use ExUnit.Case, async: false
 
+  alias RLM.Test.MockLLM
+
   setup do
     Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:runs")
     :ok
@@ -8,11 +10,11 @@ defmodule RLM.WorkerPubSubTest do
 
   describe "one-shot mode PubSub events" do
     test "emits node:start and node:stop events" do
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nfinal_answer = :pub_test\n```"
+      MockLLM.program_responses([
+        MockLLM.mock_response("final_answer = :pub_test")
       ])
 
-      {:ok, :pub_test, run_id} = RLM.run("test", "test", llm_module: RLM.Test.MockLLM)
+      {:ok, :pub_test, run_id} = RLM.run("test", "test", llm_module: MockLLM)
 
       # Collect all messages for this run
       events = collect_events(run_id)
@@ -27,15 +29,15 @@ defmodule RLM.WorkerPubSubTest do
 
   describe "keep_alive mode PubSub events" do
     test "emits turn:complete instead of node:stop" do
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nfinal_answer = :ka_pub\n```"
+      MockLLM.program_responses([
+        MockLLM.mock_response("final_answer = :ka_pub")
       ])
 
       span_id = RLM.Span.generate_id()
       run_id = RLM.Span.generate_run_id()
       Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
 
-      config = RLM.Config.load(llm_module: RLM.Test.MockLLM)
+      config = RLM.Config.load(llm_module: MockLLM)
 
       {:ok, _pid} =
         DynamicSupervisor.start_child(

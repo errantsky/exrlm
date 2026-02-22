@@ -12,6 +12,12 @@ defmodule RLM.Worker do
   - **One-shot** (default): starts iterating immediately, terminates after `final_answer`.
   - **Keep-alive** (`keep_alive: true`): starts idle, accepts `send_message` calls,
     stays alive between turns. Bindings persist across turns.
+
+  ## Structured Output
+
+  LLM responses are JSON objects with `reasoning` and `code` fields,
+  constrained via Claude's `output_config` JSON schema. Feedback messages
+  after eval are also structured JSON.
   """
   use GenServer, restart: :temporary
 
@@ -173,44 +179,72 @@ defmodule RLM.Worker do
         {:ok, response, usage} ->
           llm_duration = System.monotonic_time(:millisecond) - llm_start
 
-          emit_telemetry(
-            [:rlm, :llm, :request, :stop],
-            %{
-              duration_ms: llm_duration,
-              prompt_tokens: usage.prompt_tokens || 0,
-              completion_tokens: usage.completion_tokens || 0,
-              total_tokens: usage.total_tokens || 0
-            },
-            state,
-            %{
-              response_preview: String.slice(response, 0, 500),
-              code_extracted: match?({:ok, _}, RLM.LLM.extract_code(response))
-            }
-          )
+          # Step 2: Parse structured JSON response
+          case RLM.LLM.extract_structured(response) do
+            {:ok, %{reasoning: reasoning, code: code}} ->
+              emit_telemetry(
+                [:rlm, :llm, :request, :stop],
+                %{
+                  duration_ms: llm_duration,
+                  prompt_tokens: usage.prompt_tokens || 0,
+                  completion_tokens: usage.completion_tokens || 0,
+                  total_tokens: usage.total_tokens || 0
+                },
+                state,
+                %{
+                  response_preview: String.slice(response, 0, 500),
+                  code_present: code != "",
+                  reasoning_preview: String.slice(reasoning, 0, 500)
+                }
+              )
 
-          case RLM.LLM.extract_code(response) do
-            {:ok, code} ->
-              start_async_eval(state, response, code, llm_duration, usage, iter_start)
+              if code != "" do
+                start_async_eval(
+                  state,
+                  response,
+                  code,
+                  reasoning,
+                  llm_duration,
+                  usage,
+                  iter_start
+                )
+              else
+                # Empty code — model chose not to execute this turn
+                assistant_msg = %{role: :assistant, content: response}
+                feedback = RLM.Prompt.build_empty_code_feedback()
 
-            {:error, :no_code_block} ->
-              assistant_msg = %{role: :assistant, content: response}
+                state = %{
+                  state
+                  | history: state.history ++ [assistant_msg, feedback],
+                    iteration: state.iteration + 1
+                }
 
-              feedback = %{
-                role: :user,
-                content: "No code block found. Please wrap your code in ```elixir blocks."
-              }
+                iter_duration = System.monotonic_time(:millisecond) - iter_start
+                emit_iteration_stop(state, iter_duration, nil, "", usage, llm_duration)
 
-              state = %{
-                state
-                | history: state.history ++ [assistant_msg, feedback],
-                  iteration: state.iteration + 1
-              }
+                send(self(), :iterate)
+                {:noreply, state}
+              end
 
-              iter_duration = System.monotonic_time(:millisecond) - iter_start
-              emit_iteration_stop(state, iter_duration, nil, "", usage, llm_duration)
+            {:error, parse_error} ->
+              # Structured output parse failure — defensive path
+              emit_telemetry(
+                [:rlm, :llm, :request, :stop],
+                %{
+                  duration_ms: llm_duration,
+                  prompt_tokens: usage.prompt_tokens || 0,
+                  completion_tokens: usage.completion_tokens || 0,
+                  total_tokens: usage.total_tokens || 0
+                },
+                state,
+                %{
+                  response_preview: String.slice(response, 0, 500),
+                  code_present: false,
+                  parse_error: parse_error
+                }
+              )
 
-              send(self(), :iterate)
-              {:noreply, state}
+              complete(state, {:error, "Structured output parse failed: #{parse_error}"})
           end
 
         {:error, reason} ->
@@ -249,8 +283,16 @@ defmodule RLM.Worker do
             tail: state.config.truncation_tail
           )
 
-        feedback = RLM.Prompt.build_feedback_message(truncated, :ok)
         final_answer = Keyword.get(new_bindings, :final_answer)
+        bindings_info = RLM.Helpers.list_bindings(new_bindings)
+
+        feedback =
+          RLM.Prompt.build_feedback_message(
+            truncated,
+            :ok,
+            bindings_info,
+            final_answer != nil
+          )
 
         state = %{
           state
@@ -268,13 +310,14 @@ defmodule RLM.Worker do
         emit_telemetry([:rlm, :iteration, :stop], %{duration_ms: iter_duration}, state, %{
           iteration: state.iteration - 1,
           code: ctx.code,
+          reasoning_preview: String.slice(ctx.reasoning, 0, 500),
           stdout_preview: String.slice(stdout, 0, 500),
           stdout_bytes: byte_size(stdout),
           eval_status: :ok,
           eval_duration_ms: code_duration,
           result_preview: inspect(final_answer) |> String.slice(0, 500),
           final_answer: final_answer,
-          bindings_snapshot: RLM.Helpers.list_bindings(state.bindings),
+          bindings_snapshot: bindings_info,
           subcalls_spawned: 0,
           llm_prompt_tokens: ctx.usage.prompt_tokens,
           llm_completion_tokens: ctx.usage.completion_tokens,
@@ -300,7 +343,10 @@ defmodule RLM.Worker do
             tail: state.config.truncation_tail
           )
 
-        feedback = RLM.Prompt.build_feedback_message(truncated, :error)
+        bindings_info = RLM.Helpers.list_bindings(original_bindings)
+
+        feedback =
+          RLM.Prompt.build_feedback_message(truncated, :error, bindings_info, false)
 
         state = %{
           state
@@ -316,13 +362,14 @@ defmodule RLM.Worker do
         emit_telemetry([:rlm, :iteration, :stop], %{duration_ms: iter_duration}, state, %{
           iteration: state.iteration - 1,
           code: ctx.code,
+          reasoning_preview: String.slice(ctx.reasoning, 0, 500),
           stdout_preview: String.slice(error_msg, 0, 500),
           stdout_bytes: byte_size(error_msg),
           eval_status: :error,
           eval_duration_ms: code_duration,
           result_preview: "",
           final_answer: nil,
-          bindings_snapshot: RLM.Helpers.list_bindings(state.bindings),
+          bindings_snapshot: bindings_info,
           subcalls_spawned: 0,
           llm_prompt_tokens: ctx.usage.prompt_tokens,
           llm_completion_tokens: ctx.usage.completion_tokens,
@@ -450,7 +497,7 @@ defmodule RLM.Worker do
 
   # -- Private --
 
-  defp start_async_eval(state, response, code, llm_duration, usage, iter_start) do
+  defp start_async_eval(state, response, code, reasoning, llm_duration, usage, iter_start) do
     assistant_msg = %{role: :assistant, content: response}
 
     emit_telemetry([:rlm, :eval, :start], %{}, state, %{
@@ -478,6 +525,7 @@ defmodule RLM.Worker do
 
     eval_context = %{
       code: code,
+      reasoning: reasoning,
       assistant_msg: assistant_msg,
       llm_duration: llm_duration,
       usage: usage,
@@ -556,13 +604,21 @@ defmodule RLM.Worker do
     end
   end
 
-  defp emit_iteration_stop(state, iter_duration, code, stdout, usage, llm_duration) do
+  defp emit_iteration_stop(
+         state,
+         iter_duration,
+         code,
+         stdout,
+         usage,
+         llm_duration,
+         eval_status \\ :skipped
+       ) do
     emit_telemetry([:rlm, :iteration, :stop], %{duration_ms: iter_duration}, state, %{
       iteration: state.iteration - 1,
       code: code,
       stdout_preview: String.slice(stdout || "", 0, 500),
       stdout_bytes: byte_size(stdout || ""),
-      eval_status: :error,
+      eval_status: eval_status,
       eval_duration_ms: 0,
       result_preview: "",
       final_answer: nil,

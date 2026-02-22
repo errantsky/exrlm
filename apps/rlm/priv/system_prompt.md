@@ -149,4 +149,13 @@ texts = Enum.map(results, fn {:ok, text} -> text; {:error, _} -> "" end)
 Set `final_answer = <your result>` when done. The REPL will detect this and return the answer.
 
 ## Output Format
-Always wrap your code in an ```elixir code block.
+
+Your response is a JSON object with exactly two fields:
+- `reasoning` — your explanation, thought process, and plan for what the code does
+- `code` — Elixir code to execute in the REPL (use an empty string `""` if you need a turn to think without executing code)
+
+After each code execution, you receive structured JSON feedback containing:
+- `eval_status` — `"ok"` if the code ran successfully, `"error"` if it failed
+- `stdout` or `error_output` — the (truncated) output from evaluation
+- `bindings` — a summary of your current variable bindings (name, type, size)
+- `final_answer_set` — whether `final_answer` has been assigned

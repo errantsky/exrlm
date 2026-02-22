@@ -2,6 +2,10 @@ defmodule RLM.LLM do
   @moduledoc """
   Claude (Anthropic) Messages API client.
   Returns response content alongside token usage metadata.
+
+  Uses structured output (`output_config` with JSON schema) to constrain
+  LLM responses to a `{"reasoning", "code"}` JSON object, eliminating
+  regex-based code extraction.
   """
 
   @type usage :: %{
@@ -9,6 +13,20 @@ defmodule RLM.LLM do
           completion_tokens: non_neg_integer() | nil,
           total_tokens: non_neg_integer() | nil
         }
+
+  @response_schema %{
+    "type" => "object",
+    "properties" => %{
+      "reasoning" => %{"type" => "string"},
+      "code" => %{"type" => "string"}
+    },
+    "required" => ["reasoning", "code"],
+    "additionalProperties" => false
+  }
+
+  @doc "Returns the JSON schema used for structured LLM responses."
+  @spec response_schema() :: map()
+  def response_schema, do: @response_schema
 
   @callback chat([map()], String.t(), RLM.Config.t()) ::
               {:ok, String.t(), usage()} | {:error, String.t()}
@@ -29,7 +47,13 @@ defmodule RLM.LLM do
     body = %{
       model: model,
       max_tokens: 4096,
-      messages: format_messages(user_messages)
+      messages: format_messages(user_messages),
+      output_config: %{
+        format: %{
+          type: "json_schema",
+          schema: @response_schema
+        }
+      }
     }
 
     body = if system_text, do: Map.put(body, :system, system_text), else: body
@@ -63,6 +87,34 @@ defmodule RLM.LLM do
     end
   end
 
+  @doc """
+  Parse a structured JSON response from the LLM.
+
+  Returns `{:ok, %{reasoning: String.t(), code: String.t()}}` on success,
+  or `{:error, reason}` if the JSON is invalid or missing required fields.
+  """
+  @spec extract_structured(String.t()) ::
+          {:ok, %{reasoning: String.t(), code: String.t()}} | {:error, String.t()}
+  def extract_structured(response_text) do
+    case Jason.decode(response_text) do
+      {:ok, %{"reasoning" => reasoning, "code" => code}}
+      when is_binary(reasoning) and is_binary(code) ->
+        {:ok, %{reasoning: reasoning, code: code}}
+
+      {:ok, _} ->
+        {:error, "Missing required fields in structured response"}
+
+      {:error, err} ->
+        {:error, "JSON parse failed: #{inspect(err)}"}
+    end
+  end
+
+  @doc """
+  Extract Elixir code from a markdown-formatted LLM response.
+
+  Retained for backward compatibility. The primary code path now uses
+  `extract_structured/1` with JSON schema-constrained responses.
+  """
   @spec extract_code(String.t()) :: {:ok, String.t()} | {:error, :no_code_block}
   def extract_code(response) do
     regex = ~r/```(?:elixir|Elixir)\s*\n(.*?)```/s

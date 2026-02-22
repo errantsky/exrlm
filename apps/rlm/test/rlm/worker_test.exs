@@ -1,11 +1,13 @@
 defmodule RLM.WorkerTest do
   use ExUnit.Case, async: false
 
+  alias RLM.Test.MockLLM
+
   describe "subcall depth enforcement" do
     test "rejects spawn_subcall when max_depth is reached" do
       config =
         RLM.Config.load(
-          llm_module: RLM.Test.MockLLM,
+          llm_module: MockLLM,
           max_depth: 0,
           max_iterations: 5
         )
@@ -14,9 +16,9 @@ defmodule RLM.WorkerTest do
       run_id = RLM.Span.generate_run_id()
 
       # Program a response with enough iterations to test
-      RLM.Test.MockLLM.program_responses([
+      MockLLM.program_responses([
         # Sleep briefly inside eval so GenServer can handle calls during eval
-        "```elixir\nProcess.sleep(200)\nfinal_answer = :done\n```"
+        MockLLM.mock_response("Process.sleep(200)\nfinal_answer = :done")
       ])
 
       worker_opts = [
@@ -52,7 +54,7 @@ defmodule RLM.WorkerTest do
     test "rejects spawn_subcall when max_concurrent_subcalls is 0" do
       config =
         RLM.Config.load(
-          llm_module: RLM.Test.MockLLM,
+          llm_module: MockLLM,
           max_concurrent_subcalls: 0,
           max_depth: 5,
           max_iterations: 5
@@ -61,8 +63,8 @@ defmodule RLM.WorkerTest do
       span_id = RLM.Span.generate_id()
       run_id = RLM.Span.generate_run_id()
 
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nProcess.sleep(200)\nfinal_answer = :done\n```"
+      MockLLM.program_responses([
+        MockLLM.mock_response("Process.sleep(200)\nfinal_answer = :done")
       ])
 
       worker_opts = [
@@ -95,23 +97,21 @@ defmodule RLM.WorkerTest do
 
   describe "run/3 return value" do
     test "returns run_id as third element on success" do
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nfinal_answer = :ok\n```"
+      MockLLM.program_responses([
+        MockLLM.mock_response("final_answer = :ok")
       ])
 
       assert {:ok, :ok, run_id} =
-               RLM.run("test", "test", llm_module: RLM.Test.MockLLM)
+               RLM.run("test", "test", llm_module: MockLLM)
 
       assert is_binary(run_id)
       assert String.length(run_id) > 0
     end
 
     test "returns error tuple (no run_id) on failure" do
-      RLM.Test.MockLLM.program_responses(
-        List.duplicate("```elixir\nIO.puts(\"looping\")\n```", 5)
-      )
+      MockLLM.program_responses(List.duplicate(MockLLM.mock_response("IO.puts(\"looping\")"), 5))
 
-      result = RLM.run("test", "test", llm_module: RLM.Test.MockLLM, max_iterations: 2)
+      result = RLM.run("test", "test", llm_module: MockLLM, max_iterations: 2)
       assert {:error, _msg} = result
     end
   end
