@@ -3,547 +3,1065 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RLM Engine &mdash; System Review &amp; OTP Assessment</title>
+<title>RLM Umbrella — System Review (Feb 2026)</title>
 <style>
   :root {
-    --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --accent2: #7ee787;
-    --warn: #d29922; --err: #f85149; --card: #161b22; --border: #30363d;
-    --code-bg: #1c2128; --heading: #f0f6fc;
-    --purple: #bc8cff; --teal: #39d353;
+    --bg: #0f1117;
+    --surface: #161822;
+    --surface2: #1e2030;
+    --border: #2a2d3e;
+    --text: #c8cad8;
+    --text-dim: #7f849c;
+    --heading: #e4e6f0;
+    --accent: #89b4fa;
+    --accent2: #a6e3a1;
+    --accent3: #f9e2af;
+    --accent4: #f38ba8;
+    --accent5: #cba6f7;
+    --accent6: #94e2d5;
+    --radius: 8px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    background: var(--bg); color: var(--fg); line-height: 1.7;
-    padding: 2rem; max-width: 1100px; margin: 0 auto;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
   }
-  h1 { color: var(--heading); font-size: 2rem; margin-bottom: .5rem; border-bottom: 2px solid var(--accent); padding-bottom: .5rem; }
-  h2 { color: var(--accent); font-size: 1.5rem; margin: 2.5rem 0 1rem; }
-  h3 { color: var(--accent2); font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
-  h4 { color: var(--purple); font-size: 1rem; margin: 1rem 0 .4rem; }
-  p, li { margin-bottom: .6rem; }
-  ul, ol { padding-left: 1.5rem; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: .9em; color: var(--accent2); }
-  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0;
-        border: 1px solid var(--border); font-size: .85em; line-height: 1.5; }
-  pre code { background: none; padding: 0; color: var(--fg); }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
-  @media (max-width: 700px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .8em; font-weight: 600; }
-  .good { background: #1a3a2a; color: var(--accent2); }
-  .warn { background: #3a2a1a; color: var(--warn); }
-  .err  { background: #3a1a1a; color: var(--err); }
-  .info { background: #1a2a3a; color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-  th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
-  th { color: var(--accent); font-size: .85em; text-transform: uppercase; letter-spacing: .05em; }
-  .toc { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; }
-  .toc ol { counter-reset: toc; list-style: none; padding-left: 0; }
-  .toc li { counter-increment: toc; margin-bottom: .3rem; }
-  .toc li::before { content: counter(toc) ". "; color: var(--accent); font-weight: 600; }
-  .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0;
-             font-family: monospace; white-space: pre; line-height: 1.4; font-size: .85em; overflow-x: auto; }
-  .subtitle { color: #8b949e; font-size: 1rem; margin-bottom: 2rem; }
-  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
-  .score { font-size: 2.5rem; font-weight: 800; color: var(--accent2); }
-  .score-label { font-size: .85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }
-  .tier { border-left: 4px solid; padding-left: 16px; margin-bottom: 16px; }
-  .tier-good { border-color: var(--accent2); }
-  .tier-ok { border-color: var(--warn); }
-  .tier-improve { border-color: var(--err); }
-  .priority { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
-  .p-high { background: var(--err); }
-  .p-med { background: var(--warn); }
-  .p-low { background: var(--accent); }
+
+  /* Layout */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  header {
+    background: linear-gradient(135deg, #1a1b2e 0%, #0f1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 0 36px;
+  }
+  header h1 { color: var(--heading); font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  header .subtitle { color: var(--text-dim); font-size: 1rem; }
+  header .meta { margin-top: 16px; display: flex; gap: 24px; flex-wrap: wrap; }
+  header .meta-item {
+    font-size: 0.82rem; color: var(--text-dim);
+    background: var(--surface2); padding: 4px 12px; border-radius: 20px;
+  }
+  header .meta-item strong { color: var(--accent); }
+
+  /* Navigation */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0;
+    backdrop-filter: blur(12px);
+  }
+  nav .container {
+    display: flex; gap: 0; overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav a {
+    padding: 12px 18px; font-size: 0.82rem; font-weight: 500;
+    color: var(--text-dim); white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+  }
+  nav a:hover { color: var(--heading); text-decoration: none; border-bottom-color: var(--border); }
+
+  /* Sections */
+  section { padding: 48px 0 24px; }
+  section + section { border-top: 1px solid var(--border); }
+  h2 {
+    color: var(--heading); font-size: 1.5rem; font-weight: 700;
+    margin-bottom: 24px; display: flex; align-items: center; gap: 10px;
+  }
+  h2 .badge {
+    font-size: 0.7rem; padding: 3px 10px; border-radius: 12px;
+    font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  h3 { color: var(--heading); font-size: 1.1rem; margin: 28px 0 12px; font-weight: 600; }
+  h4 { color: var(--accent); font-size: 0.95rem; margin: 20px 0 8px; font-weight: 600; }
+  p { margin-bottom: 14px; }
+  ul, ol { margin-left: 20px; margin-bottom: 14px; }
+  li { margin-bottom: 6px; }
+  li code, p code, td code {
+    background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+    font-family: var(--mono); font-size: 0.88em; color: var(--accent6);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .card h4 { margin-top: 0; }
+  .card-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px; margin-bottom: 16px;
+  }
+
+  /* Score cards */
+  .score-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; margin-bottom: 24px;
+  }
+  .score-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 20px; text-align: center;
+  }
+  .score-card .score {
+    font-size: 2rem; font-weight: 800; margin-bottom: 4px;
+    background: linear-gradient(135deg, var(--accent), var(--accent5));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .score-card .label { font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .score-card.green .score { background: linear-gradient(135deg, var(--accent2), var(--accent6)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .score-card.yellow .score { background: linear-gradient(135deg, var(--accent3), #fab387); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .score-card.red .score { background: linear-gradient(135deg, var(--accent4), #eba0ac); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* Tables */
+  table {
+    width: 100%; border-collapse: collapse;
+    margin-bottom: 16px; font-size: 0.9rem;
+  }
+  th, td {
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface2); color: var(--heading);
+    font-weight: 600; font-size: 0.78rem;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  tr:hover td { background: rgba(137, 180, 250, 0.03); }
+  td:first-child { font-family: var(--mono); font-size: 0.85rem; color: var(--accent6); }
+
+  /* Code blocks */
+  pre {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 20px;
+    font-family: var(--mono); font-size: 0.82rem;
+    line-height: 1.6; overflow-x: auto; margin-bottom: 16px;
+    color: var(--text);
+  }
+  pre .comment { color: var(--text-dim); }
+  pre .keyword { color: var(--accent5); }
+  pre .string { color: var(--accent2); }
+  pre .atom { color: var(--accent3); }
+
+  /* Severity badges */
+  .sev { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.3px; }
+  .sev-critical { background: rgba(243, 139, 168, 0.2); color: var(--accent4); }
+  .sev-high { background: rgba(250, 179, 135, 0.2); color: #fab387; }
+  .sev-medium { background: rgba(249, 226, 175, 0.2); color: var(--accent3); }
+  .sev-low { background: rgba(166, 227, 161, 0.2); color: var(--accent2); }
+  .sev-info { background: rgba(137, 180, 250, 0.15); color: var(--accent); }
+
+  /* Tier tags */
+  .tier {
+    display: inline-block; padding: 3px 10px; border-radius: 10px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.3px;
+  }
+  .tier-idiomatic { background: rgba(166, 227, 161, 0.15); color: var(--accent2); }
+  .tier-passable { background: rgba(249, 226, 175, 0.15); color: var(--accent3); }
+  .tier-concern { background: rgba(243, 139, 168, 0.15); color: var(--accent4); }
+
+  /* Diagrams */
+  .diagram {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px;
+    font-family: var(--mono); font-size: 0.78rem;
+    line-height: 1.5; overflow-x: auto; margin-bottom: 16px;
+    white-space: pre; color: var(--text);
+  }
+  .diagram .highlight { color: var(--accent); font-weight: 700; }
+  .diagram .dim { color: var(--text-dim); }
+
+  /* Collapsibles */
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+  }
+  details summary {
+    padding: 14px 20px; cursor: pointer; font-weight: 600;
+    color: var(--heading); font-size: 0.95rem;
+    list-style: none; display: flex; align-items: center; gap: 8px;
+  }
+  details summary::before { content: '\25B8'; color: var(--text-dim); transition: transform 0.2s; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details .content { padding: 0 20px 16px; }
+
+  /* Checklist */
+  .checklist { list-style: none; margin-left: 0; }
+  .checklist li { padding: 6px 0; display: flex; align-items: flex-start; gap: 8px; }
+  .checklist li::before { content: '\25CB'; color: var(--text-dim); font-size: 0.9rem; flex-shrink: 0; margin-top: 2px; }
+  .checklist li.done::before { content: '\25CF'; color: var(--accent2); }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0; text-align: center;
+    color: var(--text-dim); font-size: 0.8rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    header h1 { font-size: 1.5rem; }
+    .score-grid { grid-template-columns: repeat(2, 1fr); }
+    .card-grid { grid-template-columns: 1fr; }
+    nav a { padding: 10px 12px; font-size: 0.78rem; }
+  }
 </style>
 </head>
 <body>
 
-<h1>RLM Engine &mdash; System Review &amp; OTP Assessment</h1>
-<p class="subtitle">Comprehensive analysis of the current codebase, OTP design quality, and recommendations &mdash; February 2026</p>
+<header>
+  <div class="container">
+    <h1>RLM Umbrella &mdash; System Review</h1>
+    <div class="subtitle">Architecture &amp; code quality assessment for the Recursive Language Model engine</div>
+    <div class="meta">
+      <span class="meta-item">Date: <strong>22 Feb 2026</strong></span>
+      <span class="meta-item">Commit: <strong>a2b3d85</strong> (main)</span>
+      <span class="meta-item">Elixir: <strong>&ge; 1.19 / OTP 27</strong></span>
+      <span class="meta-item">Total modules: <strong>~34</strong></span>
+      <span class="meta-item">Tests: <strong>124</strong> (111 rlm + 13 web)</span>
+      <span class="meta-item">Lines of code: <strong>~4,800</strong></span>
+    </div>
+  </div>
+</header>
 
-<nav class="toc">
-<strong>Contents</strong>
-<ol>
-  <li><a href="#s1">Executive Summary</a></li>
-  <li><a href="#s2">What Works Well</a></li>
-  <li><a href="#s3">OTP Assessment</a></li>
-  <li><a href="#s4">Naming &amp; Organization</a></li>
-  <li><a href="#s5">Gaps &amp; Missing Features</a></li>
-  <li><a href="#s6">Python RLM Comparison</a></li>
-  <li><a href="#s7">Architectural Recommendations</a></li>
-  <li><a href="#s8">Testing Assessment</a></li>
-  <li><a href="#s9">Future Directions</a></li>
-</ol>
+<nav>
+  <div class="container">
+    <a href="#scorecard">Scorecard</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#otp">OTP Assessment</a>
+    <a href="#modules">Module Review</a>
+    <a href="#fault-tolerance">Fault Tolerance</a>
+    <a href="#testing">Testing</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#findings">Findings</a>
+    <a href="#recommendations">Recommendations</a>
+    <a href="#checklist">Checklist</a>
+  </div>
 </nav>
 
-<!-- ================================================================ -->
-<h2 id="s1">1. Executive Summary</h2>
-
-<div class="card">
-<p>The RLM Elixir engine has evolved from a basic recursive language model to a <strong>unified, production-capable system</strong>. Two major milestones shipped in Feb 2026:</p>
-<ul>
-  <li><strong>LiveView Dashboard</strong> &mdash; Real-time trace visualization with :dets persistence</li>
-  <li><strong>Agent-to-Engine Consolidation</strong> (PR #6) &mdash; Merged the separate <code>RLM.Agent.*</code> namespace into the core engine, eliminating 15 files of duplication</li>
-</ul>
-
-<p>The result is a clean, single-engine architecture with <strong>111 passing tests</strong> (98 rlm + 13 rlm_web), 8 OTP supervision tree children, 7 filesystem tools, 15 telemetry events, and a Phoenix LiveView dashboard.</p>
-</div>
-
-<div class="grid">
-  <div class="card" style="text-align:center;">
-    <div class="score">8/10</div>
-    <div class="score-label">OTP Design Score</div>
-    <p style="margin-top:.5rem; font-size:.9rem;">Genuinely idiomatic in core patterns; a few areas for improvement</p>
+<!-- ============================================================ -->
+<!-- SCORECARD                                                      -->
+<!-- ============================================================ -->
+<section id="scorecard">
+<div class="container">
+  <h2>Overall Scorecard</h2>
+  <div class="score-grid">
+    <div class="score-card green"><div class="score">8.5</div><div class="label">Overall</div></div>
+    <div class="score-card green"><div class="score">9</div><div class="label">Architecture</div></div>
+    <div class="score-card green"><div class="score">9</div><div class="label">OTP Patterns</div></div>
+    <div class="score-card green"><div class="score">9</div><div class="label">Documentation</div></div>
+    <div class="score-card green"><div class="score">8</div><div class="label">Code Quality</div></div>
+    <div class="score-card green"><div class="score">8</div><div class="label">Testing</div></div>
+    <div class="score-card yellow"><div class="score">7</div><div class="label">Fault Tolerance</div></div>
+    <div class="score-card yellow"><div class="score">7</div><div class="label">Dashboard</div></div>
+    <div class="score-card yellow"><div class="score">7</div><div class="label">Observability</div></div>
   </div>
-  <div class="card">
-    <h4>Current State</h4>
-    <table style="margin:0;">
-      <tr><td>Test suite</td><td><span class="badge good">111 passing</span></td></tr>
-      <tr><td>Modules</td><td>~34 modules across 2 apps</td></tr>
-      <tr><td>Supervision children</td><td>8 processes</td></tr>
-      <tr><td>Telemetry events</td><td>15 defined, 12 actively emitted</td></tr>
-      <tr><td>Tools</td><td>7 filesystem tools</td></tr>
-      <tr><td>Config fields</td><td>21 on <code>RLM.Config</code></td></tr>
-    </table>
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="s2">2. What Works Well</h2>
-
-<div class="grid-3">
-  <div class="card">
-    <h4><span class="badge good">Excellent</span> Async-Eval Pattern</h4>
-    <p>The Worker spawns eval in a separate process, keeping its mailbox free for <code>{:spawn_subcall, ...}</code> calls. This prevents deadlock when eval'd code calls <code>lm_query()</code>. The pattern is subtle and correctly implemented.</p>
-    <p><code>worker.ex:467</code> &mdash; <code>spawn(fn -> Eval.run(...) end)</code></p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Excellent</span> Unified Worker</h4>
-    <p>A single <code>RLM.Worker</code> GenServer handles both one-shot and interactive modes. State machine transitions (<code>:idle</code> &harr; <code>:running</code>) are clean. No code duplication between modes.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Excellent</span> Supervision Tree</h4>
-    <p>8 children with appropriate restart strategies. Workers are <code>:temporary</code> (correct for one-shot tasks). Infrastructure is <code>:permanent</code>. <code>one_for_one</code> strategy prevents cascading failures.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Excellent</span> Registry Usage</h4>
-    <p><code>{:via, Registry, {RLM.Registry, {:worker, span_id}}}</code> provides clean process lookup without global state or atoms. Used consistently for both Workers and EventLog agents.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Excellent</span> Tool System Design</h4>
-    <p>Simple, effective <code>@behaviour</code> with three callbacks. Tools are stateless functions &mdash; no unnecessary OTP overhead. Sandbox wrappers provide ergonomic eval-accessible API with CWD-relative path resolution.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Excellent</span> Telemetry Pipeline</h4>
-    <p>15 well-defined events with clean separation of concerns across 3 handlers. Follows the standard <code>:telemetry</code> convention. PubSub broadcasting enables real-time LiveView updates.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Good</span> Dual-Write Tracing</h4>
-    <p><code>EventLogHandler</code> writes to both in-memory Agent (fast queries) and :dets (persistence). The fallback pattern in <code>RunDetailLive.load_spans/1</code> seamlessly handles swept agents.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Good</span> Sweeper GC</h4>
-    <p>Separate monotonic vs. wall-clock cutoffs correctly handle the two different time bases. <code>safe_get_started_at/1</code> with rescue/catch prevents the sweeper from crashing on unresponsive agents.</p>
-  </div>
-
-  <div class="card">
-    <h4><span class="badge good">Good</span> MockLLM Testing</h4>
-    <p>ETS-based mock with response queue enables deterministic multi-turn test scenarios. Clean dependency injection via <code>llm_module</code> config field.</p>
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="s3">3. OTP Assessment <span class="badge info">8/10</span></h2>
-
-<div class="tier tier-good">
-<h3>Tier 1: Genuinely Idiomatic <span class="badge good">Well Done</span></h3>
-
-<h4>Async-Eval Deadlock Prevention</h4>
-<p>The core architectural decision &mdash; spawning eval in a separate process so the Worker can handle subcall requests &mdash; is textbook OTP thinking. The pattern correctly identifies that <code>GenServer.call</code> from within a synchronous callback would deadlock.</p>
-<pre><code># worker.ex:464-477
-spawn(fn ->
-  result = RLM.Eval.run(code, state.bindings,
-    timeout: state.config.eval_timeout,
-    worker_pid: worker_pid,
-    bindings_info: RLM.Helpers.list_bindings(state.bindings),
-    cwd: state.cwd
-  )
-  send(worker_pid, {:eval_complete, result})
-end)</code></pre>
-
-<h4>Registry for Named Processes</h4>
-<p>Using <code>{:via, Registry, ...}</code> with compound keys like <code>{:worker, span_id}</code> and <code>{:event_log, run_id}</code> is the correct modern approach. No global atoms, no name collisions, automatic cleanup on process exit.</p>
-
-<h4>DynamicSupervisor for Workers</h4>
-<p>Workers are supervised but <code>:temporary</code> &mdash; they terminate normally after task completion and are never restarted. This is exactly right for task-oriented processes.</p>
-
-<h4>Process.monitor in RLM.run/3</h4>
-<p>The caller monitors the Worker so crashes surface as <code>{:error, reason}</code> rather than hanging indefinitely. The timeout fallback with explicit <code>DynamicSupervisor.terminate_child/2</code> prevents resource leaks.</p>
-</div>
-
-<div class="tier tier-ok">
-<h3>Tier 2: Passable &mdash; Works Correctly, Minor Improvements Possible <span class="badge warn">Fine</span></h3>
-
-<h4>RLM.Telemetry GenServer</h4>
-<p>A GenServer whose only job is calling <code>:telemetry.attach_many/4</code> in <code>init/1</code> is heavier than needed. A simpler approach would be a module function called from <code>Application.start/2</code>. However, the GenServer does provide a clean <code>detach_all_handlers/0</code> for testing, so there's a practical reason to keep it.</p>
-
-<h4>EventLog as Agent</h4>
-<p>Using <code>Agent</code> for EventLog is straightforward but means the tree-building logic (<code>update_tree/2</code>) runs inside the Agent's process. For the current scale this is fine. If events become high-frequency, the serialization point could become a bottleneck.</p>
-
-<h4>TraceStore :dets Access Patterns</h4>
-<p><code>list_run_ids/0</code> does a full table fold on every call. With hundreds of runs this is fine; with thousands it could slow down. An ETS index or caching layer would help at scale.</p>
-
-<h4>Bare spawn for Eval</h4>
-<p>The eval process is started with <code>spawn/1</code> rather than being supervised. If the eval process crashes silently, the Worker only knows via <code>{:DOWN, ...}</code> from Process.monitor &mdash; but there's actually no monitor set up. The Worker relies on the eval process always sending <code>{:eval_complete, ...}</code>. In practice, the try/rescue/catch in <code>RLM.Eval.run/3</code> makes this safe, but a <code>spawn_monitor/1</code> would be more defensive.</p>
-</div>
-
-<div class="tier tier-improve">
-<h3>Tier 3: Non-Idiomatic &mdash; Worth Addressing <span class="badge err">Improve</span></h3>
-
-<h4>No Monitor on Eval Process</h4>
-<p>If <code>spawn(fn -> Eval.run(...); send(worker, {:eval_complete, result}) end)</code> crashes between computing the result and sending the message, the Worker hangs in the <code>:eval_context</code> state indefinitely. Adding <code>spawn_monitor</code> and a <code>{:DOWN, ...}</code> handler would make this bulletproof.</p>
-
-<h4>History as List Append</h4>
-<p>Message history uses <code>state.history ++ [new_msg]</code> which is O(n) list append. For typical sessions (tens of messages) this is negligible. For very long sessions it would accumulate. A queue or reverse-list-then-reverse pattern would be more idiomatic.</p>
-
-<h4>Missing Application.stop Cleanup</h4>
-<p>The :dets table is closed in <code>TraceStore.terminate/2</code>, but if the application stops ungracefully, :dets auto-repair handles it. No issues observed, but explicit <code>Application.stop/0</code> callback would be cleaner.</p>
+  <p>The RLM engine is a <strong>well-architected, thoroughly documented</strong> Elixir system. It demonstrates mature OTP patterns (async-eval deadlock prevention, telemetry pipeline, DynamicSupervisor lifecycle) and clean separation of concerns across ~34 modules. Main improvement areas: fault-tolerance edge cases (orphaned processes, synchronous telemetry handlers), dashboard robustness, and broader test coverage for error paths.</p>
 </div>
 </section>
 
-<!-- ================================================================ -->
-<h2 id="s4">4. Naming &amp; Organization</h2>
+<!-- ============================================================ -->
+<!-- ARCHITECTURE                                                   -->
+<!-- ============================================================ -->
+<section id="architecture">
+<div class="container">
+  <h2>Architecture Overview</h2>
 
-<h3>Rename Proposals</h3>
-<table>
-  <tr><th>Current Name</th><th>Proposed Name</th><th>Rationale</th><th>Priority</th></tr>
-  <tr>
-    <td><code>RLM.EventStore</code> (DynamicSupervisor)</td>
-    <td><code>RLM.EventLogSupervisor</code></td>
-    <td>"EventStore" suggests a database/persistence layer (event sourcing). It's actually a DynamicSupervisor for EventLog Agents. The name is misleading.</td>
-    <td><span class="badge warn">Medium</span></td>
-  </tr>
-  <tr>
-    <td><code>RLM.Telemetry</code> (GenServer)</td>
-    <td>(consider removing)</td>
-    <td>Could be replaced by a function call in <code>Application.start/2</code>. But the GenServer provides clean attach/detach for tests, so keeping it is defensible.</td>
-    <td><span class="badge info">Low</span></td>
-  </tr>
-  <tr>
-    <td><code>telemetry/telemetry.ex</code></td>
-    <td><code>telemetry.ex</code> (move up)</td>
-    <td>The file is nested inside the <code>telemetry/</code> directory as <code>telemetry/telemetry.ex</code>. Moving it to <code>lib/rlm/telemetry.ex</code> would be cleaner, or rename to <code>telemetry/setup.ex</code>.</td>
-    <td><span class="badge info">Low</span></td>
-  </tr>
-</table>
+  <h3>Unified Engine Design</h3>
+  <p>RLM uses a <strong>single engine with two modes</strong>: one-shot (<code>RLM.run/3</code>) and interactive (<code>RLM.start_session/1</code> + <code>send_message/3</code>). Both share the same Worker GenServer, eval sandbox, and tool system. This is a significant strength &mdash; no code duplication between modes.</p>
 
-<h3>What to Keep Unchanged (and Why)</h3>
-<table>
-  <tr><th>Name</th><th>Rationale for Keeping</th></tr>
-  <tr><td><code>RLM.Worker</code></td><td>Clear and accurate &mdash; it's a worker process that does work. "Engine" or "Node" would be less precise.</td></tr>
-  <tr><td><code>RLM.Sandbox</code></td><td>Correctly communicates the security boundary even though it's not a true sandbox. The name sets the right expectation.</td></tr>
-  <tr><td><code>RLM.Eval</code></td><td>Short, accurate, matches the Elixir ecosystem convention (Code.eval_string).</td></tr>
-  <tr><td><code>RLM.Tool</code> / <code>RLM.ToolRegistry</code></td><td>Standard naming for behaviour + registry pattern. Well-understood.</td></tr>
-  <tr><td><code>RLM.EventLog</code></td><td>Clear name for what it does &mdash; logs events per run.</td></tr>
-  <tr><td><code>RLM.TraceStore</code></td><td>Accurate &mdash; stores traces persistently.</td></tr>
-</table>
+  <div class="diagram"><span class="dim">&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;</span>
+<span class="dim">&#9474;</span>                      <span class="highlight">RLM.Supervisor</span> (one_for_one)                           <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; <span class="highlight">RLM.Registry</span> &#9474;  &#9474; <span class="highlight">RLM.PubSub</span>   &#9474;  &#9474; <span class="highlight">RLM.TaskSupervisor</span>&#9474;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                                          <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; <span class="highlight">WorkerSup</span>    &#9474;  &#9474; <span class="highlight">EventStore</span>   &#9474;                                          <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; (Dynamic)    &#9474;  &#9474; (Dynamic)    &#9474;  EventLog Agents (:temporary)             <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; Workers      &#9474;  &#9474;              &#9474;                                          <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                                          <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;  &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; <span class="highlight">RLM.Telemetry</span>&#9474;  &#9474; <span class="highlight">TraceStore</span>   &#9474;  &#9474; <span class="highlight">EventLog.Sweeper</span> &#9474;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9474; (handlers)   &#9474;  &#9474; (:dets)      &#9474;  &#9474; (GC timer)       &#9474;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9474;</span>  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;  &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                    <span class="dim">&#9474;</span>
+<span class="dim">&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</span>
 
-<!-- ================================================================ -->
-<h2 id="s5">5. Gaps &amp; Missing Features</h2>
+<span class="dim">One-shot mode (RLM.run/3):</span>             <span class="dim">Interactive mode (start_session/1):</span>
+  Worker starts &rarr; iterate loop            Worker starts idle
+    &rarr; LLM chat (sync)                     &rarr; send_message triggers iteration
+    &rarr; spawn eval (async)                  &rarr; LLM chat &rarr; eval &rarr; final_answer
+      &harr; subcall / direct_query            &rarr; Reply to caller, reset to idle
+    &rarr; final_answer &rarr; terminate            &rarr; Bindings persist for next turn</div>
 
-<table>
-  <tr><th>Gap</th><th>Impact</th><th>Effort</th><th>Priority</th></tr>
-  <tr>
-    <td><strong>Cost Tracking</strong><br>Token usage is in telemetry events but not aggregated per run or exposed via API</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="badge good">Low</span></td>
-    <td><span class="priority p-high"></span> High</td>
-  </tr>
-  <tr>
-    <td><strong>SSE Streaming</strong><br>Removed during Agent consolidation. Users can't see partial LLM responses in real-time</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="priority p-high"></span> High</td>
-  </tr>
-  <tr>
-    <td><strong>Smarter Compaction</strong><br>Current approach serializes all history as a string. No LLM-based summarization</td>
-    <td><span class="badge info">Low</span></td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="priority p-med"></span> Medium</td>
-  </tr>
-  <tr>
-    <td><strong>Permission Model</strong><br>No restrictions on which tools/directories are accessible. No approval flow for dangerous operations</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="priority p-med"></span> Medium</td>
-  </tr>
-  <tr>
-    <td><strong>Session Persistence</strong><br>Keep-alive sessions are lost on restart. No way to resume a session across server restarts</td>
-    <td><span class="badge info">Low</span></td>
-    <td><span class="badge err">High</span></td>
-    <td><span class="priority p-low"></span> Low</td>
-  </tr>
-  <tr>
-    <td><strong>Eval Process Monitor</strong><br>Worker doesn't monitor the spawned eval process. Silent crashes cause hangs.</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td><span class="badge good">Low</span></td>
-    <td><span class="priority p-high"></span> High</td>
-  </tr>
-  <tr>
-    <td><strong>Dashboard Authentication</strong><br>Dashboard is open with no auth. Fine for dev, not for production.</td>
-    <td><span class="badge info">Low</span></td>
-    <td><span class="badge good">Low</span></td>
-    <td><span class="priority p-low"></span> Low</td>
-  </tr>
-</table>
+  <h3>Data Flow: Iterate Loop</h3>
+  <div class="diagram"><span class="dim">Worker</span>                <span class="dim">LLM API</span>               <span class="dim">Eval Process</span>            <span class="dim">Child Worker</span>
+  |                      |                      |                      |
+  |-- chat(history) ---&gt; |                      |                      |
+  |&lt;- {"reasoning",      |                      |                      |
+  |    "code"} ----------|                      |                      |
+  |                      |                      |                      |
+  |-- spawn(eval) -----------------------------------------&gt;|                     |
+  |   <span class="highlight">(Worker mailbox free)</span>                     |                      |
+  |                                              |-- lm_query() ------&gt;|
+  |&lt;- {:spawn_subcall} -----------------------------|   <span class="dim">(GenServer.call)</span>     |
+  |                                              |   <span class="dim">(blocked)</span>           |
+  |-- start_child(WorkerSup) -----------------------------------------------&gt;|
+  |   pending_subcalls[child_span] = from        |                      |-- iterate...
+  |                                              |                      |-- final_answer
+  |&lt;- {:rlm_result, span, result} -----------------------------------------|
+  |-- GenServer.reply(from, result) ---------&gt;|                      |
+  |                                              |&lt;- {:ok, result}      |
+  |                                              |                      |
+  |&lt;- {:eval_complete, result} -----------------|                      |
+  |-- process feedback                           |                      |
+  |-- send(self, :iterate) or complete()         |                      |</div>
 
-<!-- ================================================================ -->
-<h2 id="s6">6. Python RLM Comparison</h2>
+  <h3>Schema-Mode Direct Query</h3>
+  <div class="diagram"><span class="dim">Eval Process</span>             <span class="dim">Parent Worker</span>               <span class="dim">Anthropic API</span>
+    |                         |                            |
+    |-- lm_query(text,        |                            |
+    |     schema: %{...}) --&gt; |                            |
+    |   <span class="dim">GenServer.call</span>          |                            |
+    |   {:direct_query, ...}  |-- spawn(fn &rarr;               |
+    |                         |     chat/4 with schema --&gt; |
+    |                         |     &lt;-- JSON response -----|
+    |                         |     Jason.decode(response)  |
+    |                         |     send(:direct_query_     |
+    |                         |       result, ...)          |
+    |                         |   end)                      |
+    |                         |                            |
+    |                         |&lt;- {:direct_query_result}    |
+    |                         |   GenServer.reply(from)     |
+    |&lt;- {:ok, %{"k" =&gt; v}} --|                            |</div>
 
-<table>
-  <tr><th>Capability</th><th>Python RLM</th><th>Elixir RLM</th><th>Notes</th></tr>
-  <tr>
-    <td>Core iterate loop</td>
-    <td><span class="badge good">Yes</span></td>
-    <td><span class="badge good">Yes</span></td>
-    <td>Functionally equivalent. Elixir uses GenServer state machine vs. Python's async loop.</td>
-  </tr>
-  <tr>
-    <td>Recursive subcalls</td>
-    <td><span class="badge good">Yes</span></td>
-    <td><span class="badge good">Yes</span></td>
-    <td>Elixir uses DynamicSupervisor for child Workers. Better fault isolation.</td>
-  </tr>
-  <tr>
-    <td>Parallel subcalls</td>
-    <td><span class="badge good">Yes</span></td>
-    <td><span class="badge good">Yes</span></td>
-    <td><code>parallel_query/2</code> with <code>Task.await_many</code>. Depth + concurrency limits.</td>
-  </tr>
-  <tr>
-    <td>Three invariants</td>
-    <td><span class="badge good">Yes</span></td>
-    <td><span class="badge good">Yes</span></td>
-    <td>Preview-only context, variable-stored subcall results, head+tail truncation.</td>
-  </tr>
-  <tr>
-    <td>Context compaction</td>
-    <td><span class="badge good">LLM-based</span></td>
-    <td><span class="badge warn">String serialization</span></td>
-    <td>Python uses LLM to summarize. Elixir serializes to string and stores in binding. Less intelligent but simpler.</td>
-  </tr>
-  <tr>
-    <td>Interactive sessions</td>
-    <td><span class="badge err">No</span></td>
-    <td><span class="badge good">Yes</span></td>
-    <td>Elixir's keep-alive mode is unique. Bindings persist across turns.</td>
-  </tr>
-  <tr>
-    <td>Filesystem tools</td>
-    <td><span class="badge err">No</span></td>
-    <td><span class="badge good">7 tools</span></td>
-    <td>ReadFile, WriteFile, EditFile, Bash, Grep, Glob, Ls. Python only has eval.</td>
-  </tr>
-  <tr>
-    <td>Tool integration</td>
-    <td><span class="badge warn">Eval only</span></td>
-    <td><span class="badge good">Sandbox functions</span></td>
-    <td>Tools are Elixir functions called from eval'd code. More natural than API tool_use.</td>
-  </tr>
-  <tr>
-    <td>Structured tracing</td>
-    <td><span class="badge warn">Basic logging</span></td>
-    <td><span class="badge good">15 events + :dets</span></td>
-    <td>Full telemetry pipeline with 3 handlers, in-memory + persistent dual-write.</td>
-  </tr>
-  <tr>
-    <td>Visualization</td>
-    <td><span class="badge err">None</span></td>
-    <td><span class="badge good">LiveView dashboard</span></td>
-    <td>Real-time span tree with expandable iterations, status badges, token counts.</td>
-  </tr>
-  <tr>
-    <td>Fault tolerance</td>
-    <td><span class="badge warn">Try/except</span></td>
-    <td><span class="badge good">OTP supervision</span></td>
-    <td>Supervised processes, :temporary restart, Process.monitor on callers.</td>
-  </tr>
-  <tr>
-    <td>Streaming</td>
-    <td><span class="badge good">SSE</span></td>
-    <td><span class="badge err">Removed</span></td>
-    <td>Was in RLM.Agent.LLM, removed during consolidation. Needs re-implementation.</td>
-  </tr>
-  <tr>
-    <td>Cost tracking</td>
-    <td><span class="badge good">Per-run</span></td>
-    <td><span class="badge warn">Events only</span></td>
-    <td>Token counts in telemetry; cost config fields defined but not aggregated.</td>
-  </tr>
-</table>
-
-<!-- ================================================================ -->
-<h2 id="s7">7. Architectural Recommendations</h2>
-
-<h3>Do</h3>
-
-<div class="card">
-<h4>1. Add spawn_monitor to eval process <span class="badge good">Quick Win</span></h4>
-<p>Replace <code>spawn(fn -> ... end)</code> with <code>spawn_monitor(fn -> ... end)</code> in <code>Worker.start_async_eval/6</code>. Handle <code>{:DOWN, ref, :process, pid, reason}</code> to catch silent eval crashes. This is a 5-line change that prevents a real failure mode.</p>
+  <h3>Key Invariants</h3>
+  <ul>
+    <li><strong>Raw input data never enters the LLM context window</strong> &mdash; only metadata/preview. Enforced by <code>Prompt.build_user_message/4</code>.</li>
+    <li><strong>Sub-LLM outputs stay in variables</strong> &mdash; not shown to parent LLM directly. Prevents context explosion.</li>
+    <li><strong>Stdout is truncated</strong> with head+tail strategy via <code>RLM.Truncate</code>. Default 4K head + 4K tail.</li>
+  </ul>
 </div>
+</section>
 
-<div class="card">
-<h4>2. Aggregate cost per run <span class="badge good">Quick Win</span></h4>
-<p>Add an accumulator to EventLog (or a new field on the tree nodes) that sums <code>llm_prompt_tokens</code> and <code>llm_completion_tokens</code> per run. Multiply by the config cost rates. Expose via <code>EventLog.get_cost/1</code> and show on the dashboard.</p>
-</div>
+<!-- ============================================================ -->
+<!-- OTP ASSESSMENT                                                 -->
+<!-- ============================================================ -->
+<section id="otp">
+<div class="container">
+  <h2>OTP Assessment <span class="badge" style="background:rgba(166,227,161,0.2);color:var(--accent2);">9 / 10</span></h2>
 
-<div class="card">
-<h4>3. Re-add streaming to RLM.LLM <span class="badge warn">Medium Effort</span></h4>
-<p>The streaming implementation was in <code>RLM.Agent.LLM</code> and was removed during consolidation. Add an <code>RLM.LLM.chat_stream/4</code> function that yields <code>:telemetry</code> events for partial responses. The Worker doesn't need to change &mdash; streaming is orthogonal to the iterate loop.</p>
-</div>
+  <h3>Three-Tier Analysis</h3>
 
-<div class="card">
-<h4>4. Rename EventStore to EventLogSupervisor <span class="badge info">Low Priority</span></h4>
-<p>"EventStore" is a loaded term in event-sourcing contexts. <code>RLM.EventLogSupervisor</code> or <code>RLM.EventLogSup</code> is clearer. This is a rename in <code>application.ex</code> + <code>event_log_handler.ex</code> + <code>event_log_sweeper.ex</code>.</p>
-</div>
+  <table>
+    <thead><tr><th>Tier</th><th>Aspect</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Async-eval deadlock prevention</td>
+        <td>Spawning eval in a separate process so the Worker mailbox stays free for subcall handling is the correct OTP pattern. Prevents the deadlock that would occur with synchronous eval.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>DynamicSupervisor for Workers</td>
+        <td>Workers as <code>:temporary</code> children is correct &mdash; they represent task-level work, not persistent services. The supervisor provides structure without restart noise.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Registry for name resolution</td>
+        <td>Using <code>{:via, Registry, {RLM.Registry, {:worker, span_id}}}</code> is clean and avoids global atoms. Supports concurrent lookup without bottleneck.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Telemetry pipeline</td>
+        <td>17 well-defined events, three handler channels (Logger, EventLog, PubSub). Standard <code>:telemetry.execute</code> usage with proper metadata.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Process monitoring</td>
+        <td><code>Process.monitor</code> on Workers in <code>RLM.run/3</code> ensures crashes surface as <code>{:error, reason}</code> rather than hanging.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>GenServer state machine</td>
+        <td>Worker state transitions (<code>:idle &rarr; :running &rarr; :idle</code> in keep-alive; <code>:running &rarr; :stop</code> in one-shot) are clean and well-documented.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-passable">Passable</span></td>
+        <td>Eval process not linked/monitored</td>
+        <td>Eval is spawned bare with <code>spawn/1</code>, not linked or monitored. If it crashes silently, the Worker hangs waiting for <code>{:eval_complete, ...}</code> until timeout. Should use <code>spawn_monitor/1</code>.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-passable">Passable</span></td>
+        <td>GenServer.call with :infinity timeout</td>
+        <td>Subcalls use <code>:infinity</code> timeout. If a Worker dies unexpectedly, the caller (eval process) hangs forever. Should use a configurable finite timeout.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-passable">Passable</span></td>
+        <td>Synchronous telemetry handlers</td>
+        <td>EventLog handler calls <code>Agent.update</code> synchronously during telemetry dispatch. If the Agent is slow, the entire Worker blocks. Should add a timeout or use <code>Agent.cast</code>.</td>
+      </tr>
+      <tr>
+        <td><span class="tier tier-concern">Concern</span></td>
+        <td>Orphaned child processes</td>
+        <td>When eval is killed on timeout, child processes (bash commands, sub-eval) are not terminated. When a parent Worker crashes, child Workers continue running with no consumer for their results.</td>
+      </tr>
+    </tbody>
+  </table>
 
-<h3>Don't</h3>
-
-<div class="card">
-<h4>Don't switch to Anthropic tool_use protocol</h4>
-<p>The current approach (LLM writes Elixir code that calls sandbox functions) is more natural and more powerful than structured <code>tool_use</code>. The LLM can compose tool calls, use conditionals, and process results in a single code block. Switching to tool_use would lose this expressiveness.</p>
-</div>
-
-<div class="card">
-<h4>Don't add ETS caching for TraceStore reads</h4>
-<p>The :dets read performance is adequate for the current scale (hundreds of runs). Adding an ETS cache would introduce cache invalidation complexity. Wait until profiling shows it's actually a bottleneck.</p>
-</div>
-
-<div class="card">
-<h4>Don't make Workers :permanent or :transient</h4>
-<p><code>:temporary</code> is correct. Workers represent individual tasks that should not be automatically restarted. A crashed Worker should surface its error to the caller, not silently retry.</p>
-</div>
-
-<div class="card">
-<h4>Don't add a process pool for Workers</h4>
-<p>Workers are short-lived and individually supervised. A pool adds complexity without benefit &mdash; there's no warm-up cost and no shared state to amortize. DynamicSupervisor is the right tool.</p>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="s8">8. Testing Assessment</h2>
-
-<div class="grid">
+  <h3>Supervision Strategy Fit</h3>
   <div class="card">
-    <h4>Current Coverage</h4>
-    <table style="margin:0;">
-      <tr><td>Total tests</td><td><strong>111</strong> (98 rlm + 13 rlm_web)</td></tr>
-      <tr><td>Worker tests</td><td>Integration + keep-alive + PubSub</td></tr>
-      <tr><td>Tool tests</td><td>All 7 tools with temp directory setup</td></tr>
-      <tr><td>Sandbox tests</td><td>Eval + sandbox function integration</td></tr>
-      <tr><td>LiveView tests</td><td>Basic mount + rendering</td></tr>
-      <tr><td>Live API tests</td><td>Tagged <code>:live_api</code>, excluded by default</td></tr>
-      <tr><td>MockLLM</td><td>ETS-based response queue, deterministic</td></tr>
-    </table>
-  </div>
-  <div class="card">
-    <h4>Testing Strengths</h4>
-    <ul style="margin:0;">
-      <li><span class="badge good">Good</span> MockLLM enables fast, deterministic tests</li>
-      <li><span class="badge good">Good</span> Worker concurrency tests spawn real processes</li>
-      <li><span class="badge good">Good</span> Tool tests use isolated temp directories</li>
-      <li><span class="badge good">Good</span> <code>async: false</code> correctly used where needed</li>
-      <li><span class="badge good">Good</span> Live API tests separated with tag</li>
-    </ul>
+    <p>The <code>:one_for_one</code> strategy at the top level is correct: Registry, PubSub, TraceStore, and WorkerSup are independent. If TraceStore crashes, Workers should continue. If WorkerSup restarts, existing Workers are lost (acceptable for <code>:temporary</code> children).</p>
+    <p><strong>Verdict:</strong> Supervision tree is well-designed for this workload. No cascading failure risks between siblings. The main improvement is adding process group cleanup for orphaned children.</p>
   </div>
 </div>
+</section>
 
-<h3>Testing Gaps</h3>
-<table>
-  <tr><th>Gap</th><th>Impact</th><th>Recommendation</th></tr>
-  <tr>
-    <td>No property-based tests</td>
-    <td><span class="badge info">Low</span></td>
-    <td>StreamData for <code>Truncate</code>, <code>Helpers.chunks</code>, and <code>Helpers.grep</code> edge cases</td>
-  </tr>
-  <tr>
-    <td>No load/stress tests</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td>Spawn 50+ concurrent Workers to validate supervision tree under load</td>
-  </tr>
-  <tr>
-    <td>Shallow LiveView tests</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td>Test PubSub-driven updates: new run appearing, status changing, iteration expansion</td>
-  </tr>
-  <tr>
-    <td>No TraceStore persistence tests</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td>Test that events survive GenServer restart. Test <code>delete_older_than</code> cleanup.</td>
-  </tr>
-  <tr>
-    <td>No compaction test</td>
-    <td><span class="badge warn">Medium</span></td>
-    <td>Test <code>maybe_compact</code> triggers when history exceeds 80% of context window</td>
-  </tr>
-  <tr>
-    <td>No Sweeper integration test</td>
-    <td><span class="badge info">Low</span></td>
-    <td>Test that Sweeper terminates old EventLog agents after TTL</td>
-  </tr>
-</table>
+<!-- ============================================================ -->
+<!-- MODULE REVIEW                                                  -->
+<!-- ============================================================ -->
+<section id="modules">
+<div class="container">
+  <h2>Module-by-Module Review</h2>
 
-<!-- ================================================================ -->
-<h2 id="s9">9. Future Directions</h2>
+  <h3>Core Engine (apps/rlm)</h3>
 
-<p>Ordered by value/effort ratio, highest first:</p>
+  <table>
+    <thead><tr><th>Module</th><th>Lines</th><th>Quality</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>RLM</td><td>164</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Clean public API. Process monitoring for crash detection. Well-specced. <code>run_async/3</code> could use more documentation.</td>
+      </tr>
+      <tr>
+        <td>RLM.Worker</td><td>795</td>
+        <td><span class="tier tier-passable">Passable</span></td>
+        <td>Core iterate loop + subcall handling + keep-alive + compaction + repetition detection. <strong>Should be split into 3&ndash;4 focused modules</strong> for maintainability. Pending subcalls lack cleanup on child crash.</td>
+      </tr>
+      <tr>
+        <td>RLM.Eval</td><td>82</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Clean sandbox eval with IO capture and timeout. Uses <code>spawn_monitor</code> for crash detection. Correct exception/catch handling.</td>
+      </tr>
+      <tr>
+        <td>RLM.LLM</td><td>148</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Clean Anthropic client. Structured output via <code>output_config</code>. <code>chat/4</code> with default arg for backward compat. <code>max_tokens</code> is hardcoded (4096) but reasonable.</td>
+      </tr>
+      <tr>
+        <td>RLM.Sandbox</td><td>179</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Ergonomic tool wrappers. Schema-mode routing in <code>lm_query/2</code>. <code>parallel_query/2</code> DRYed via <code>lm_query</code> delegation.</td>
+      </tr>
+      <tr>
+        <td>RLM.Prompt</td><td>158</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Structured JSON feedback messages. Clean separation of message types. System prompt read from disk each call (minor perf issue &mdash; should cache).</td>
+      </tr>
+      <tr>
+        <td>RLM.Config</td><td>70</td>
+        <td><span class="tier tier-passable">Passable</span></td>
+        <td>Simple struct with app-env + override loading. No validation (negative timeouts accepted). 4 cost fields currently unused.</td>
+      </tr>
+      <tr>
+        <td>RLM.Helpers</td><td>67</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Lazy streams for chunks, regex grep, truncated inspect. Clean and focused.</td>
+      </tr>
+      <tr>
+        <td>RLM.Span</td><td>15</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Cryptographic RNG for span IDs. 64-bit entropy is sufficient.</td>
+      </tr>
+      <tr>
+        <td>RLM.Truncate</td><td>23</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Head+tail truncation. Simple and effective.</td>
+      </tr>
+      <tr>
+        <td>RLM.EventLog</td><td>118</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Per-run Agent with tree-building for dashboard. Clean fallback to TraceStore when swept. Uses <code>Enum.map_join/3</code> for JSONL.</td>
+      </tr>
+      <tr>
+        <td>RLM.TraceStore</td><td>102</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Correct :dets :bag usage. Two-phase delete avoids undefined behavior during foldl. No compaction (file can fragment but typically small).</td>
+      </tr>
+      <tr>
+        <td>RLM.EventLog.Sweeper</td><td>73</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Periodic GC with dual clock sources (monotonic for Agents, wall-clock for :dets). 5-second safe timeout per agent check.</td>
+      </tr>
+      <tr>
+        <td>RLM.IEx</td><td>162</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Clean IEx helpers. Watch loop with PubSub subscription. Hardcoded 120s timeout for chat could be configurable.</td>
+      </tr>
+      <tr>
+        <td>RLM.ToolRegistry</td><td>61</td>
+        <td><span class="tier tier-idiomatic">Idiomatic</span></td>
+        <td>Simple dispatch. Hardcoded tool list is fine for a curated set.</td>
+      </tr>
+    </tbody>
+  </table>
 
-<div class="card">
-<h4><span class="priority p-high"></span> 1. Cost Tracking &amp; Budget Limits <span class="badge good">High Value / Low Effort</span></h4>
-<p>Aggregate token usage per run. Apply cost rates from config. Add <code>max_cost_per_run</code> config field. Show cost in dashboard. This is mostly additive &mdash; token counts already flow through telemetry.</p>
+  <h3>Filesystem Tools (7 modules)</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Lines</th><th>Quality</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>ReadFile</td><td>32</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>100 KB limit with truncation annotation</td></tr>
+      <tr><td>WriteFile</td><td>23</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>Creates parent directories automatically</td></tr>
+      <tr><td>EditFile</td><td>59</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>Uniqueness guard prevents accidental multi-match</td></tr>
+      <tr><td>Bash</td><td>54</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td><code>Task.yield/2</code> timeout pattern. 30s default, 300s max</td></tr>
+      <tr><td>Grep</td><td>78</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>ripgrep primary, grep fallback. 200-match cap</td></tr>
+      <tr><td>Glob</td><td>37</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>500-result cap. No mtime sorting (minor)</td></tr>
+      <tr><td>Ls</td><td>40</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>Safe stat handling; ignores errors</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Telemetry (4 modules)</h3>
+  <table>
+    <thead><tr><th>Module</th><th>Lines</th><th>Quality</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>RLM.Telemetry</td><td>70</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>17 events, 3 handler channels. Idempotent attachment.</td></tr>
+      <tr><td>Telemetry.Logger</td><td>86</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>Appropriate log levels per event type.</td></tr>
+      <tr><td>Telemetry.PubSub</td><td>22</td><td><span class="tier tier-idiomatic">Idiomatic</span></td><td>Broadcasts to global + per-run topics.</td></tr>
+      <tr><td>Telemetry.EventLogHandler</td><td>155</td><td><span class="tier tier-passable">Passable</span></td><td>Dual write (EventLog + TraceStore). Synchronous Agent calls &mdash; can block Worker (see <a href="#findings">Findings</a>).</td></tr>
+    </tbody>
+  </table>
 </div>
+</section>
 
-<div class="card">
-<h4><span class="priority p-high"></span> 2. Eval Process Safety <span class="badge good">High Value / Low Effort</span></h4>
-<p>Switch from <code>spawn</code> to <code>spawn_monitor</code> for the eval process. Handle <code>{:DOWN, ...}</code> to prevent Worker hangs. A targeted, low-risk fix.</p>
+<!-- ============================================================ -->
+<!-- FAULT TOLERANCE                                                -->
+<!-- ============================================================ -->
+<section id="fault-tolerance">
+<div class="container">
+  <h2>Fault Tolerance Analysis <span class="badge" style="background:rgba(249,226,175,0.2);color:var(--accent3);">7 / 10</span></h2>
+
+  <h3>Failure Scenarios</h3>
+
+  <details>
+    <summary><span class="sev sev-high">HIGH</span> &nbsp; Orphaned Eval Child Processes</summary>
+    <div class="content">
+      <p>When eval is killed on timeout via <code>Process.exit(pid, :kill)</code>, any child processes it spawned (e.g., bash commands, spawned tasks) are <strong>not terminated</strong>. They continue running in the background until they naturally exit.</p>
+      <p><strong>Example:</strong> Eval runs <code>bash("ffmpeg -i huge.mp4 ...")</code> which spawns an OS process. Eval times out after 5 minutes, but ffmpeg continues indefinitely.</p>
+      <p><strong>Fix:</strong> Use process groups or a dedicated supervisor for eval children. On timeout, terminate the entire group.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-high">HIGH</span> &nbsp; Synchronous Telemetry Handler Blocking</summary>
+    <div class="content">
+      <p>Telemetry handlers are called synchronously. The EventLogHandler calls <code>Agent.update</code> without a timeout. If the EventLog Agent is unresponsive, the Worker&rsquo;s <code>emit_telemetry</code> call blocks indefinitely, preventing the Worker from processing any messages.</p>
+      <p><strong>Chain:</strong> Worker &rarr; <code>:telemetry.execute</code> &rarr; EventLogHandler &rarr; <code>Agent.update(pid, ...)</code> &rarr; hung Agent &rarr; Worker blocked.</p>
+      <p><strong>Fix:</strong> Add a 5-second timeout to <code>Agent.update</code> calls, or use <code>Agent.cast</code> for non-critical writes.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-high">HIGH</span> &nbsp; Pending Subcalls Not Cleaned on Child Crash</summary>
+    <div class="content">
+      <p>When a child Worker is spawned via <code>{:spawn_subcall, ...}</code>, the parent stores <code>{child_span_id =&gt; from}</code> in <code>pending_subcalls</code>. If the child crashes without sending <code>{:rlm_result, ...}</code>, the entry remains in the map permanently.</p>
+      <p>The eval process that initiated the subcall remains blocked on <code>GenServer.call(..., :infinity)</code> indefinitely.</p>
+      <p><strong>Fix:</strong> Monitor child Workers with <code>Process.monitor/1</code> and handle <code>{:DOWN, ...}</code> messages to clean up pending_subcalls and reply with an error.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; No HTTP Connection Pool Configuration</summary>
+    <div class="content">
+      <p>Req uses its default connection pool. In high-concurrency scenarios (many Workers making concurrent LLM calls), the default pool may be exhausted or create unbounded connections to the Anthropic API.</p>
+      <p><strong>Fix:</strong> Configure explicit Req pool settings or use Finch pool options.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; Keep-Alive Binding Accumulation</summary>
+    <div class="content">
+      <p>In interactive sessions, bindings persist across turns with no size limit. If eval&rsquo;d code repeatedly reads large files into bindings, memory grows unbounded.</p>
+      <p><strong>Fix:</strong> Add a configurable binding size limit. Warn or GC when exceeded.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-low">LOW</span> &nbsp; Token Estimation Approximation</summary>
+    <div class="content">
+      <p><code>estimate_tokens/1</code> divides string length by 4 as a rough approximation. Claude uses byte-pair encoding where actual token counts can differ significantly, especially for code and special characters.</p>
+      <p><strong>Impact:</strong> History compaction may trigger too early or too late. The 80% threshold provides a safety buffer.</p>
+    </div>
+  </details>
+
+  <h3>What Works Well</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>Worker Crash Recovery</h4>
+      <p><code>Process.monitor</code> in <code>RLM.run/3</code> ensures crashes surface as <code>{:error, reason}</code> rather than hanging. Proper timeout wrapping (eval_timeout &times; 2) prevents indefinite waits.</p>
+    </div>
+    <div class="card">
+      <h4>Eval Timeout</h4>
+      <p><code>spawn_monitor</code> with <code>receive/after</code> pattern correctly kills eval after timeout and drains the mailbox. Original bindings returned on failure.</p>
+    </div>
+    <div class="card">
+      <h4>EventLog Sweeper</h4>
+      <p>5-minute sweep with 1-hour TTL prevents unbounded memory growth. Dual clock sources (monotonic for Agents, wall-clock for :dets) handled correctly. Safe 5-second timeout per agent check.</p>
+    </div>
+    <div class="card">
+      <h4>Concurrency Limits</h4>
+      <p><code>max_depth</code> and <code>max_concurrent_subcalls</code> prevent recursive explosion. Both subcalls and direct queries count against the limit.</p>
+    </div>
+  </div>
 </div>
+</section>
 
-<div class="card">
-<h4><span class="priority p-high"></span> 3. SSE Streaming <span class="badge warn">High Value / Medium Effort</span></h4>
-<p>Re-add streaming to <code>RLM.LLM</code>. Broadcast partial tokens via PubSub for LiveView consumption. Users see the LLM "thinking" in real-time. Previously implemented but needs adaptation to the unified architecture.</p>
+<!-- ============================================================ -->
+<!-- TESTING                                                        -->
+<!-- ============================================================ -->
+<section id="testing">
+<div class="container">
+  <h2>Testing Assessment <span class="badge" style="background:rgba(166,227,161,0.2);color:var(--accent2);">8 / 10</span></h2>
+
+  <h3>Coverage Summary</h3>
+  <table>
+    <thead><tr><th>Test File</th><th>Tests</th><th>Coverage</th><th>Gaps</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>tools_test.exs</td><td>27</td>
+        <td><span class="tier tier-idiomatic">Strong</span></td>
+        <td>Missing: concurrency, very large files, invalid UTF-8</td>
+      </tr>
+      <tr>
+        <td>sandbox_test.exs</td><td>12</td>
+        <td><span class="tier tier-idiomatic">Strong</span></td>
+        <td>Missing: invalid code syntax, unbounded recursion</td>
+      </tr>
+      <tr>
+        <td>direct_query_test.exs</td><td>10</td>
+        <td><span class="tier tier-idiomatic">Strong</span></td>
+        <td>Missing: invalid schema, very large JSON responses</td>
+      </tr>
+      <tr>
+        <td>worker_test.exs</td><td>6</td>
+        <td><span class="tier tier-passable">Adequate</span></td>
+        <td>Missing: partial failure, Worker crash propagation, signal handling</td>
+      </tr>
+      <tr>
+        <td>worker_keep_alive_test.exs</td><td>8</td>
+        <td><span class="tier tier-passable">Adequate</span></td>
+        <td>Missing: long sessions (100+ turns), memory leak testing</td>
+      </tr>
+      <tr>
+        <td>integration_test.exs</td><td>12</td>
+        <td><span class="tier tier-idiomatic">Strong</span></td>
+        <td>Missing: error propagation, timeout behavior</td>
+      </tr>
+      <tr>
+        <td>helpers_test.exs</td><td>8</td>
+        <td><span class="tier tier-passable">Adequate</span></td>
+        <td>Missing: edge cases (empty input, nil, very large strings)</td>
+      </tr>
+      <tr>
+        <td>worker_pubsub_test.exs</td><td>4</td>
+        <td><span class="tier tier-passable">Adequate</span></td>
+        <td>Missing: PubSub failures, message ordering</td>
+      </tr>
+      <tr>
+        <td>live_api_test.exs</td><td>1</td>
+        <td><span class="tier tier-concern">Minimal</span></td>
+        <td>Only 1 test. Should have 5+ covering schema, subcalls, errors</td>
+      </tr>
+      <tr>
+        <td>Web: run_list_live_test.exs</td><td>5</td>
+        <td><span class="tier tier-passable">Adequate</span></td>
+        <td>Missing: multiple runs, sorting, rapid updates, error badges</td>
+      </tr>
+      <tr>
+        <td>Web: run_detail_live_test.exs</td><td>4</td>
+        <td><span class="tier tier-passable">Adequate</span></td>
+        <td>Missing: nested children (depth &gt; 1), large code blocks, accessibility</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Testing Patterns</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>MockLLM <span class="sev sev-info">WELL-DESIGNED</span></h4>
+      <p>ETS-based global response queue. Implements <code>@behaviour RLM.LLM</code>. Includes <code>mock_response/2</code> for structured output and <code>mock_direct_response/2</code> with JSON schema validation. Default response prevents test hangs.</p>
+      <p><strong>Gap:</strong> No error simulation helpers (<code>mock_error/1</code>, <code>mock_timeout/0</code>).</p>
+    </div>
+    <div class="card">
+      <h4>Test Organization <span class="sev sev-info">CLEAN</span></h4>
+      <p>Session tests use <code>async: false</code> (correct for global MockLLM). Tool/sandbox tests use <code>async: true</code>. Temp directories in setup with <code>on_exit</code> cleanup. Support files in <code>test/support/</code>.</p>
+    </div>
+  </div>
+
+  <h3>Smoke Tests (Live API)</h3>
+  <p>Five comprehensive smoke tests in <code>examples/smoke_test.exs</code>, runnable via <code>mix rlm.smoke</code>:</p>
+  <ol>
+    <li><strong>Basic run</strong> &mdash; count programming languages (expects 4)</li>
+    <li><strong>Multi-iteration</strong> &mdash; two-step computation (count then multiply)</li>
+    <li><strong>Schema direct query</strong> &mdash; extract capital and population as structured JSON</li>
+    <li><strong>Subcall</strong> &mdash; sub-LLM query about Elixir creator</li>
+    <li><strong>Interactive session</strong> &mdash; multi-turn with binding persistence (x = 42, then x * 2 = 84)</li>
+  </ol>
 </div>
+</section>
 
-<div class="card">
-<h4><span class="priority p-med"></span> 4. Session Persistence <span class="badge warn">Medium Value / Medium Effort</span></h4>
-<p>Serialize keep-alive Worker state (history + bindings) to :dets or Mnesia. Resume sessions after restart. Requires careful handling of non-serializable bindings (PIDs, ports, refs).</p>
+<!-- ============================================================ -->
+<!-- DASHBOARD                                                      -->
+<!-- ============================================================ -->
+<section id="dashboard">
+<div class="container">
+  <h2>LiveView Dashboard <span class="badge" style="background:rgba(249,226,175,0.2);color:var(--accent3);">7 / 10</span></h2>
+
+  <h3>Strengths</h3>
+  <ul>
+    <li><strong>Read-only design</strong> &mdash; no mutation endpoints, minimal attack surface</li>
+    <li><strong>Recursive <code>span_node/1</code></strong> component renders arbitrary-depth span trees elegantly</li>
+    <li><strong>Live updates</strong> via PubSub subscription &mdash; new runs appear within 1 second</li>
+    <li><strong>TraceStore fallback</strong> &mdash; data persists after EventLog agents are swept</li>
+    <li><strong>Expandable iteration cards</strong> with code, stdout, bindings, token counts</li>
+    <li><strong>CSP header</strong> with <code>default-src 'self'; connect-src 'self' ws: wss:</code></li>
+  </ul>
+
+  <h3>Improvement Opportunities</h3>
+  <table>
+    <thead><tr><th>Issue</th><th>Severity</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>No pagination</td>
+        <td><span class="sev sev-medium">MEDIUM</span></td>
+        <td>All runs render on page load. With thousands of runs, performance will degrade. Add cursor-based pagination (50 runs per page).</td>
+      </tr>
+      <tr>
+        <td>No error boundaries</td>
+        <td><span class="sev sev-medium">MEDIUM</span></td>
+        <td>Corrupted telemetry events can crash page render. Wrap critical render sections in try/rescue with graceful fallback.</td>
+      </tr>
+      <tr>
+        <td>Accessibility gaps</td>
+        <td><span class="sev sev-medium">MEDIUM</span></td>
+        <td>Iteration toggle uses <code>&lt;div phx-click&gt;</code> instead of <code>&lt;button&gt;</code>. No <code>aria-</code> attributes beyond <code>role="alert"</code> on flash. Color-only status indicators not colorblind-friendly.</td>
+      </tr>
+      <tr>
+        <td>No syntax highlighting</td>
+        <td><span class="sev sev-low">LOW</span></td>
+        <td>Code blocks render as plain <code>&lt;pre&gt;</code>. Consider Highlight.js for Elixir syntax coloring.</td>
+      </tr>
+      <tr>
+        <td>No sorting/filtering</td>
+        <td><span class="sev sev-low">LOW</span></td>
+        <td>Run list is hardcoded reverse-chronological. No way to filter by status, search by run ID, or sort columns.</td>
+      </tr>
+      <tr>
+        <td>No trace export</td>
+        <td><span class="sev sev-low">LOW</span></td>
+        <td>Traces viewable only in web UI. Add <code>/runs/:run_id/export</code> for JSON/JSONL download.</td>
+      </tr>
+      <tr>
+        <td>Missing @moduledoc</td>
+        <td><span class="sev sev-low">LOW</span></td>
+        <td>LiveView modules lack <code>@moduledoc</code> and <code>@type</code> annotations.</td>
+      </tr>
+    </tbody>
+  </table>
 </div>
+</section>
 
-<div class="card">
-<h4><span class="priority p-med"></span> 5. LLM-Based Compaction <span class="badge warn">Medium Value / Medium Effort</span></h4>
-<p>Replace string serialization with an LLM summarization call. Send the history to a small model with a "summarize this conversation" prompt. Better context retention at the cost of an extra API call.</p>
+<!-- ============================================================ -->
+<!-- FINDINGS                                                       -->
+<!-- ============================================================ -->
+<section id="findings">
+<div class="container">
+  <h2>Detailed Findings</h2>
+
+  <h3>Critical &amp; High Priority</h3>
+
+  <details open>
+    <summary><span class="sev sev-critical">CRITICAL</span> &nbsp; Worker.pending_subcalls memory leak on child crash</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/worker.ex</code>, lines 517&ndash;563</p>
+      <p>When a child Worker is spawned via <code>{:spawn_subcall, ...}</code>, the parent stores the caller&rsquo;s <code>from</code> in <code>pending_subcalls</code>. If the child crashes without sending <code>{:rlm_result, ...}</code>, the entry is never removed. The eval process that called <code>lm_query()</code> blocks on <code>GenServer.call(worker_pid, ..., :infinity)</code> forever.</p>
+      <p><strong>Impact:</strong> Eval hangs, Worker is blocked (can&rsquo;t process further messages), run never completes.</p>
+      <p><strong>Fix:</strong> Add <code>Process.monitor(child_pid)</code> after <code>DynamicSupervisor.start_child</code>. Handle <code>{:DOWN, ref, :process, child_pid, reason}</code> to pop from pending_subcalls and reply with <code>{:error, "Subcall crashed: ..."}</code>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-high">HIGH</span> &nbsp; Synchronous telemetry can block Worker indefinitely</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/telemetry/event_log_handler.ex</code></p>
+      <p>EventLogHandler calls <code>RLM.EventLog.append(run_id, event)</code> synchronously from within the telemetry dispatch. <code>append/2</code> uses <code>Agent.update/2</code> with no timeout. If the Agent is slow or hung, the Worker&rsquo;s <code>emit_telemetry</code> call blocks.</p>
+      <p><strong>Fix:</strong> Use <code>Agent.cast</code> instead of <code>Agent.update</code>, or add a 5-second timeout.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-high">HIGH</span> &nbsp; Eval child processes survive timeout kill</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/eval.ex</code>, line 69</p>
+      <p>When eval times out, <code>Process.exit(pid, :kill)</code> terminates the eval process. However, any child processes it spawned (via <code>bash/1</code>, <code>Task.async</code>, etc.) are not terminated. They continue running in the background.</p>
+      <p><strong>Impact:</strong> Resource leak. Long-running bash commands (e.g., ffmpeg, sleep) persist indefinitely.</p>
+      <p><strong>Fix:</strong> Spawn eval in a process group. On timeout, terminate the entire group. Alternatively, track child PIDs and kill them explicitly.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-high">HIGH</span> &nbsp; GenServer.call with :infinity timeout in sandbox</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/sandbox.ex</code>, lines 37, 39</p>
+      <p>Both <code>lm_query</code> paths use <code>GenServer.call(worker_pid, ..., :infinity)</code>. If the Worker dies or hangs, eval blocks forever.</p>
+      <p><strong>Fix:</strong> Use a configurable finite timeout (e.g., <code>subcall_timeout</code> from Config, default 5 minutes).</p>
+    </div>
+  </details>
+
+  <h3>Medium Priority</h3>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; Worker module is 795 lines</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/worker.ex</code></p>
+      <p>The Worker handles iterate loop, eval spawning, subcall management, keep-alive sessions, history compaction, code repetition detection, and telemetry emission. This concentration makes it difficult to review, test, and maintain.</p>
+      <p><strong>Suggestion:</strong> Extract into focused modules: <code>RLM.Worker.Iterate</code>, <code>RLM.Worker.History</code> (compaction + repetition), <code>RLM.Worker.Subcalls</code>. Keep the GenServer shell in Worker.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; System prompt read from disk on every call</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/prompt.ex</code></p>
+      <p><code>system_prompt/0</code> reads <code>priv/system_prompt.md</code> from disk on every invocation. This is called once per Worker init but still represents unnecessary I/O.</p>
+      <p><strong>Fix:</strong> Cache in Application env on boot, or use <code>@external_resource</code> + module attribute for compile-time embedding.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; No RLM.Config validation</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/config.ex</code></p>
+      <p><code>Config.load/1</code> accepts any values without validation. Negative timeouts, zero max_depth, or missing API keys are silently accepted. Failures surface later as cryptic runtime errors.</p>
+      <p><strong>Fix:</strong> Add a <code>validate!/1</code> function that checks: timeouts &gt; 0, max_depth &ge; 1, max_iterations &ge; 1, API key present (in prod).</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; No CLAUDE_API_KEY validation in runtime config</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>config/runtime.exs</code></p>
+      <p>The production server starts even without <code>CLAUDE_API_KEY</code>. The first <code>RLM.run</code> fails with an API error rather than a clear startup message.</p>
+      <p><strong>Fix:</strong> Add a block similar to <code>SECRET_KEY_BASE</code> that reads and validates the API key at startup.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-medium">MEDIUM</span> &nbsp; Concurrent subcall check is not atomic</summary>
+    <div class="content">
+      <p><strong>File:</strong> <code>apps/rlm/lib/rlm/worker.ex</code>, line 527</p>
+      <p>The <code>map_size(state.pending_subcalls)</code> check and the subsequent <code>Map.put</code> are not atomic. If two subcall requests arrive in quick succession, both may pass the check, exceeding <code>max_concurrent_subcalls</code>.</p>
+      <p><strong>Impact:</strong> Soft limit violation. Not critical since it&rsquo;s a GenServer (serialized), but direct queries are spawned asynchronously.</p>
+    </div>
+  </details>
+
+  <h3>Low Priority</h3>
+
+  <details>
+    <summary><span class="sev sev-low">LOW</span> &nbsp; Hardcoded max_tokens (4096) in LLM</summary>
+    <div class="content">
+      <p>Not configurable. 4096 is reasonable for most use cases but may be insufficient for very long reasoning chains.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-low">LOW</span> &nbsp; Cost fields unused in Config</summary>
+    <div class="content">
+      <p>Four cost-per-1k-tokens fields exist but no billing or cost-tracking module uses them. Either implement cost tracking or remove to reduce noise.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-low">LOW</span> &nbsp; No retry logic in LLM client</summary>
+    <div class="content">
+      <p>Transient API failures (429, 500, network glitch) fail immediately. Consider adding exponential backoff for retriable errors.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sev sev-low">LOW</span> &nbsp; :dets file doesn&rsquo;t compact</summary>
+    <div class="content">
+      <p>:dets marks deleted space as free but doesn&rsquo;t shrink the file. Over months of operation, the file may grow large relative to active data. Typically not an issue for development use.</p>
+    </div>
+  </details>
 </div>
+</section>
 
-<div class="card">
-<h4><span class="priority p-low"></span> 6. Permission Model <span class="badge err">Medium Value / High Effort</span></h4>
-<p>Add a permission layer for tool execution. Allow/deny patterns for file paths, command restrictions for bash. Approval callbacks for dangerous operations. Significant design work needed.</p>
+<!-- ============================================================ -->
+<!-- RECOMMENDATIONS                                                -->
+<!-- ============================================================ -->
+<section id="recommendations">
+<div class="container">
+  <h2>Recommendations</h2>
+
+  <h3>Quick Wins (1&ndash;2 hours each)</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>1. Monitor child Workers</h4>
+      <p>Add <code>Process.monitor/1</code> after <code>DynamicSupervisor.start_child</code> in <code>handle_call({:spawn_subcall, ...})</code>. Handle <code>{:DOWN, ...}</code> to clean up <code>pending_subcalls</code> and reply with error.</p>
+    </div>
+    <div class="card">
+      <h4>2. Timeout on EventLog.append</h4>
+      <p>Change <code>Agent.update(pid, fun)</code> to <code>Agent.update(pid, fun, 5_000)</code> or switch to <code>Agent.cast</code> in EventLogHandler. Prevents Worker hang on Agent failure.</p>
+    </div>
+    <div class="card">
+      <h4>3. Finite subcall timeout</h4>
+      <p>Replace <code>GenServer.call(worker_pid, ..., :infinity)</code> with <code>GenServer.call(worker_pid, ..., config.subcall_timeout)</code> in sandbox.ex. Default to 5 minutes.</p>
+    </div>
+    <div class="card">
+      <h4>4. API key validation in runtime.exs</h4>
+      <p>Add startup validation for <code>CLAUDE_API_KEY</code> in production, similar to <code>SECRET_KEY_BASE</code>. Clear error message if missing.</p>
+    </div>
+  </div>
+
+  <h3>Medium Effort (4&ndash;8 hours each)</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>5. Split Worker into focused modules</h4>
+      <p>Extract iterate loop logic, history compaction, and subcall management into <code>RLM.Worker.Iterate</code>, <code>RLM.Worker.History</code>, and <code>RLM.Worker.Subcalls</code>. Keep GenServer shell in Worker.</p>
+    </div>
+    <div class="card">
+      <h4>6. Add MockLLM error simulation</h4>
+      <p>Add <code>mock_error/1</code> and <code>mock_timeout/0</code> helpers. Write tests for error propagation, timeout handling, and partial failure scenarios.</p>
+    </div>
+    <div class="card">
+      <h4>7. Dashboard pagination</h4>
+      <p>Implement cursor-based pagination in RunListLive. Load 50 runs initially, load more on scroll or &ldquo;Load more&rdquo; button.</p>
+    </div>
+    <div class="card">
+      <h4>8. Config validation</h4>
+      <p>Add <code>RLM.Config.validate!/1</code> that checks all constraint invariants. Call from <code>load/1</code>. Raise with helpful messages on invalid values.</p>
+    </div>
+  </div>
+
+  <h3>Larger Effort (1&ndash;2 days each)</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>9. Eval process group cleanup</h4>
+      <p>Spawn eval and its children in a process group. On timeout, terminate the entire group. Requires restructuring eval spawning to use a linked supervisor or <code>:pg</code>.</p>
+    </div>
+    <div class="card">
+      <h4>10. Comprehensive error path tests</h4>
+      <p>Add 15&ndash;20 tests for: LLM API failure, timeout, malformed response, child Worker crash, eval crash, concurrent limit exceeded, binding overflow.</p>
+    </div>
+    <div class="card">
+      <h4>11. Expand live API tests</h4>
+      <p>Add 5&ndash;10 tests to <code>live_api_test.exs</code> covering: schema mode, subcalls, multi-iteration, interactive sessions, error handling against the real API.</p>
+    </div>
+    <div class="card">
+      <h4>12. Dashboard accessibility audit</h4>
+      <p>Replace <code>&lt;div phx-click&gt;</code> with <code>&lt;button&gt;</code>. Add ARIA labels to all interactive elements. Add text labels alongside color-only status indicators. Test with screen reader.</p>
+    </div>
+  </div>
 </div>
+</section>
 
-<hr>
+<!-- ============================================================ -->
+<!-- CHECKLIST                                                      -->
+<!-- ============================================================ -->
+<section id="checklist">
+<div class="container">
+  <h2>What&rsquo;s Working &amp; What Needs Attention</h2>
 
-<p style="color:#8b949e; font-size:.85rem; text-align:center;">
-  RLM Engine System Review &mdash; Generated February 2026 &mdash; Based on codebase analysis of apps/rlm and apps/rlm_web
-</p>
+  <h3>Working Well</h3>
+  <ul class="checklist">
+    <li class="done">Async-eval pattern prevents deadlock between Worker and eval&rsquo;d code</li>
+    <li class="done">DynamicSupervisor with <code>:temporary</code> Workers &mdash; correct lifecycle management</li>
+    <li class="done">Registry-based naming avoids global atoms, supports concurrent lookup</li>
+    <li class="done">17 telemetry events with 3 handler channels (Logger, EventLog, PubSub)</li>
+    <li class="done">Structured output via <code>output_config</code> eliminates regex-based code extraction</li>
+    <li class="done">Schema-mode direct queries for structured data extraction</li>
+    <li class="done">EventLog Sweeper prevents unbounded memory growth with TTL-based GC</li>
+    <li class="done">MockLLM with schema validation catches test bugs early</li>
+    <li class="done">7 filesystem tools with clean behaviour/registry pattern</li>
+    <li class="done">Comprehensive CLAUDE.md with module map, config fields, invariants</li>
+    <li class="done">Smoke test suite covering all major features</li>
+    <li class="done">CSP headers on dashboard</li>
+    <li class="done">Credo + Sobelow static analysis integrated</li>
+  </ul>
+
+  <h3>Needs Attention</h3>
+  <ul class="checklist">
+    <li>Monitor child Workers to clean up pending_subcalls on crash</li>
+    <li>Add timeout to telemetry EventLog handler (or use cast)</li>
+    <li>Terminate eval child processes on timeout (process groups)</li>
+    <li>Replace <code>:infinity</code> GenServer.call timeouts in sandbox</li>
+    <li>Split Worker (795 lines) into focused sub-modules</li>
+    <li>Add Config validation (timeouts &gt; 0, depths &ge; 1)</li>
+    <li>Add CLAUDE_API_KEY validation in runtime.exs for prod</li>
+    <li>Expand web tests from 13 to ~30 (nested trees, error states, accessibility)</li>
+    <li>Add MockLLM error simulation helpers</li>
+    <li>Dashboard pagination for run list</li>
+    <li>Cache system prompt instead of reading from disk each call</li>
+    <li>Expand live_api_test.exs from 1 to 5+ tests</li>
+  </ul>
+
+  <h3>Architecture Comparison: Python vs Elixir RLM</h3>
+  <table>
+    <thead><tr><th>Aspect</th><th>Elixir RLM</th><th>Typical Python RLM</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Concurrency</td>
+        <td><span class="tier tier-idiomatic">Native</span> &mdash; OTP processes, no GIL</td>
+        <td>asyncio or threading, GIL-limited</td>
+      </tr>
+      <tr>
+        <td>Fault tolerance</td>
+        <td><span class="tier tier-idiomatic">Supervisors</span> &mdash; automatic restart</td>
+        <td>try/except, manual retry</td>
+      </tr>
+      <tr>
+        <td>State management</td>
+        <td><span class="tier tier-idiomatic">GenServer</span> &mdash; message-passing, no locks</td>
+        <td>Shared dicts, locks, or Redis</td>
+      </tr>
+      <tr>
+        <td>Observability</td>
+        <td><span class="tier tier-idiomatic">Telemetry</span> &mdash; 17 events, structured</td>
+        <td>logging, often ad-hoc</td>
+      </tr>
+      <tr>
+        <td>REPL sandbox</td>
+        <td><span class="tier tier-passable">Code.eval_string</span> &mdash; functional but unsafe</td>
+        <td>exec/eval &mdash; equally unsafe</td>
+      </tr>
+      <tr>
+        <td>Deployment</td>
+        <td><span class="tier tier-idiomatic">OTP release</span> &mdash; hot upgrade capable</td>
+        <td>Docker container, restart to upgrade</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>RLM Umbrella System Review &mdash; Generated 22 February 2026</p>
+    <p>Commit <code>a2b3d85</code> on <code>main</code> &mdash; 124 tests passing (111 rlm + 13 web)</p>
+  </div>
+</footer>
 
 </body>
 </html>
