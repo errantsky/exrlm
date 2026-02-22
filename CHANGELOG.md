@@ -28,6 +28,9 @@ All notable changes to this project are documented here.
 - `direct_query_test.exs` — 7 tests covering parsed map return, model size, error
   propagation, JSON decode failure, concurrency limits, parallel_query, and telemetry.
 - Integration test for end-to-end `RLM.run` with `lm_query(schema:)`.
+- `mix rlm.smoke` Mix task and `examples/smoke_test.exs` — 5 live API smoke tests
+  covering basic run, multi-iteration, schema-mode direct query, subcalls, and
+  interactive sessions. Requires `CLAUDE_API_KEY`.
 
 ### Changed
 

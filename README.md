@@ -59,6 +59,9 @@ mix test
 
 # Run all tests including live API (requires CLAUDE_API_KEY)
 mix test --include live_api
+
+# Live smoke test (5 end-to-end tests against the real API)
+mix rlm.smoke
 ```
 
 ---

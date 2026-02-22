@@ -65,6 +65,8 @@ rlm_umbrella/
 │   ├── dev.exs
 │   ├── test.exs
 │   └── runtime.exs
+├── examples/
+│   └── smoke_test.exs          # Live API smoke tests (mix rlm.smoke)
 └── mix.exs
 ```
 
@@ -85,6 +87,9 @@ mix test --trace
 
 # Run live API tests (requires CLAUDE_API_KEY env var)
 mix test --include live_api
+
+# Live smoke test (requires CLAUDE_API_KEY env var)
+mix rlm.smoke
 
 # Interactive shell
 iex -S mix
@@ -164,6 +169,7 @@ Default models:
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
 | `RLM.Span` | Span/run ID generation |
 | `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2` |
+| `Mix.Tasks.Rlm.Smoke` | `mix rlm.smoke` — live API smoke tests (delegates to `examples/smoke_test.exs`) |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |
 | `RLM.EventLog.Sweeper` | GenServer; periodically GCs stale EventLog agents + :dets TTL sweep |
 | `RLM.TraceStore` | GenServer owning `:dets` table; persists events across restarts |
