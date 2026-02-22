@@ -1,6 +1,9 @@
 defmodule RLM.Prompt do
   @moduledoc """
   System prompt loading and message formatting.
+
+  Feedback messages use structured JSON so the LLM receives machine-parseable
+  eval results alongside its own JSON-schema-constrained responses.
   """
 
   @spec system_prompt() :: String.t()
@@ -36,32 +39,59 @@ defmodule RLM.Prompt do
     %{role: :user, content: content}
   end
 
-  @spec build_feedback_message(String.t(), :ok | :error) :: map()
-  def build_feedback_message(truncated_stdout, eval_status) do
-    status_text =
-      if eval_status == :ok, do: "Code executed successfully.", else: "Code execution failed."
+  @doc """
+  Build a structured JSON feedback message after code evaluation.
 
-    content = """
-    #{status_text}
+  Returns a `%{role: :user, content: json_string}` map with fields:
+  - `eval_status` — `"ok"` or `"error"`
+  - `stdout` / `error_output` — truncated output from eval
+  - `bindings` — current variable bindings summary
+  - `final_answer_set` — whether `final_answer` was assigned
+  """
+  @spec build_feedback_message(String.t(), :ok | :error, list(), boolean()) :: map()
+  def build_feedback_message(truncated_output, eval_status, bindings_info, final_answer_set) do
+    payload =
+      case eval_status do
+        :ok ->
+          %{
+            "eval_status" => "ok",
+            "stdout" => truncated_output,
+            "bindings" => format_bindings(bindings_info),
+            "final_answer_set" => final_answer_set
+          }
 
-    Stdout:
-    ```
-    #{truncated_stdout}
-    ```
+        :error ->
+          %{
+            "eval_status" => "error",
+            "error_output" => truncated_output,
+            "bindings" => format_bindings(bindings_info),
+            "final_answer_set" => false
+          }
+      end
 
-    Continue processing. When done, assign your answer to `final_answer`.
-    """
+    %{role: :user, content: Jason.encode!(payload)}
+  end
 
-    %{role: :user, content: content}
+  @doc "Build feedback for when the LLM returned empty code."
+  @spec build_empty_code_feedback() :: map()
+  def build_empty_code_feedback do
+    payload = %{
+      "eval_status" => "skipped",
+      "message" => "The code field was empty. Provide Elixir code to execute."
+    }
+
+    %{role: :user, content: Jason.encode!(payload)}
   end
 
   @spec build_nudge_message() :: map()
   def build_nudge_message do
-    %{
-      role: :user,
-      content:
-        "You seem to be repeating similar code. Try a different approach or set `final_answer` if you already have the result."
+    payload = %{
+      "eval_status" => "nudge",
+      "message" =>
+        "You are repeating similar code. Try a different approach or set final_answer."
     }
+
+    %{role: :user, content: Jason.encode!(payload)}
   end
 
   @spec build_compaction_addendum(String.t()) :: String.t()
@@ -77,6 +107,18 @@ defmodule RLM.Prompt do
     Continue working on the original task. Your bindings are preserved.
     """
   end
+
+  defp format_bindings(bindings_info) when is_list(bindings_info) do
+    Enum.map(bindings_info, fn
+      {name, type, bytes} ->
+        %{"name" => to_string(name), "type" => to_string(type), "bytes" => bytes}
+
+      other ->
+        %{"info" => inspect(other)}
+    end)
+  end
+
+  defp format_bindings(_), do: []
 
   defp default_system_prompt do
     """
@@ -107,7 +149,11 @@ defmodule RLM.Prompt do
     Set `final_answer = <your result>` when done. The REPL will detect this and return the answer.
 
     ## Output Format
-    Always wrap your code in an ```elixir code block.
+    Your response is a JSON object with two fields:
+    - `reasoning`: your explanation and thought process
+    - `code`: Elixir code to execute (use empty string "" if you need to think without executing)
+
+    After each code execution you receive structured JSON feedback with `eval_status`, `stdout`, and `bindings`.
     """
   end
 end

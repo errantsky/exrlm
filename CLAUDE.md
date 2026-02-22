@@ -127,6 +127,11 @@ A `Process.monitor` on the Worker ensures crashes surface as errors rather than 
 Uses the Anthropic Messages API (not OpenAI format). System messages are
 extracted and sent as the top-level `system` field. Requires `CLAUDE_API_KEY` env var.
 
+LLM responses use structured output (`output_config` with `json_schema`) to constrain
+responses to `{"reasoning": "...", "code": "..."}` JSON objects. This eliminates regex-based
+code extraction and provides clean separation of reasoning from executable code. Feedback
+messages after eval are also structured JSON.
+
 Default models:
 - Large: `claude-sonnet-4-5-20250929`
 - Small: `claude-haiku-4-5-20251001`
@@ -142,8 +147,8 @@ Default models:
 | `RLM.Worker` | GenServer per execution node; iterate loop + keep_alive mode |
 | `RLM.Eval` | Sandboxed `Code.eval_string` with async IO capture + cwd injection |
 | `RLM.Sandbox` | Functions injected into eval'd code (helpers + LLM calls + tool wrappers) |
-| `RLM.LLM` | Anthropic Messages API client + code-block extraction |
-| `RLM.Prompt` | System prompt loading and user/assistant message formatting |
+| `RLM.LLM` | Anthropic Messages API client with structured output (`extract_structured/1`) |
+| `RLM.Prompt` | System prompt loading + structured JSON feedback message formatting |
 | `RLM.Helpers` | `chunks/2`, `grep/2`, `preview/2`, `list_bindings/0` |
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
 | `RLM.Span` | Span/run ID generation |

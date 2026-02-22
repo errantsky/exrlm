@@ -1,6 +1,8 @@
 defmodule RLM.WorkerKeepAliveTest do
   use ExUnit.Case, async: false
 
+  alias RLM.Test.MockLLM
+
   defp start_keep_alive_worker(extra_opts \\ []) do
     span_id = RLM.Span.generate_id()
     run_id = RLM.Span.generate_run_id()
@@ -8,7 +10,7 @@ defmodule RLM.WorkerKeepAliveTest do
     config =
       RLM.Config.load(
         Keyword.merge(
-          [llm_module: RLM.Test.MockLLM, max_iterations: 10],
+          [llm_module: MockLLM, max_iterations: 10],
           extra_opts
         )
       )
@@ -36,8 +38,8 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "Worker stays alive after final_answer" do
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nfinal_answer = :first_turn\n```"
+      MockLLM.program_responses([
+        MockLLM.mock_response("final_answer = :first_turn")
       ])
 
       %{via: via, pid: pid} = start_keep_alive_worker()
@@ -50,11 +52,11 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "bindings persist across turns" do
-      RLM.Test.MockLLM.program_responses([
+      MockLLM.program_responses([
         # Turn 1: set a variable
-        "```elixir\nmy_var = 42\nfinal_answer = :turn1_done\n```",
+        MockLLM.mock_response("my_var = 42\nfinal_answer = :turn1_done"),
         # Turn 2: use the persisted variable
-        "```elixir\nfinal_answer = my_var + 1\n```"
+        MockLLM.mock_response("final_answer = my_var + 1")
       ])
 
       %{via: via} = start_keep_alive_worker()
@@ -64,10 +66,10 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "final_answer resets between turns" do
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nfinal_answer = :answer_1\n```",
+      MockLLM.program_responses([
+        MockLLM.mock_response("final_answer = :answer_1"),
         # This should start with final_answer = nil
-        "```elixir\nfinal_answer = :answer_2\n```"
+        MockLLM.mock_response("final_answer = :answer_2")
       ])
 
       %{via: via} = start_keep_alive_worker()
@@ -77,9 +79,9 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "rejects concurrent send_message while busy" do
-      RLM.Test.MockLLM.program_responses([
+      MockLLM.program_responses([
         # Slow response so we can test concurrent rejection
-        "```elixir\nProcess.sleep(200)\nfinal_answer = :done\n```"
+        MockLLM.mock_response("Process.sleep(200)\nfinal_answer = :done")
       ])
 
       %{via: via} = start_keep_alive_worker()
@@ -101,9 +103,9 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "history accumulates across turns" do
-      RLM.Test.MockLLM.program_responses([
-        "```elixir\nfinal_answer = :t1\n```",
-        "```elixir\nfinal_answer = :t2\n```"
+      MockLLM.program_responses([
+        MockLLM.mock_response("final_answer = :t1"),
+        MockLLM.mock_response("final_answer = :t2")
       ])
 
       %{via: via} = start_keep_alive_worker()
@@ -138,12 +140,12 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "iteration counter resets per turn" do
-      RLM.Test.MockLLM.program_responses([
+      MockLLM.program_responses([
         # Turn 1: 2 iterations before final_answer
-        "```elixir\nIO.puts(:loop_1)\n```",
-        "```elixir\nfinal_answer = :t1\n```",
+        MockLLM.mock_response("IO.puts(:loop_1)"),
+        MockLLM.mock_response("final_answer = :t1"),
         # Turn 2: starts from iteration 0 again
-        "```elixir\nfinal_answer = :t2\n```"
+        MockLLM.mock_response("final_answer = :t2")
       ])
 
       %{via: via} = start_keep_alive_worker()
@@ -158,12 +160,12 @@ defmodule RLM.WorkerKeepAliveTest do
     end
 
     test "max_iterations is per-turn, not lifetime" do
-      RLM.Test.MockLLM.program_responses([
+      MockLLM.program_responses([
         # Turn 1: use all 2 iterations, no final_answer → error
-        "```elixir\nIO.puts(:iter_1)\n```",
-        "```elixir\nIO.puts(:iter_2)\n```",
+        MockLLM.mock_response("IO.puts(:iter_1)"),
+        MockLLM.mock_response("IO.puts(:iter_2)"),
         # Turn 2: fresh budget, can succeed
-        "```elixir\nfinal_answer = :recovered\n```"
+        MockLLM.mock_response("final_answer = :recovered")
       ])
 
       %{via: via} = start_keep_alive_worker(max_iterations: 2)

@@ -5,16 +5,31 @@ defmodule RLM.Test.MockLLM do
   Uses a global ETS-based response queue. Since tests run with async: false,
   this is safe from race conditions.
 
+  Responses must be JSON strings matching the structured output schema
+  (`{"reasoning": "...", "code": "..."}`). Use `mock_response/1,2` to build them.
+
   ## Usage
 
       MockLLM.program_responses([
-        "```elixir\\nfinal_answer = 42\\n```"
+        MockLLM.mock_response("final_answer = 42")
       ])
   """
 
   @table __MODULE__
 
   @behaviour RLM.LLM
+
+  @doc """
+  Build a JSON response matching the structured output schema.
+
+  ## Examples
+
+      mock_response("final_answer = 42")
+      mock_response("IO.puts(:hello)", "printing hello")
+  """
+  def mock_response(code, reasoning \\ "") do
+    Jason.encode!(%{"reasoning" => reasoning, "code" => code})
+  end
 
   @impl true
   def chat(_messages, _model, _config) do
@@ -23,7 +38,7 @@ defmodule RLM.Test.MockLLM do
     case response do
       nil ->
         # Default: set final_answer immediately
-        {:ok, "```elixir\nfinal_answer = \"default mock answer\"\n```",
+        {:ok, mock_response("final_answer = \"default mock answer\"", "default"),
          %{prompt_tokens: 10, completion_tokens: 5, total_tokens: 15}}
 
       {:error, reason} ->
