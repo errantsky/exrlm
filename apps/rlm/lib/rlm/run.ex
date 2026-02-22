@@ -58,12 +58,6 @@ defmodule RLM.Run do
     GenServer.call(run_pid, {:start_worker, worker_opts})
   end
 
-  @doc "Get the eval Task.Supervisor PID for this run."
-  @spec eval_sup(pid()) :: pid()
-  def eval_sup(run_pid) do
-    GenServer.call(run_pid, :eval_sup)
-  end
-
   @doc "Look up the Run process for a given run_id."
   @spec whereis(String.t()) :: {:ok, pid()} | {:error, :not_found}
   def whereis(run_id) do
@@ -85,7 +79,7 @@ defmodule RLM.Run do
 
     {:ok, worker_sup} = DynamicSupervisor.start_link(strategy: :one_for_one)
     {:ok, eval_sup} = Task.Supervisor.start_link()
-    table = :ets.new(:run_workers, [:set, :protected, read_concurrency: true])
+    table = :ets.new(:"run_#{run_id}", [:set, :protected, read_concurrency: true])
 
     state = %__MODULE__{
       run_id: run_id,
@@ -121,10 +115,6 @@ defmodule RLM.Run do
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
-  end
-
-  def handle_call(:eval_sup, _from, state) do
-    {:reply, state.eval_sup, state}
   end
 
   @impl true
@@ -188,7 +178,12 @@ defmodule RLM.Run do
   end
 
   def handle_info(:auto_shutdown, state) do
-    {:stop, :normal, state}
+    # Re-check: a new worker may have registered during the grace period
+    if map_size(state.monitors) == 0 do
+      {:stop, :normal, state}
+    else
+      {:noreply, state}
+    end
   end
 
   @impl true
