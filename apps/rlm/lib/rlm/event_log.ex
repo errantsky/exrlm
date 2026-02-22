@@ -22,7 +22,7 @@ defmodule RLM.EventLog do
   end
 
   def append(run_id, event) do
-    Agent.update(via(run_id), fn log ->
+    Agent.cast(via(run_id), fn log ->
       # Preserve timestamp_us if already stamped by EventLogHandler (wall-clock);
       # fall back to monotonic time only for direct callers that omit it.
       event = Map.put_new(event, :timestamp_us, System.monotonic_time(:microsecond))
