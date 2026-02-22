@@ -3,33 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RLM Elixir Agent &mdash; Architecture Review</title>
+<title>RLM Engine &mdash; System Review &amp; OTP Assessment</title>
 <style>
   :root {
     --bg: #0d1117; --fg: #c9d1d9; --accent: #58a6ff; --accent2: #7ee787;
     --warn: #d29922; --err: #f85149; --card: #161b22; --border: #30363d;
     --code-bg: #1c2128; --heading: #f0f6fc;
+    --purple: #bc8cff; --teal: #39d353;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-         background: var(--bg); color: var(--fg); line-height: 1.7; padding: 2rem; max-width: 1100px; margin: 0 auto; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.7;
+    padding: 2rem; max-width: 1100px; margin: 0 auto;
+  }
   h1 { color: var(--heading); font-size: 2rem; margin-bottom: .5rem; border-bottom: 2px solid var(--accent); padding-bottom: .5rem; }
   h2 { color: var(--accent); font-size: 1.5rem; margin: 2.5rem 0 1rem; }
   h3 { color: var(--accent2); font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
+  h4 { color: var(--purple); font-size: 1rem; margin: 1rem 0 .4rem; }
   p, li { margin-bottom: .6rem; }
   ul, ol { padding-left: 1.5rem; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: .9em; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: .9em; color: var(--accent2); }
   pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0;
         border: 1px solid var(--border); font-size: .85em; line-height: 1.5; }
+  pre code { background: none; padding: 0; color: var(--fg); }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+  @media (max-width: 700px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
   .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .8em; font-weight: 600; }
   .good { background: #1a3a2a; color: var(--accent2); }
   .warn { background: #3a2a1a; color: var(--warn); }
   .err  { background: #3a1a1a; color: var(--err); }
+  .info { background: #1a2a3a; color: var(--accent); }
   table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
   th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
   th { color: var(--accent); font-size: .85em; text-transform: uppercase; letter-spacing: .05em; }
@@ -41,27 +49,35 @@
              font-family: monospace; white-space: pre; line-height: 1.4; font-size: .85em; overflow-x: auto; }
   .subtitle { color: #8b949e; font-size: 1rem; margin-bottom: 2rem; }
   hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+  .score { font-size: 2.5rem; font-weight: 800; color: var(--accent2); }
+  .score-label { font-size: .85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tier { border-left: 4px solid; padding-left: 16px; margin-bottom: 16px; }
+  .tier-good { border-color: var(--accent2); }
+  .tier-ok { border-color: var(--warn); }
+  .tier-improve { border-color: var(--err); }
+  .priority { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+  .p-high { background: var(--err); }
+  .p-med { background: var(--warn); }
+  .p-low { background: var(--accent); }
 </style>
 </head>
 <body>
 
-<h1>RLM Elixir Agent &mdash; Architecture Review</h1>
-<p class="subtitle">A comprehensive analysis of the current codebase, the original RLM (Python), and the Pi coding agent &mdash; with recommendations for the canonical OTP-native coding agent.</p>
+<h1>RLM Engine &mdash; System Review &amp; OTP Assessment</h1>
+<p class="subtitle">Comprehensive analysis of the current codebase, OTP design quality, and recommendations &mdash; February 2026</p>
 
 <nav class="toc">
 <strong>Contents</strong>
 <ol>
   <li><a href="#s1">Executive Summary</a></li>
-  <li><a href="#s2">Current Elixir RLM Codebase</a></li>
-  <li><a href="#s3">Original RLM (Python) &mdash; Key Concepts</a></li>
-  <li><a href="#s4">Pi Coding Agent &mdash; Architecture Lessons</a></li>
-  <li><a href="#s5">Comparative Analysis</a></li>
-  <li><a href="#s6">What Works Well (Keep)</a></li>
-  <li><a href="#s7">Gaps &amp; Issues (Fix)</a></li>
-  <li><a href="#s8">Missing Pieces for a Coding Agent</a></li>
-  <li><a href="#s9">OTP Design Patterns at Play</a></li>
-  <li><a href="#s10">Tracing &amp; Observability Deep Dive</a></li>
-  <li><a href="#s11">Recommended Architecture</a></li>
+  <li><a href="#s2">What Works Well</a></li>
+  <li><a href="#s3">OTP Assessment</a></li>
+  <li><a href="#s4">Naming &amp; Organization</a></li>
+  <li><a href="#s5">Gaps &amp; Missing Features</a></li>
+  <li><a href="#s6">Python RLM Comparison</a></li>
+  <li><a href="#s7">Architectural Recommendations</a></li>
+  <li><a href="#s8">Testing Assessment</a></li>
+  <li><a href="#s9">Future Directions</a></li>
 </ol>
 </nav>
 
@@ -69,508 +85,465 @@
 <h2 id="s1">1. Executive Summary</h2>
 
 <div class="card">
-<p>You have a <strong>solid RLM engine</strong> in Elixir that correctly implements the core recursive language model pattern using OTP primitives. The async-eval pattern for deadlock prevention is elegant and correct. The telemetry/event system is well-structured.</p>
-
-<p>To evolve this into a <strong>full coding agent</strong> (inspired by Pi), you need to add:</p>
+<p>The RLM Elixir engine has evolved from a basic recursive language model to a <strong>unified, production-capable system</strong>. Two major milestones shipped in Feb 2026:</p>
 <ul>
-  <li><strong>A tool system</strong> &mdash; file read/write/edit, shell execution, grep, glob (replacing the current eval-only approach)</li>
-  <li><strong>Anthropic tool_use API support</strong> &mdash; native tool calling instead of code-block extraction</li>
-  <li><strong>A session/conversation layer</strong> &mdash; multi-turn interactive sessions with steering</li>
-  <li><strong>Rich tracing</strong> &mdash; structured event recording with tree visualization</li>
-  <li><strong>A thin interface</strong> &mdash; IEx helpers + simple LiveView dashboard</li>
-</ul>
-<p>The RLM recursive subcall capability becomes a <strong>superpower</strong> for the coding agent: the ability to spawn sub-agents for complex research, refactoring across many files, or parallel analysis.</p>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="s2">2. Current Elixir RLM Codebase</h2>
-
-<h3>2.1 Architecture Overview</h3>
-
-<div class="diagram">RLM.Supervisor (one_for_one)
-├── Registry (RLM.Registry)          &mdash; named process lookup
-├── Phoenix.PubSub (RLM.PubSub)     &mdash; event broadcasting
-├── DynamicSupervisor (RLM.WorkerSup)&mdash; temporary Workers
-├── DynamicSupervisor (RLM.EventStore)&mdash; per-run EventLog Agents
-└── RLM.Telemetry (GenServer)        &mdash; handler attachment</div>
-
-<h3>2.2 The Iterate Loop (Worker GenServer)</h3>
-
-<div class="diagram">┌─────────────────────────────────────────────┐
-│  Worker.init/1                              │
-│  ├── Build system_msg + user_msg            │
-│  ├── Emit [:rlm, :node, :start]            │
-│  └── send(self(), :iterate)                 │
-│                                             │
-│  handle_info(:iterate)                      │
-│  ├── maybe_compact(state)                   │
-│  ├── LLM.chat(history, model, config)  SYNC │
-│  ├── LLM.extract_code(response)            │
-│  └── spawn async eval ──┐                  │
-│                          │                  │
-│  [Worker mailbox FREE]   │                  │
-│  ├── handle_call(:spawn_subcall) ◄──────┐   │
-│  │   ├── Start child Worker             │   │
-│  │   └── Store `from` in pending_subcalls│  │
-│  │                                      │   │
-│  ├── handle_info(:rlm_result) ◄─ child  │   │
-│  │   └── GenServer.reply(from, result)  │   │
-│  │                                      │   │
-│  └── handle_info(:eval_complete) ◄──────┘   │
-│      ├── Update bindings                    │
-│      ├── Check final_answer                 │
-│      └── send(self(), :iterate) OR complete │
-└─────────────────────────────────────────────┘</div>
-
-<p>This async-eval pattern is <strong>the key insight</strong>. The Worker stays responsive for subcall requests while eval runs in a separate process. Without this, <code>lm_query()</code> inside eval'd code would deadlock.</p>
-
-<h3>2.3 Module Inventory</h3>
-
-<table>
-<tr><th>Module</th><th>Lines</th><th>Purpose</th><th>Verdict</th></tr>
-<tr><td><code>RLM</code></td><td>67</td><td>Public API: <code>run/3</code>, <code>run_async/3</code></td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.Worker</code></td><td>492</td><td>GenServer iterate loop</td><td><span class="badge warn">Refactor</span></td></tr>
-<tr><td><code>RLM.Eval</code></td><td>79</td><td>Sandboxed Code.eval_string</td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.Sandbox</code></td><td>55</td><td>Functions in eval scope</td><td><span class="badge warn">Evolve</span></td></tr>
-<tr><td><code>RLM.LLM</code></td><td>110</td><td>Anthropic Messages API</td><td><span class="badge warn">Extend</span></td></tr>
-<tr><td><code>RLM.Prompt</code></td><td>112</td><td>Message formatting</td><td><span class="badge warn">Refactor</span></td></tr>
-<tr><td><code>RLM.Config</code></td><td>70</td><td>Configuration</td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.Helpers</code></td><td>65</td><td>chunks, grep, preview</td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.Truncate</code></td><td>~40</td><td>Head+tail truncation</td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.Span</code></td><td>~15</td><td>ID generation</td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.EventLog</code></td><td>109</td><td>Per-run trace store</td><td><span class="badge warn">Extend</span></td></tr>
-<tr><td><code>RLM.Telemetry.*</code></td><td>~150</td><td>3 handlers</td><td><span class="badge good">Keep</span></td></tr>
-<tr><td><code>RLM.Application</code></td><td>18</td><td>Supervision tree</td><td><span class="badge good">Keep</span></td></tr>
-</table>
-
-<h3>2.4 The Three Invariants</h3>
-<div class="card">
-<ol>
-  <li><strong>Raw data never enters the LLM context window</strong> &mdash; only metadata + 500-char preview. Full data lives in bindings (<code>context</code> variable).</li>
-  <li><strong>Sub-LLM outputs stay in variables</strong> &mdash; results of <code>lm_query()</code> are stored, not shown to parent LLM.</li>
-  <li><strong>Stdout is truncated</strong> &mdash; head+tail strategy (4000+4000 chars). Important results must be stored in variables.</li>
-</ol>
-<p>These invariants are elegant for data processing tasks. For a coding agent, invariant #1 needs adaptation &mdash; the agent needs to <em>see</em> file contents (though still with size limits).</p>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="s3">3. Original RLM (Python) &mdash; Key Concepts</h2>
-
-<div class="card">
-<p><strong>Paper:</strong> <a href="https://arxiv.org/abs/2512.24601v1">arxiv.org/abs/2512.24601v1</a> &mdash; <strong>Repo:</strong> <a href="https://github.com/alexzhang13/rlm">github.com/alexzhang13/rlm</a></p>
-</div>
-
-<h3>3.1 Core Algorithm</h3>
-<p>RLM treats an LLM as a <strong>recursive function</strong> operating in a REPL:</p>
-<ol>
-  <li>LLM receives task + metadata about context (not raw data)</li>
-  <li>LLM writes code that gets executed in a persistent environment</li>
-  <li>Code can call <code>rlm_query()</code> to spawn child RLMs (recursive subcalls)</li>
-  <li>Each child operates on a strictly smaller/more abstract input (monotonicity)</li>
-  <li>Results flow back through variable bindings</li>
-  <li>Loop continues until <code>FINAL(answer)</code> is set</li>
-</ol>
-
-<h3>3.2 Python Architecture</h3>
-<table>
-<tr><th>Component</th><th>Python</th><th>Elixir Equivalent</th></tr>
-<tr><td>Core loop</td><td><code>RLM_REPL.completion()</code></td><td><code>RLM.Worker.handle_info(:iterate)</code></td></tr>
-<tr><td>Code execution</td><td><code>LocalREPL.execute_code()</code> via <code>exec()</code></td><td><code>RLM.Eval.run()</code> via <code>Code.eval_string</code></td></tr>
-<tr><td>Subcall communication</td><td>TCP sockets with length-prefixed JSON</td><td>GenServer.call + message passing</td></tr>
-<tr><td>Recursion</td><td><code>RLM._subcall()</code> creates child RLM</td><td><code>Worker.handle_call(:spawn_subcall)</code></td></tr>
-<tr><td>Budget tracking</td><td>Cost accumulation in <code>_cumulative_cost</code></td><td>Config fields exist but unused</td></tr>
-<tr><td>Environment isolation</td><td>Separate processes + socket protocol</td><td>Separate BEAM processes + mailbox</td></tr>
-</table>
-
-<h3>3.3 What the Elixir Version Does Better</h3>
-<ul>
-  <li><span class="badge good">Better</span> <strong>No sockets needed</strong> &mdash; BEAM message passing replaces TCP sockets entirely. This is dramatically simpler and more reliable.</li>
-  <li><span class="badge good">Better</span> <strong>OTP supervision</strong> &mdash; crashed workers get cleaned up properly. Python version must manually handle process lifecycle.</li>
-  <li><span class="badge good">Better</span> <strong>Registry-based discovery</strong> &mdash; workers found by span_id through Registry, not PID tracking.</li>
-  <li><span class="badge good">Better</span> <strong>Telemetry integration</strong> &mdash; structured events with 3 handlers vs. Python's logger-based approach.</li>
-  <li><span class="badge good">Better</span> <strong>Parallel subcalls</strong> &mdash; <code>parallel_query</code> uses Task.async_many, naturally leveraging BEAM concurrency.</li>
+  <li><strong>LiveView Dashboard</strong> &mdash; Real-time trace visualization with :dets persistence</li>
+  <li><strong>Agent-to-Engine Consolidation</strong> (PR #6) &mdash; Merged the separate <code>RLM.Agent.*</code> namespace into the core engine, eliminating 15 files of duplication</li>
 </ul>
 
-<h3>3.4 What Python Version Has That We Don't</h3>
-<ul>
-  <li><span class="badge warn">Missing</span> <strong>Cost tracking</strong> &mdash; Python accumulates cost across the recursion tree. Our config has cost fields but never calculates.</li>
-  <li><span class="badge warn">Missing</span> <strong>Budget propagation</strong> &mdash; Python passes remaining budget/timeout to children. Our children get full config.</li>
-  <li><span class="badge warn">Missing</span> <strong>Compaction via summarization</strong> &mdash; Python uses an LLM call to summarize history. Our compaction just truncates.</li>
-  <li><span class="badge warn">Missing</span> <strong>Multiple environment types</strong> &mdash; Python has LocalREPL + DockerREPL. We only have local eval.</li>
-</ul>
-
-<!-- ================================================================ -->
-<h2 id="s4">4. Pi Coding Agent &mdash; Architecture Lessons</h2>
-
-<div class="card">
-<p><strong>Repo:</strong> <a href="https://github.com/badlogic/pi-mono">github.com/badlogic/pi-mono</a></p>
-<p>Pi is a monorepo with three layers: <code>pi-ai</code> (LLM abstraction), <code>pi-agent-core</code> (agent loop + tools), and <code>pi-coding-agent</code> (TUI coding agent).</p>
+<p>The result is a clean, single-engine architecture with <strong>111 passing tests</strong> (98 rlm + 13 rlm_web), 8 OTP supervision tree children, 7 filesystem tools, 15 telemetry events, and a Phoenix LiveView dashboard.</p>
 </div>
-
-<h3>4.1 Three-Layer Architecture</h3>
-<div class="diagram">┌──────────────────────────────────┐
-│  pi-coding-agent (TUI/interface) │
-│  ├── system-prompt.ts            │
-│  ├── tools/  (bash, edit, read..)│
-│  ├── compaction/                 │
-│  ├── session-manager.ts          │
-│  └── skills.ts                   │
-├──────────────────────────────────┤
-│  pi-agent-core (agent loop)      │
-│  ├── agent-loop.ts               │
-│  ├── types.ts (AgentState, etc.) │
-│  └── event system                │
-├──────────────────────────────────┤
-│  pi-ai (LLM abstraction)        │
-│  ├── Provider registry           │
-│  ├── Streaming support           │
-│  ├── Tool argument validation    │
-│  └── Multi-provider (Anthropic,  │
-│       OpenAI, Google, etc.)      │
-└──────────────────────────────────┘</div>
-
-<h3>4.2 Agent Loop &mdash; Key Design</h3>
-<p>Pi's agent loop is conceptually simple:</p>
-<pre>
-while (hasMoreToolCalls || pendingMessages.length > 0) {
-    // 1. Process pending steering messages
-    // 2. Stream assistant response from LLM
-    // 3. Execute tool calls if present
-    // 4. Check for user steering interruptions
-    // 5. Collect follow-up messages
-}
-// Check for follow-up messages before exiting
-</pre>
-
-<p>Key patterns:</p>
-<ul>
-  <li><strong>Tool-use native</strong> &mdash; uses Anthropic's <code>tool_use</code> API, not code extraction from markdown</li>
-  <li><strong>Streaming throughout</strong> &mdash; responses stream to UI as they arrive</li>
-  <li><strong>Steering</strong> &mdash; user can interrupt tool execution mid-flight</li>
-  <li><strong>Event-driven</strong> &mdash; granular events: agent_start/end, turn_start/end, message_start/update/end, tool_execution_start/update/end</li>
-  <li><strong>Context transformation</strong> &mdash; <code>transformContext()</code> prunes messages before LLM call</li>
-</ul>
-
-<h3>4.3 Pi's Tool System</h3>
-<table>
-<tr><th>Tool</th><th>Description</th><th>Elixir Equivalent Needed</th></tr>
-<tr><td><code>bash</code></td><td>Shell command execution</td><td><code>Tool.Bash</code></td></tr>
-<tr><td><code>read</code></td><td>File reading with line ranges</td><td><code>Tool.Read</code></td></tr>
-<tr><td><code>write</code></td><td>File creation</td><td><code>Tool.Write</code></td></tr>
-<tr><td><code>edit</code></td><td>Exact string replacement in files</td><td><code>Tool.Edit</code></td></tr>
-<tr><td><code>edit-diff</code></td><td>Diff-based editing</td><td>(optional, start with edit)</td></tr>
-<tr><td><code>grep</code></td><td>Content search</td><td><code>Tool.Grep</code></td></tr>
-<tr><td><code>find</code></td><td>File discovery by pattern</td><td><code>Tool.Glob</code></td></tr>
-<tr><td><code>ls</code></td><td>Directory listing</td><td><code>Tool.Ls</code></td></tr>
-</table>
-
-<h3>4.4 What to Take from Pi</h3>
-<div class="grid">
-<div class="card">
-<h3>Adopt</h3>
-<ul>
-  <li>Tool-use API (not code block extraction) for the coding agent mode</li>
-  <li>Granular event system for live UI updates</li>
-  <li>Streaming responses</li>
-  <li>System prompt as a composable template</li>
-  <li>Session management with persistence</li>
-  <li>Context compaction strategy</li>
-</ul>
-</div>
-<div class="card">
-<h3>Simplify/Skip</h3>
-<ul>
-  <li>Multi-provider support (start Claude-only)</li>
-  <li>TUI (use IEx + LiveView)</li>
-  <li>Complex keybinding system</li>
-  <li>OAuth/auth storage</li>
-  <li>Package manager integration</li>
-  <li>Slash commands (initially)</li>
-</ul>
-</div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="s5">5. Comparative Analysis</h2>
-
-<table>
-<tr><th>Aspect</th><th>Your Elixir RLM</th><th>Original RLM (Python)</th><th>Pi Coding Agent</th></tr>
-<tr><td>Execution model</td><td>Code eval in REPL</td><td>Code eval in REPL</td><td>Tool use API</td></tr>
-<tr><td>Recursion</td><td>Yes, via subcalls</td><td>Yes, via subcalls</td><td>No native recursion</td></tr>
-<tr><td>Concurrency</td><td>BEAM processes</td><td>TCP sockets + multiprocessing</td><td>Sequential tool calls</td></tr>
-<tr><td>Supervision</td><td>OTP DynamicSupervisor</td><td>Manual process management</td><td>None (single-threaded JS)</td></tr>
-<tr><td>Streaming</td><td>No</td><td>No</td><td>Yes, full streaming</td></tr>
-<tr><td>Tool system</td><td>Sandbox functions only</td><td>Sandbox functions only</td><td>Rich tool registry</td></tr>
-<tr><td>Context mgmt</td><td>Truncation + compaction</td><td>LLM summarization</td><td>Custom transform pipeline</td></tr>
-<tr><td>Tracing</td><td>Telemetry + EventLog + PubSub</td><td>Logger only</td><td>Event stream + UI rendering</td></tr>
-<tr><td>Interface</td><td>IEx / programmatic only</td><td>CLI</td><td>Rich TUI</td></tr>
-<tr><td>Testing</td><td>MockLLM + deterministic</td><td>Manual testing</td><td>N/A in public repo</td></tr>
-</table>
-
-<p><strong>Key insight:</strong> Your project uniquely combines RLM's recursive capability with OTP's native concurrency. Pi has no recursion; original RLM has no tool system. You can have both.</p>
-
-<!-- ================================================================ -->
-<h2 id="s6">6. What Works Well (Keep)</h2>
 
 <div class="grid">
-<div class="card">
-<h3>Async Eval Pattern</h3>
-<p>The deadlock-prevention design where eval runs in a separate process while the Worker remains responsive is <strong>correct and elegant</strong>. This is the foundation everything else builds on.</p>
-</div>
-<div class="card">
-<h3>OTP Supervision Tree</h3>
-<p>Registry-based lookup, DynamicSupervisor for temporary workers, <code>restart: :temporary</code> &mdash; all idiomatic OTP. The tree is simple and correct.</p>
-</div>
-<div class="card">
-<h3>Telemetry Architecture</h3>
-<p>14 event types with 3 independent handlers (Logger, EventLog, PubSub) is a clean separation. PubSub broadcasts enable LiveView without coupling.</p>
-</div>
-<div class="card">
-<h3>Test Infrastructure</h3>
-<p>MockLLM with ETS-based response queue, dependency injection via <code>llm_module</code> config, and clear test categories. Solid foundation for CI.</p>
-</div>
+  <div class="card" style="text-align:center;">
+    <div class="score">8/10</div>
+    <div class="score-label">OTP Design Score</div>
+    <p style="margin-top:.5rem; font-size:.9rem;">Genuinely idiomatic in core patterns; a few areas for improvement</p>
+  </div>
+  <div class="card">
+    <h4>Current State</h4>
+    <table style="margin:0;">
+      <tr><td>Test suite</td><td><span class="badge good">111 passing</span></td></tr>
+      <tr><td>Modules</td><td>~34 modules across 2 apps</td></tr>
+      <tr><td>Supervision children</td><td>8 processes</td></tr>
+      <tr><td>Telemetry events</td><td>15 defined, 12 actively emitted</td></tr>
+      <tr><td>Tools</td><td>7 filesystem tools</td></tr>
+      <tr><td>Config fields</td><td>21 on <code>RLM.Config</code></td></tr>
+    </table>
+  </div>
 </div>
 
 <!-- ================================================================ -->
-<h2 id="s7">7. Gaps &amp; Issues (Fix)</h2>
+<h2 id="s2">2. What Works Well</h2>
 
-<h3>7.1 Critical</h3>
+<div class="grid-3">
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Async-Eval Pattern</h4>
+    <p>The Worker spawns eval in a separate process, keeping its mailbox free for <code>{:spawn_subcall, ...}</code> calls. This prevents deadlock when eval'd code calls <code>lm_query()</code>. The pattern is subtle and correctly implemented.</p>
+    <p><code>worker.ex:467</code> &mdash; <code>spawn(fn -> Eval.run(...) end)</code></p>
+  </div>
 
-<div class="card">
-<p><span class="badge err">Critical</span> <strong>No max_concurrent_subcalls enforcement</strong></p>
-<p>Config has <code>max_concurrent_subcalls: 10</code> but <code>handle_call(:spawn_subcall)</code> never checks it. A runaway <code>parallel_query</code> with 1000 items would spawn 1000 child workers simultaneously.</p>
-<p><strong>Fix:</strong> Check <code>map_size(state.pending_subcalls) >= config.max_concurrent_subcalls</code> before spawning.</p>
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Unified Worker</h4>
+    <p>A single <code>RLM.Worker</code> GenServer handles both one-shot and interactive modes. State machine transitions (<code>:idle</code> &harr; <code>:running</code>) are clean. No code duplication between modes.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Supervision Tree</h4>
+    <p>8 children with appropriate restart strategies. Workers are <code>:temporary</code> (correct for one-shot tasks). Infrastructure is <code>:permanent</code>. <code>one_for_one</code> strategy prevents cascading failures.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Registry Usage</h4>
+    <p><code>{:via, Registry, {RLM.Registry, {:worker, span_id}}}</code> provides clean process lookup without global state or atoms. Used consistently for both Workers and EventLog agents.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Tool System Design</h4>
+    <p>Simple, effective <code>@behaviour</code> with three callbacks. Tools are stateless functions &mdash; no unnecessary OTP overhead. Sandbox wrappers provide ergonomic eval-accessible API with CWD-relative path resolution.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Excellent</span> Telemetry Pipeline</h4>
+    <p>15 well-defined events with clean separation of concerns across 3 handlers. Follows the standard <code>:telemetry</code> convention. PubSub broadcasting enables real-time LiveView updates.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Good</span> Dual-Write Tracing</h4>
+    <p><code>EventLogHandler</code> writes to both in-memory Agent (fast queries) and :dets (persistence). The fallback pattern in <code>RunDetailLive.load_spans/1</code> seamlessly handles swept agents.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Good</span> Sweeper GC</h4>
+    <p>Separate monotonic vs. wall-clock cutoffs correctly handle the two different time bases. <code>safe_get_started_at/1</code> with rescue/catch prevents the sweeper from crashing on unresponsive agents.</p>
+  </div>
+
+  <div class="card">
+    <h4><span class="badge good">Good</span> MockLLM Testing</h4>
+    <p>ETS-based mock with response queue enables deterministic multi-turn test scenarios. Clean dependency injection via <code>llm_module</code> config field.</p>
+  </div>
 </div>
-
-<div class="card">
-<p><span class="badge err">Critical</span> <strong>No cancellation/timeout for root RLM.run</strong></p>
-<p><code>RLM.run/3</code> blocks forever with <code>receive</code>. If the worker crashes without sending a result (e.g., linked process crash), the caller hangs.</p>
-<p><strong>Fix:</strong> Use <code>receive ... after timeout -></code> or <code>Process.monitor</code> on the worker.</p>
-</div>
-
-<h3>7.2 Important</h3>
-
-<div class="card">
-<p><span class="badge warn">Important</span> <strong>EventLog agents never cleaned up</strong></p>
-<p>Per-run Agents persist indefinitely in the EventStore DynamicSupervisor. Over many runs, this leaks memory.</p>
-<p><strong>Fix:</strong> Add TTL-based cleanup or bounded cache. Could use a periodic GenServer that sweeps old entries.</p>
-</div>
-
-<div class="card">
-<p><span class="badge warn">Important</span> <strong>Cost tracking fields exist but are never calculated</strong></p>
-<p>Config has <code>cost_per_1k_prompt_tokens_*</code> fields that are set but never used in any calculation. The original Python RLM tracks cumulative cost including children.</p>
-<p><strong>Fix:</strong> Accumulate cost in Worker state, emit in telemetry, propagate through recursion tree.</p>
-</div>
-
-<div class="card">
-<p><span class="badge warn">Important</span> <strong>No streaming support</strong></p>
-<p><code>RLM.LLM.chat/3</code> waits for the complete response. For a coding agent with interactive use, streaming is essential for responsiveness.</p>
-<p><strong>Fix:</strong> Implement SSE streaming with the Anthropic API. This also enables token-by-token PubSub broadcast.</p>
-</div>
-
-<div class="card">
-<p><span class="badge warn">Important</span> <strong>History compaction is lossy</strong></p>
-<p>At 80% context window, the entire history (except system message) is serialized to a string and stored in <code>compacted_history</code>. The LLM only sees a truncated preview. Fine details of reasoning are lost.</p>
-<p><strong>Consider:</strong> Use an LLM call to summarize key decisions and state (like original RLM) or implement sliding-window compaction that preserves recent turns.</p>
-</div>
-
-<h3>7.3 Minor</h3>
-<ul>
-  <li><span class="badge warn">Minor</span> <code>parallel_query</code> lacks error aggregation &mdash; if one task fails, others may still run (resource leak)</li>
-  <li><span class="badge warn">Minor</span> Eval timeout uses <code>Process.exit(pid, :kill)</code> without trying graceful shutdown first</li>
-  <li><span class="badge warn">Minor</span> Loop detection (Jaccard similarity) is simplistic &mdash; catches word-level repetition but not semantic loops</li>
-  <li><span class="badge warn">Minor</span> <code>RLM.run/3</code> doesn't return <code>run_id</code> for trace retrieval after sync execution</li>
-</ul>
 
 <!-- ================================================================ -->
-<h2 id="s8">8. Missing Pieces for a Coding Agent</h2>
+<h2 id="s3">3. OTP Assessment <span class="badge info">8/10</span></h2>
 
-<p>The current codebase is an <strong>RLM engine</strong>. To become a <strong>coding agent</strong>, it needs these additional capabilities:</p>
+<div class="tier tier-good">
+<h3>Tier 1: Genuinely Idiomatic <span class="badge good">Well Done</span></h3>
 
+<h4>Async-Eval Deadlock Prevention</h4>
+<p>The core architectural decision &mdash; spawning eval in a separate process so the Worker can handle subcall requests &mdash; is textbook OTP thinking. The pattern correctly identifies that <code>GenServer.call</code> from within a synchronous callback would deadlock.</p>
+<pre><code># worker.ex:464-477
+spawn(fn ->
+  result = RLM.Eval.run(code, state.bindings,
+    timeout: state.config.eval_timeout,
+    worker_pid: worker_pid,
+    bindings_info: RLM.Helpers.list_bindings(state.bindings),
+    cwd: state.cwd
+  )
+  send(worker_pid, {:eval_complete, result})
+end)</code></pre>
+
+<h4>Registry for Named Processes</h4>
+<p>Using <code>{:via, Registry, ...}</code> with compound keys like <code>{:worker, span_id}</code> and <code>{:event_log, run_id}</code> is the correct modern approach. No global atoms, no name collisions, automatic cleanup on process exit.</p>
+
+<h4>DynamicSupervisor for Workers</h4>
+<p>Workers are supervised but <code>:temporary</code> &mdash; they terminate normally after task completion and are never restarted. This is exactly right for task-oriented processes.</p>
+
+<h4>Process.monitor in RLM.run/3</h4>
+<p>The caller monitors the Worker so crashes surface as <code>{:error, reason}</code> rather than hanging indefinitely. The timeout fallback with explicit <code>DynamicSupervisor.terminate_child/2</code> prevents resource leaks.</p>
+</div>
+
+<div class="tier tier-ok">
+<h3>Tier 2: Passable &mdash; Works Correctly, Minor Improvements Possible <span class="badge warn">Fine</span></h3>
+
+<h4>RLM.Telemetry GenServer</h4>
+<p>A GenServer whose only job is calling <code>:telemetry.attach_many/4</code> in <code>init/1</code> is heavier than needed. A simpler approach would be a module function called from <code>Application.start/2</code>. However, the GenServer does provide a clean <code>detach_all_handlers/0</code> for testing, so there's a practical reason to keep it.</p>
+
+<h4>EventLog as Agent</h4>
+<p>Using <code>Agent</code> for EventLog is straightforward but means the tree-building logic (<code>update_tree/2</code>) runs inside the Agent's process. For the current scale this is fine. If events become high-frequency, the serialization point could become a bottleneck.</p>
+
+<h4>TraceStore :dets Access Patterns</h4>
+<p><code>list_run_ids/0</code> does a full table fold on every call. With hundreds of runs this is fine; with thousands it could slow down. An ETS index or caching layer would help at scale.</p>
+
+<h4>Bare spawn for Eval</h4>
+<p>The eval process is started with <code>spawn/1</code> rather than being supervised. If the eval process crashes silently, the Worker only knows via <code>{:DOWN, ...}</code> from Process.monitor &mdash; but there's actually no monitor set up. The Worker relies on the eval process always sending <code>{:eval_complete, ...}</code>. In practice, the try/rescue/catch in <code>RLM.Eval.run/3</code> makes this safe, but a <code>spawn_monitor/1</code> would be more defensive.</p>
+</div>
+
+<div class="tier tier-improve">
+<h3>Tier 3: Non-Idiomatic &mdash; Worth Addressing <span class="badge err">Improve</span></h3>
+
+<h4>No Monitor on Eval Process</h4>
+<p>If <code>spawn(fn -> Eval.run(...); send(worker, {:eval_complete, result}) end)</code> crashes between computing the result and sending the message, the Worker hangs in the <code>:eval_context</code> state indefinitely. Adding <code>spawn_monitor</code> and a <code>{:DOWN, ...}</code> handler would make this bulletproof.</p>
+
+<h4>History as List Append</h4>
+<p>Message history uses <code>state.history ++ [new_msg]</code> which is O(n) list append. For typical sessions (tens of messages) this is negligible. For very long sessions it would accumulate. A queue or reverse-list-then-reverse pattern would be more idiomatic.</p>
+
+<h4>Missing Application.stop Cleanup</h4>
+<p>The :dets table is closed in <code>TraceStore.terminate/2</code>, but if the application stops ungracefully, :dets auto-repair handles it. No issues observed, but explicit <code>Application.stop/0</code> callback would be cleaner.</p>
+</div>
+</section>
+
+<!-- ================================================================ -->
+<h2 id="s4">4. Naming &amp; Organization</h2>
+
+<h3>Rename Proposals</h3>
 <table>
-<tr><th>Capability</th><th>Priority</th><th>Notes</th></tr>
-<tr><td>Tool system (read, write, edit, bash, grep, glob)</td><td><span class="badge err">P0</span></td><td>Core of any coding agent. Use Anthropic tool_use API.</td></tr>
-<tr><td>Anthropic tool_use API support</td><td><span class="badge err">P0</span></td><td>Replace code-block extraction with native tool calling for the agent mode.</td></tr>
-<tr><td>Streaming responses</td><td><span class="badge err">P0</span></td><td>Essential for interactive use. SSE from Anthropic API.</td></tr>
-<tr><td>Session/conversation management</td><td><span class="badge warn">P1</span></td><td>Multi-turn conversations with history, persistence.</td></tr>
-<tr><td>System prompt for coding</td><td><span class="badge warn">P1</span></td><td>Coding-specific instructions, project context injection.</td></tr>
-<tr><td>IEx helper module</td><td><span class="badge warn">P1</span></td><td><code>Agent.chat("fix the tests")</code> from IEx.</td></tr>
-<tr><td>LiveView dashboard</td><td><span class="badge warn">P1</span></td><td>Real-time session view, trace visualization.</td></tr>
-<tr><td>Context compaction (smarter)</td><td><span class="badge warn">P1</span></td><td>Sliding window or LLM summarization.</td></tr>
-<tr><td>Cost tracking &amp; budgets</td><td><span class="badge good">P2</span></td><td>Track spend per session, set limits.</td></tr>
-<tr><td>Session persistence (disk)</td><td><span class="badge good">P2</span></td><td>Resume sessions across restarts.</td></tr>
-<tr><td>Permission system for tools</td><td><span class="badge good">P2</span></td><td>Auto-allow reads, confirm writes/bash.</td></tr>
-<tr><td>RLM mode toggle</td><td><span class="badge good">P2</span></td><td>Enable recursive subcalls when the agent decides to use them.</td></tr>
+  <tr><th>Current Name</th><th>Proposed Name</th><th>Rationale</th><th>Priority</th></tr>
+  <tr>
+    <td><code>RLM.EventStore</code> (DynamicSupervisor)</td>
+    <td><code>RLM.EventLogSupervisor</code></td>
+    <td>"EventStore" suggests a database/persistence layer (event sourcing). It's actually a DynamicSupervisor for EventLog Agents. The name is misleading.</td>
+    <td><span class="badge warn">Medium</span></td>
+  </tr>
+  <tr>
+    <td><code>RLM.Telemetry</code> (GenServer)</td>
+    <td>(consider removing)</td>
+    <td>Could be replaced by a function call in <code>Application.start/2</code>. But the GenServer provides clean attach/detach for tests, so keeping it is defensible.</td>
+    <td><span class="badge info">Low</span></td>
+  </tr>
+  <tr>
+    <td><code>telemetry/telemetry.ex</code></td>
+    <td><code>telemetry.ex</code> (move up)</td>
+    <td>The file is nested inside the <code>telemetry/</code> directory as <code>telemetry/telemetry.ex</code>. Moving it to <code>lib/rlm/telemetry.ex</code> would be cleaner, or rename to <code>telemetry/setup.ex</code>.</td>
+    <td><span class="badge info">Low</span></td>
+  </tr>
+</table>
+
+<h3>What to Keep Unchanged (and Why)</h3>
+<table>
+  <tr><th>Name</th><th>Rationale for Keeping</th></tr>
+  <tr><td><code>RLM.Worker</code></td><td>Clear and accurate &mdash; it's a worker process that does work. "Engine" or "Node" would be less precise.</td></tr>
+  <tr><td><code>RLM.Sandbox</code></td><td>Correctly communicates the security boundary even though it's not a true sandbox. The name sets the right expectation.</td></tr>
+  <tr><td><code>RLM.Eval</code></td><td>Short, accurate, matches the Elixir ecosystem convention (Code.eval_string).</td></tr>
+  <tr><td><code>RLM.Tool</code> / <code>RLM.ToolRegistry</code></td><td>Standard naming for behaviour + registry pattern. Well-understood.</td></tr>
+  <tr><td><code>RLM.EventLog</code></td><td>Clear name for what it does &mdash; logs events per run.</td></tr>
+  <tr><td><code>RLM.TraceStore</code></td><td>Accurate &mdash; stores traces persistently.</td></tr>
 </table>
 
 <!-- ================================================================ -->
-<h2 id="s9">9. OTP Design Patterns at Play</h2>
-
-<p>The beauty of building this on BEAM/OTP is how naturally the patterns map:</p>
+<h2 id="s5">5. Gaps &amp; Missing Features</h2>
 
 <table>
-<tr><th>Concept</th><th>OTP Pattern</th><th>Why It Fits</th></tr>
-<tr><td>Agent session</td><td>GenServer</td><td>Stateful conversation with message history, tool state</td></tr>
-<tr><td>Recursive subcalls</td><td>DynamicSupervisor + GenServer</td><td>Each child is a supervised, temporary process with its own state</td></tr>
-<tr><td>Tool execution</td><td>Task (under TaskSupervisor)</td><td>Short-lived, supervised, result-awaited</td></tr>
-<tr><td>Event broadcasting</td><td>Phoenix.PubSub</td><td>Decouple producer (agent) from consumers (LiveView, logger)</td></tr>
-<tr><td>Process discovery</td><td>Registry</td><td>Find agents/sessions by name without ETS</td></tr>
-<tr><td>Streaming</td><td>GenStage or simple message passing</td><td>Backpressure-aware token streaming</td></tr>
-<tr><td>Session persistence</td><td>Agent or ETS + periodic flush</td><td>In-memory with disk backup</td></tr>
-<tr><td>Trace recording</td><td>Agent (append-only store)</td><td>Already implemented in EventLog</td></tr>
-<tr><td>Crash isolation</td><td><code>restart: :temporary</code></td><td>One bad tool call doesn't take down the session</td></tr>
+  <tr><th>Gap</th><th>Impact</th><th>Effort</th><th>Priority</th></tr>
+  <tr>
+    <td><strong>Cost Tracking</strong><br>Token usage is in telemetry events but not aggregated per run or exposed via API</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="badge good">Low</span></td>
+    <td><span class="priority p-high"></span> High</td>
+  </tr>
+  <tr>
+    <td><strong>SSE Streaming</strong><br>Removed during Agent consolidation. Users can't see partial LLM responses in real-time</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="priority p-high"></span> High</td>
+  </tr>
+  <tr>
+    <td><strong>Smarter Compaction</strong><br>Current approach serializes all history as a string. No LLM-based summarization</td>
+    <td><span class="badge info">Low</span></td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="priority p-med"></span> Medium</td>
+  </tr>
+  <tr>
+    <td><strong>Permission Model</strong><br>No restrictions on which tools/directories are accessible. No approval flow for dangerous operations</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="priority p-med"></span> Medium</td>
+  </tr>
+  <tr>
+    <td><strong>Session Persistence</strong><br>Keep-alive sessions are lost on restart. No way to resume a session across server restarts</td>
+    <td><span class="badge info">Low</span></td>
+    <td><span class="badge err">High</span></td>
+    <td><span class="priority p-low"></span> Low</td>
+  </tr>
+  <tr>
+    <td><strong>Eval Process Monitor</strong><br>Worker doesn't monitor the spawned eval process. Silent crashes cause hangs.</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td><span class="badge good">Low</span></td>
+    <td><span class="priority p-high"></span> High</td>
+  </tr>
+  <tr>
+    <td><strong>Dashboard Authentication</strong><br>Dashboard is open with no auth. Fine for dev, not for production.</td>
+    <td><span class="badge info">Low</span></td>
+    <td><span class="badge good">Low</span></td>
+    <td><span class="priority p-low"></span> Low</td>
+  </tr>
 </table>
 
-<p>The pattern that's <strong>uniquely powerful</strong> on BEAM: an agent can spawn sub-agents as supervised processes that run concurrently, each with their own LLM context and tool access, while the parent stays responsive. No threads, no sockets, no orchestration framework needed.</p>
+<!-- ================================================================ -->
+<h2 id="s6">6. Python RLM Comparison</h2>
+
+<table>
+  <tr><th>Capability</th><th>Python RLM</th><th>Elixir RLM</th><th>Notes</th></tr>
+  <tr>
+    <td>Core iterate loop</td>
+    <td><span class="badge good">Yes</span></td>
+    <td><span class="badge good">Yes</span></td>
+    <td>Functionally equivalent. Elixir uses GenServer state machine vs. Python's async loop.</td>
+  </tr>
+  <tr>
+    <td>Recursive subcalls</td>
+    <td><span class="badge good">Yes</span></td>
+    <td><span class="badge good">Yes</span></td>
+    <td>Elixir uses DynamicSupervisor for child Workers. Better fault isolation.</td>
+  </tr>
+  <tr>
+    <td>Parallel subcalls</td>
+    <td><span class="badge good">Yes</span></td>
+    <td><span class="badge good">Yes</span></td>
+    <td><code>parallel_query/2</code> with <code>Task.await_many</code>. Depth + concurrency limits.</td>
+  </tr>
+  <tr>
+    <td>Three invariants</td>
+    <td><span class="badge good">Yes</span></td>
+    <td><span class="badge good">Yes</span></td>
+    <td>Preview-only context, variable-stored subcall results, head+tail truncation.</td>
+  </tr>
+  <tr>
+    <td>Context compaction</td>
+    <td><span class="badge good">LLM-based</span></td>
+    <td><span class="badge warn">String serialization</span></td>
+    <td>Python uses LLM to summarize. Elixir serializes to string and stores in binding. Less intelligent but simpler.</td>
+  </tr>
+  <tr>
+    <td>Interactive sessions</td>
+    <td><span class="badge err">No</span></td>
+    <td><span class="badge good">Yes</span></td>
+    <td>Elixir's keep-alive mode is unique. Bindings persist across turns.</td>
+  </tr>
+  <tr>
+    <td>Filesystem tools</td>
+    <td><span class="badge err">No</span></td>
+    <td><span class="badge good">7 tools</span></td>
+    <td>ReadFile, WriteFile, EditFile, Bash, Grep, Glob, Ls. Python only has eval.</td>
+  </tr>
+  <tr>
+    <td>Tool integration</td>
+    <td><span class="badge warn">Eval only</span></td>
+    <td><span class="badge good">Sandbox functions</span></td>
+    <td>Tools are Elixir functions called from eval'd code. More natural than API tool_use.</td>
+  </tr>
+  <tr>
+    <td>Structured tracing</td>
+    <td><span class="badge warn">Basic logging</span></td>
+    <td><span class="badge good">15 events + :dets</span></td>
+    <td>Full telemetry pipeline with 3 handlers, in-memory + persistent dual-write.</td>
+  </tr>
+  <tr>
+    <td>Visualization</td>
+    <td><span class="badge err">None</span></td>
+    <td><span class="badge good">LiveView dashboard</span></td>
+    <td>Real-time span tree with expandable iterations, status badges, token counts.</td>
+  </tr>
+  <tr>
+    <td>Fault tolerance</td>
+    <td><span class="badge warn">Try/except</span></td>
+    <td><span class="badge good">OTP supervision</span></td>
+    <td>Supervised processes, :temporary restart, Process.monitor on callers.</td>
+  </tr>
+  <tr>
+    <td>Streaming</td>
+    <td><span class="badge good">SSE</span></td>
+    <td><span class="badge err">Removed</span></td>
+    <td>Was in RLM.Agent.LLM, removed during consolidation. Needs re-implementation.</td>
+  </tr>
+  <tr>
+    <td>Cost tracking</td>
+    <td><span class="badge good">Per-run</span></td>
+    <td><span class="badge warn">Events only</span></td>
+    <td>Token counts in telemetry; cost config fields defined but not aggregated.</td>
+  </tr>
+</table>
 
 <!-- ================================================================ -->
-<h2 id="s10">10. Tracing &amp; Observability Deep Dive</h2>
+<h2 id="s7">7. Architectural Recommendations</h2>
 
-<p>You emphasized tracing is very important. Here's the current state and what to build:</p>
+<h3>Do</h3>
 
-<h3>10.1 Current Tracing Infrastructure</h3>
 <div class="card">
-<p><strong>What exists (good foundation):</strong></p>
-<ul>
-  <li>14 telemetry events covering the full lifecycle</li>
-  <li><code>EventLog</code> &mdash; per-run Agent storing structured events, builds a span tree</li>
-  <li><code>PubSub</code> handler &mdash; broadcasts all events for real-time consumption</li>
-  <li><code>Logger</code> handler &mdash; structured logging</li>
-  <li>JSONL export from EventLog</li>
-  <li>Span/run ID system for correlating events across the recursion tree</li>
-</ul>
+<h4>1. Add spawn_monitor to eval process <span class="badge good">Quick Win</span></h4>
+<p>Replace <code>spawn(fn -> ... end)</code> with <code>spawn_monitor(fn -> ... end)</code> in <code>Worker.start_async_eval/6</code>. Handle <code>{:DOWN, ref, :process, pid, reason}</code> to catch silent eval crashes. This is a 5-line change that prevents a real failure mode.</p>
 </div>
 
-<h3>10.2 What to Add for the Coding Agent</h3>
+<div class="card">
+<h4>2. Aggregate cost per run <span class="badge good">Quick Win</span></h4>
+<p>Add an accumulator to EventLog (or a new field on the tree nodes) that sums <code>llm_prompt_tokens</code> and <code>llm_completion_tokens</code> per run. Multiply by the config cost rates. Expose via <code>EventLog.get_cost/1</code> and show on the dashboard.</p>
+</div>
+
+<div class="card">
+<h4>3. Re-add streaming to RLM.LLM <span class="badge warn">Medium Effort</span></h4>
+<p>The streaming implementation was in <code>RLM.Agent.LLM</code> and was removed during consolidation. Add an <code>RLM.LLM.chat_stream/4</code> function that yields <code>:telemetry</code> events for partial responses. The Worker doesn't need to change &mdash; streaming is orthogonal to the iterate loop.</p>
+</div>
+
+<div class="card">
+<h4>4. Rename EventStore to EventLogSupervisor <span class="badge info">Low Priority</span></h4>
+<p>"EventStore" is a loaded term in event-sourcing contexts. <code>RLM.EventLogSupervisor</code> or <code>RLM.EventLogSup</code> is clearer. This is a rename in <code>application.ex</code> + <code>event_log_handler.ex</code> + <code>event_log_sweeper.ex</code>.</p>
+</div>
+
+<h3>Don't</h3>
+
+<div class="card">
+<h4>Don't switch to Anthropic tool_use protocol</h4>
+<p>The current approach (LLM writes Elixir code that calls sandbox functions) is more natural and more powerful than structured <code>tool_use</code>. The LLM can compose tool calls, use conditionals, and process results in a single code block. Switching to tool_use would lose this expressiveness.</p>
+</div>
+
+<div class="card">
+<h4>Don't add ETS caching for TraceStore reads</h4>
+<p>The :dets read performance is adequate for the current scale (hundreds of runs). Adding an ETS cache would introduce cache invalidation complexity. Wait until profiling shows it's actually a bottleneck.</p>
+</div>
+
+<div class="card">
+<h4>Don't make Workers :permanent or :transient</h4>
+<p><code>:temporary</code> is correct. Workers represent individual tasks that should not be automatically restarted. A crashed Worker should surface its error to the caller, not silently retry.</p>
+</div>
+
+<div class="card">
+<h4>Don't add a process pool for Workers</h4>
+<p>Workers are short-lived and individually supervised. A pool adds complexity without benefit &mdash; there's no warm-up cost and no shared state to amortize. DynamicSupervisor is the right tool.</p>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="s8">8. Testing Assessment</h2>
 
 <div class="grid">
-<div class="card">
-<h3>Recording</h3>
-<ul>
-  <li>Tool execution events (tool_start, tool_end with args/result)</li>
-  <li>Token-level streaming events</li>
-  <li>Session-level events (session_start, session_end)</li>
-  <li>Full message history snapshots at key points</li>
-  <li>Cost accumulation per turn/session</li>
-  <li>Git state before/after tool execution</li>
-  <li>Disk persistence for sessions (not just in-memory Agent)</li>
-</ul>
-</div>
-<div class="card">
-<h3>Visualization (LiveView)</h3>
-<ul>
-  <li>Real-time token streaming display</li>
-  <li>Tool call timeline (what was called, when, result)</li>
-  <li>Recursion tree visualization (span hierarchy)</li>
-  <li>Token usage graphs per turn</li>
-  <li>Session cost tracker</li>
-  <li>Diff viewer for file modifications</li>
-  <li>Event log replay (step through execution)</li>
-</ul>
-</div>
+  <div class="card">
+    <h4>Current Coverage</h4>
+    <table style="margin:0;">
+      <tr><td>Total tests</td><td><strong>111</strong> (98 rlm + 13 rlm_web)</td></tr>
+      <tr><td>Worker tests</td><td>Integration + keep-alive + PubSub</td></tr>
+      <tr><td>Tool tests</td><td>All 7 tools with temp directory setup</td></tr>
+      <tr><td>Sandbox tests</td><td>Eval + sandbox function integration</td></tr>
+      <tr><td>LiveView tests</td><td>Basic mount + rendering</td></tr>
+      <tr><td>Live API tests</td><td>Tagged <code>:live_api</code>, excluded by default</td></tr>
+      <tr><td>MockLLM</td><td>ETS-based response queue, deterministic</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Testing Strengths</h4>
+    <ul style="margin:0;">
+      <li><span class="badge good">Good</span> MockLLM enables fast, deterministic tests</li>
+      <li><span class="badge good">Good</span> Worker concurrency tests spawn real processes</li>
+      <li><span class="badge good">Good</span> Tool tests use isolated temp directories</li>
+      <li><span class="badge good">Good</span> <code>async: false</code> correctly used where needed</li>
+      <li><span class="badge good">Good</span> Live API tests separated with tag</li>
+    </ul>
+  </div>
 </div>
 
-<h3>10.3 Recommended Telemetry Events for Coding Agent</h3>
-<pre>
-# Existing (keep all)
-[:rlm, :node, :start | :stop]
-[:rlm, :iteration, :start | :stop]
-[:rlm, :llm, :request, :start | :stop | :exception]
-[:rlm, :eval, :start | :stop]
-[:rlm, :subcall, :spawn | :result]
-[:rlm, :compaction, :run]
-
-# New for coding agent
-[:agent, :session, :start | :stop]
-[:agent, :turn, :start | :stop]
-[:agent, :message, :start | :delta | :stop]   # streaming
-[:agent, :tool, :start | :stop | :error]       # tool execution
-[:agent, :tool, :permission, :requested | :granted | :denied]
-[:agent, :cost, :update]                       # running cost
-[:agent, :context, :compaction]                # smarter compaction
-</pre>
+<h3>Testing Gaps</h3>
+<table>
+  <tr><th>Gap</th><th>Impact</th><th>Recommendation</th></tr>
+  <tr>
+    <td>No property-based tests</td>
+    <td><span class="badge info">Low</span></td>
+    <td>StreamData for <code>Truncate</code>, <code>Helpers.chunks</code>, and <code>Helpers.grep</code> edge cases</td>
+  </tr>
+  <tr>
+    <td>No load/stress tests</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td>Spawn 50+ concurrent Workers to validate supervision tree under load</td>
+  </tr>
+  <tr>
+    <td>Shallow LiveView tests</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td>Test PubSub-driven updates: new run appearing, status changing, iteration expansion</td>
+  </tr>
+  <tr>
+    <td>No TraceStore persistence tests</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td>Test that events survive GenServer restart. Test <code>delete_older_than</code> cleanup.</td>
+  </tr>
+  <tr>
+    <td>No compaction test</td>
+    <td><span class="badge warn">Medium</span></td>
+    <td>Test <code>maybe_compact</code> triggers when history exceeds 80% of context window</td>
+  </tr>
+  <tr>
+    <td>No Sweeper integration test</td>
+    <td><span class="badge info">Low</span></td>
+    <td>Test that Sweeper terminates old EventLog agents after TTL</td>
+  </tr>
+</table>
 
 <!-- ================================================================ -->
-<h2 id="s11">11. Recommended Architecture</h2>
+<h2 id="s9">9. Future Directions</h2>
 
-<h3>11.1 Dual-Mode Design</h3>
-<p>The key architectural insight: keep the <strong>RLM engine</strong> as-is (it works well for data processing) and build the <strong>coding agent</strong> as a separate mode that can optionally use RLM capabilities:</p>
+<p>Ordered by value/effort ratio, highest first:</p>
 
-<div class="diagram">┌─────────────────────────────────────────────────┐
-│  Interface Layer                                │
-│  ├── IEx Helpers  (Agent.chat/1, Agent.status/0)│
-│  └── LiveView Dashboard (sessions, traces)      │
-├─────────────────────────────────────────────────┤
-│  Agent Layer (NEW)                              │
-│  ├── Agent.Session (GenServer)                  │
-│  │   ├── Conversation state                     │
-│  │   ├── Tool registry                          │
-│  │   ├── System prompt composition              │
-│  │   └── Turn loop (stream &#8594; tools &#8594; repeat)   │
-│  ├── Agent.Tool (behaviour)                     │
-│  │   ├── Tool.Bash                              │
-│  │   ├── Tool.Read / Tool.Write / Tool.Edit     │
-│  │   ├── Tool.Grep / Tool.Glob / Tool.Ls       │
-│  │   └── Tool.RLM (bridges to RLM engine!)      │
-│  ├── Agent.LLM (extends RLM.LLM)               │
-│  │   ├── tool_use support                       │
-│  │   └── streaming (SSE)                        │
-│  └── Agent.Prompt                               │
-│      └── System prompt templates                │
-├─────────────────────────────────────────────────┤
-│  RLM Engine (EXISTING - enhanced)               │
-│  ├── RLM.Worker (iterate loop)                  │
-│  ├── RLM.Eval (sandboxed code execution)        │
-│  ├── RLM.Sandbox (REPL functions)               │
-│  └── RLM.LLM / RLM.Config / RLM.Helpers        │
-├─────────────────────────────────────────────────┤
-│  Core Infrastructure (EXISTING)                 │
-│  ├── Telemetry (14+ events, 3+ handlers)        │
-│  ├── EventLog (per-run structured trace)        │
-│  ├── Registry + PubSub                          │
-│  └── Supervision tree                           │
-└─────────────────────────────────────────────────┘</div>
+<div class="card">
+<h4><span class="priority p-high"></span> 1. Cost Tracking &amp; Budget Limits <span class="badge good">High Value / Low Effort</span></h4>
+<p>Aggregate token usage per run. Apply cost rates from config. Add <code>max_cost_per_run</code> config field. Show cost in dashboard. This is mostly additive &mdash; token counts already flow through telemetry.</p>
+</div>
 
-<h3>11.2 The Bridge: Tool.RLM</h3>
-<p>This is where the magic happens. The coding agent has a tool called <code>rlm</code> that lets the LLM invoke the full RLM engine for complex data processing tasks. The agent can decide when a task is complex enough to warrant recursive processing:</p>
+<div class="card">
+<h4><span class="priority p-high"></span> 2. Eval Process Safety <span class="badge good">High Value / Low Effort</span></h4>
+<p>Switch from <code>spawn</code> to <code>spawn_monitor</code> for the eval process. Handle <code>{:DOWN, ...}</code> to prevent Worker hangs. A targeted, low-risk fix.</p>
+</div>
 
-<pre>
-# Agent decides to use RLM for a complex analysis task
-tool_use: rlm
-input: {
-  "context": "(contents of large log file)",
-  "query": "Find all error patterns and categorize them",
-  "model_size": "small"
-}
-# This spawns an RLM.Worker which can itself recursively subcall
-</pre>
+<div class="card">
+<h4><span class="priority p-high"></span> 3. SSE Streaming <span class="badge warn">High Value / Medium Effort</span></h4>
+<p>Re-add streaming to <code>RLM.LLM</code>. Broadcast partial tokens via PubSub for LiveView consumption. Users see the LLM "thinking" in real-time. Previously implemented but needs adaptation to the unified architecture.</p>
+</div>
 
-<h3>11.3 Supervision Tree (Extended)</h3>
-<div class="diagram">RLM.Supervisor (one_for_one)
-├── Registry (RLM.Registry)
-├── Phoenix.PubSub (RLM.PubSub)
-├── DynamicSupervisor (RLM.WorkerSup)     &mdash; RLM workers
-├── DynamicSupervisor (RLM.EventStore)     &mdash; event log agents
-├── DynamicSupervisor (Agent.SessionSup)   &mdash; agent sessions (NEW)
-├── Task.Supervisor (Agent.ToolSup)        &mdash; tool execution (NEW)
-├── RLM.Telemetry
-└── Agent.SessionStore (GenServer)         &mdash; session persistence (NEW)</div>
+<div class="card">
+<h4><span class="priority p-med"></span> 4. Session Persistence <span class="badge warn">Medium Value / Medium Effort</span></h4>
+<p>Serialize keep-alive Worker state (history + bindings) to :dets or Mnesia. Resume sessions after restart. Requires careful handling of non-serializable bindings (PIDs, ports, refs).</p>
+</div>
+
+<div class="card">
+<h4><span class="priority p-med"></span> 5. LLM-Based Compaction <span class="badge warn">Medium Value / Medium Effort</span></h4>
+<p>Replace string serialization with an LLM summarization call. Send the history to a small model with a "summarize this conversation" prompt. Better context retention at the cost of an extra API call.</p>
+</div>
+
+<div class="card">
+<h4><span class="priority p-low"></span> 6. Permission Model <span class="badge err">Medium Value / High Effort</span></h4>
+<p>Add a permission layer for tool execution. Allow/deny patterns for file paths, command restrictions for bash. Approval callbacks for dangerous operations. Significant design work needed.</p>
+</div>
 
 <hr>
 
-<div class="card" style="border-color: var(--accent);">
-<h3>Bottom Line</h3>
-<p>You have a <strong>working, well-tested RLM engine</strong> that correctly uses OTP primitives. The path to a coding agent is:</p>
-<ol>
-  <li>Add tool_use API support + streaming to the LLM client</li>
-  <li>Build the tool system (behaviour + implementations)</li>
-  <li>Create the Agent.Session GenServer (tool-use loop, not eval loop)</li>
-  <li>Bridge to RLM engine via Tool.RLM</li>
-  <li>Add IEx helpers + LiveView for interface</li>
-  <li>Enhance tracing for both recording and visualization</li>
-</ol>
-<p>The RLM engine doesn't need to be rewritten &mdash; it becomes a <strong>capability</strong> that the coding agent can invoke when needed. Two modes, one codebase, shared OTP infrastructure.</p>
-</div>
+<p style="color:#8b949e; font-size:.85rem; text-align:center;">
+  RLM Engine System Review &mdash; Generated February 2026 &mdash; Based on codebase analysis of apps/rlm and apps/rlm_web
+</p>
 
 </body>
 </html>

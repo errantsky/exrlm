@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+**Documentation consolidation**
+
+- Replaced `GUIDE.html` with a comprehensive 12-section reference covering the
+  current unified architecture: OTP supervision tree, iterate loop deep-dive,
+  interactive sessions, tool system, telemetry pipeline, tracing/persistence,
+  LiveView dashboard, full config reference, and module map for all ~34 modules
+- Replaced `REVIEW.html` with an updated system review and OTP assessment (8/10):
+  three-tier analysis (idiomatic / passable / non-idiomatic), naming proposals,
+  gaps & missing features, Python RLM comparison, architectural do/don't
+  recommendations, testing assessment, and prioritised future directions
+- Deleted `design_guide.html` — completely outdated (pre-dated dashboard and
+  agent consolidation); content subsumed by new GUIDE
+- Deleted `SPEC.md` — referenced deleted `RLM.Agent.*` namespace throughout;
+  phased implementation plan is complete
+
 ### Added
 
 **Consolidated Agent into RLM Engine — unified architecture**
