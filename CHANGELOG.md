@@ -28,8 +28,7 @@ All notable changes to this project are documented here.
   fields (replacing `code_extracted`)
 - System prompt (`priv/system_prompt.md`) updated to document JSON response format
   and structured feedback fields
-- `RLM.LLM.extract_code/1` retained for backward compatibility but no longer used
-  in the main iterate loop
+- `RLM.LLM.extract_code/1` removed (dead code after structured output migration)
 - `RLM.Test.MockLLM.mock_response/1,2` helper added for building JSON mock responses
 
 **Documentation consolidation**

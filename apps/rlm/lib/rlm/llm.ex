@@ -109,22 +109,6 @@ defmodule RLM.LLM do
     end
   end
 
-  @doc """
-  Extract Elixir code from a markdown-formatted LLM response.
-
-  Retained for backward compatibility. The primary code path now uses
-  `extract_structured/1` with JSON schema-constrained responses.
-  """
-  @spec extract_code(String.t()) :: {:ok, String.t()} | {:error, :no_code_block}
-  def extract_code(response) do
-    regex = ~r/```(?:elixir|Elixir)\s*\n(.*?)```/s
-
-    case Regex.scan(regex, response) do
-      [] -> {:error, :no_code_block}
-      matches -> {:ok, matches |> List.last() |> Enum.at(1) |> String.trim()}
-    end
-  end
-
   defp extract_system(messages) do
     case Enum.split_with(messages, fn m -> m.role == :system end) do
       {[], rest} -> {nil, rest}
