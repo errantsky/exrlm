@@ -59,8 +59,7 @@ defmodule RLM.EventLog do
   def to_jsonl(run_id) do
     get_events(run_id)
     |> Enum.map(&sanitize_for_json/1)
-    |> Enum.map(&Jason.encode!/1)
-    |> Enum.join("\n")
+    |> Enum.map_join("\n", &Jason.encode!/1)
   end
 
   defp sanitize_for_json(map) when is_map(map) do

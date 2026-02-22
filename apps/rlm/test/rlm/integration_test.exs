@@ -127,7 +127,7 @@ defmodule RLM.IntegrationTest do
 
       jsonl = RLM.EventLog.to_jsonl(run_id)
       lines = String.split(jsonl, "\n", trim: true)
-      assert length(lines) > 0
+      assert lines != []
 
       for line <- lines do
         assert {:ok, _} = Jason.decode(line)
