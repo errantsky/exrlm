@@ -94,16 +94,17 @@ defmodule Mix.Tasks.Rlm.Examples do
         IO.puts("  Run 'mix rlm.examples --list' to see available examples.\n")
         :unknown
 
-      {file, _mod, _desc} ->
+      {file, mod_string, _desc} ->
         check_api_key!()
         script = resolve_script(file)
 
         if File.exists?(script) do
           Code.eval_file(script)
-          # The module is now loaded; call its run/0 function
-          module = module_for(name)
+          # The module is now loaded; resolve it dynamically to avoid
+          # compile-time warnings (modules only exist after eval_file)
+          module = Module.concat(String.split(mod_string, "."))
 
-          case module.run() do
+          case apply(module, :run, []) do
             {:ok, run_id} ->
               IO.puts("\n  View trace: http://localhost:4000/runs/#{run_id}\n")
               :pass
@@ -117,10 +118,6 @@ defmodule Mix.Tasks.Rlm.Examples do
         end
     end
   end
-
-  defp module_for("map_reduce"), do: RLM.Examples.MapReduceAnalysis
-  defp module_for("code_review"), do: RLM.Examples.CodeReview
-  defp module_for("research_synthesis"), do: RLM.Examples.ResearchSynthesis
 
   defp resolve_script(relative) do
     [Mix.Project.deps_paths()[:rlm] || "", "..", "..", relative]
@@ -145,7 +142,9 @@ defmodule Mix.Tasks.Rlm.Examples do
     {passes, others} =
       Enum.split_with(results, fn {_, status} -> status == :pass end)
 
-    IO.puts("#{length(passes)} passed, #{length(others)} failed out of #{length(results)} examples")
+    IO.puts(
+      "#{length(passes)} passed, #{length(others)} failed out of #{length(results)} examples"
+    )
 
     if others != [] do
       IO.puts("")
