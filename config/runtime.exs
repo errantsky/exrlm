@@ -36,6 +36,13 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
+  # CLAUDE_API_KEY is required in prod for LLM calls.
+  System.get_env("CLAUDE_API_KEY") ||
+    raise """
+    environment variable CLAUDE_API_KEY is missing.
+    Set it to your Anthropic API key to enable LLM functionality.
+    """
+
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :rlm_web, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")

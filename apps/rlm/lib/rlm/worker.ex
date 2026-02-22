@@ -427,7 +427,9 @@ defmodule RLM.Worker do
         )
 
         # Clean up the monitor for this child
-        {monitor_ref, remaining_monitors} = pop_monitor_by_span(state.pending_monitors, child_span_id)
+        {monitor_ref, remaining_monitors} =
+          pop_monitor_by_span(state.pending_monitors, child_span_id)
+
         if monitor_ref, do: Process.demonitor(monitor_ref, [:flush])
 
         GenServer.reply(from, result)
