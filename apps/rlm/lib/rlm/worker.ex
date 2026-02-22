@@ -621,7 +621,8 @@ defmodule RLM.Worker do
           timeout: state.config.eval_timeout,
           worker_pid: worker_pid,
           bindings_info: RLM.Helpers.list_bindings(state.bindings),
-          cwd: state.cwd
+          cwd: state.cwd,
+          subcall_timeout: state.config.subcall_timeout
         )
 
       send(worker_pid, {:eval_complete, result})
