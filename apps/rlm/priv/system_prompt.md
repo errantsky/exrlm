@@ -65,6 +65,38 @@ session working directory unless absolute.
 **Important**: `grep(pattern, string)` is the in-memory string search. Use `rg(pattern)`
 for filesystem searches. They are different functions — don't confuse them.
 
+## Structured Extraction (schema mode)
+
+Use `schema:` to get structured JSON conforming to a JSON Schema:
+
+```elixir
+schema = %{
+  "type" => "object",
+  "properties" => %{
+    "names" => %{"type" => "array", "items" => %{"type" => "string"}},
+    "count" => %{"type" => "integer"}
+  },
+  "required" => ["names", "count"],
+  "additionalProperties" => false
+}
+
+{:ok, result} = lm_query("Extract all person names from: #{text}", schema: schema)
+# result is a parsed map: %{"names" => ["Alice", "Bob"], "count" => 2}
+```
+
+Key differences from regular `lm_query`:
+- Returns a **parsed map** (not a string) — no manual JSON parsing needed
+- Makes a **single direct LLM call** (no iterate loop, no system prompt)
+- Ideal for entity extraction, classification, scoring, and structured transforms
+- Works with `parallel_query` too — each input can have its own `schema:`
+
+```elixir
+# Parallel structured extraction
+inputs = Enum.map(chunks, fn c -> {c, schema: entity_schema, model_size: :small} end)
+results = parallel_query(inputs)
+# Each result: {:ok, %{"entities" => [...]}} or {:error, reason}
+```
+
 ## Concurrency
 
 When delegating to multiple sub-models, prefer `parallel_query` over sequential `lm_query`:

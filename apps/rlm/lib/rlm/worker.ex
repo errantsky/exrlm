@@ -381,6 +381,29 @@ defmodule RLM.Worker do
     end
   end
 
+  def handle_info({:direct_query_result, query_id, result}, state) do
+    case Map.pop(state.pending_subcalls, query_id) do
+      {nil, _} ->
+        Logger.warning("Received result for unknown direct query #{query_id}")
+        {:noreply, state}
+
+      {from, remaining} ->
+        emit_telemetry(
+          [:rlm, :direct_query, :stop],
+          %{},
+          state,
+          %{
+            query_id: query_id,
+            status: elem(result, 0),
+            result_preview: result |> inspect() |> String.slice(0, 500)
+          }
+        )
+
+        GenServer.reply(from, result)
+        {:noreply, %{state | pending_subcalls: remaining}}
+    end
+  end
+
   def handle_info({:rlm_result, child_span_id, result}, state) do
     case Map.pop(state.pending_subcalls, child_span_id) do
       {nil, _} ->
@@ -445,6 +468,50 @@ defmodule RLM.Worker do
        keep_alive: state.keep_alive,
        cwd: state.cwd
      }, state}
+  end
+
+  def handle_call({:direct_query, text, model_size, schema}, from, state) do
+    model =
+      if model_size == :large,
+        do: state.config.model_large,
+        else: state.config.model_small
+
+    if map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls do
+      {:reply,
+       {:error, "Max concurrent subcalls (#{state.config.max_concurrent_subcalls}) reached"},
+       state}
+    else
+      query_id = RLM.Span.generate_id()
+
+      emit_telemetry([:rlm, :direct_query, :start], %{}, state, %{
+        query_id: query_id,
+        model_size: model_size,
+        text_bytes: byte_size(text)
+      })
+
+      llm_module = state.config.llm_module
+      config = state.config
+      worker_pid = self()
+
+      spawn(fn ->
+        result =
+          case llm_module.chat([%{role: :user, content: text}], model, config, schema: schema) do
+            {:ok, response_text, _usage} ->
+              case Jason.decode(response_text) do
+                {:ok, parsed} -> {:ok, parsed}
+                {:error, err} -> {:error, "JSON decode failed: #{inspect(err)}"}
+              end
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+
+        send(worker_pid, {:direct_query_result, query_id, result})
+      end)
+
+      pending = Map.put(state.pending_subcalls, query_id, from)
+      {:noreply, %{state | pending_subcalls: pending}}
+    end
   end
 
   def handle_call({:spawn_subcall, text, model_size}, from, state) do

@@ -17,6 +17,12 @@ defmodule RLM.Sandbox do
   @doc """
   Invoke a sub-LLM on the given text. Blocks until the sub-call completes.
   Returns {:ok, response} or {:error, reason}.
+
+  ## Options
+
+    * `:model_size` — `:small` (default) or `:large`
+    * `:schema` — a JSON Schema map. When provided, the LLM response is
+      constrained to the schema and returned as a parsed map (no iterate loop).
   """
   def lm_query(text, opts \\ []) do
     worker_pid = Process.get(:rlm_worker_pid)
@@ -25,13 +31,22 @@ defmodule RLM.Sandbox do
       {:error, "lm_query not available (no worker context)"}
     else
       model_size = Keyword.get(opts, :model_size, :small)
-      GenServer.call(worker_pid, {:spawn_subcall, text, model_size}, :infinity)
+      schema = Keyword.get(opts, :schema)
+
+      if schema do
+        GenServer.call(worker_pid, {:direct_query, text, model_size, schema}, :infinity)
+      else
+        GenServer.call(worker_pid, {:spawn_subcall, text, model_size}, :infinity)
+      end
     end
   end
 
   @doc """
   Invoke multiple sub-LLMs concurrently. Returns results in order.
   Each item in `inputs` is {text, opts} or just text.
+
+  Supports the same options as `lm_query/2`, including `schema:` for
+  structured extraction.
   """
   def parallel_query(inputs, default_opts \\ [model_size: :small]) do
     worker_pid = Process.get(:rlm_worker_pid)
@@ -46,8 +61,8 @@ defmodule RLM.Sandbox do
       end)
       |> Enum.map(fn {text, opts} ->
         Task.async(fn ->
-          model_size = Keyword.get(opts, :model_size, :small)
-          GenServer.call(worker_pid, {:spawn_subcall, text, model_size}, :infinity)
+          Process.put(:rlm_worker_pid, worker_pid)
+          lm_query(text, opts)
         end)
       end)
       |> Task.await_many(:infinity)

@@ -77,6 +77,34 @@ defmodule RLM.Telemetry.EventLogHandler do
     RLM.TraceStore.put_event(metadata.run_id, event)
   end
 
+  def handle_event([:rlm, :direct_query, :start], _measurements, metadata, _config) do
+    event = %{
+      type: :direct_query_start,
+      span_id: metadata.span_id,
+      query_id: metadata[:query_id],
+      model_size: metadata[:model_size],
+      text_bytes: metadata[:text_bytes],
+      timestamp_us: System.system_time(:microsecond)
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
+  end
+
+  def handle_event([:rlm, :direct_query, :stop], _measurements, metadata, _config) do
+    event = %{
+      type: :direct_query_stop,
+      span_id: metadata.span_id,
+      query_id: metadata[:query_id],
+      status: metadata[:status],
+      result_preview: metadata[:result_preview],
+      timestamp_us: System.system_time(:microsecond)
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
+  end
+
   def handle_event([:rlm, :subcall, :result], measurements, metadata, _config) do
     event = %{
       type: :subcall_result,

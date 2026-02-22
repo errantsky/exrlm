@@ -6,6 +6,29 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+**Structured sub-call results (`schema:` option for `lm_query`)**
+
+- `lm_query(text, schema: json_schema)` makes a single direct LLM call with constrained
+  output and returns a parsed JSON map — no child Worker iterate loop, no system prompt.
+  Ideal for entity extraction, classification, and structured transforms.
+- `RLM.LLM.chat/4` — accepts `opts` keyword list; `schema:` overrides the default
+  response schema used in `output_config`. The 3-arity `chat/3` still works via default arg.
+- `RLM.Worker` gains `{:direct_query, text, model_size, schema}` call handler and
+  `{:direct_query_result, query_id, result}` info handler. Direct queries share the
+  `pending_subcalls` map and `max_concurrent_subcalls` limit with regular subcalls.
+- `parallel_query` now supports `schema:` in per-input opts, routing through `lm_query/2`.
+- `[:rlm, :direct_query, :start]` and `[:rlm, :direct_query, :stop]` telemetry events
+  with logging and EventLog/TraceStore persistence.
+- `RLM.Test.MockLLM.mock_direct_response/1` convenience for building schema-mode mocks.
+- `RLM.Test.MockLLM.mock_direct_response/2` validates data against the JSON schema
+  before encoding, catching test bugs where mock data doesn't match the schema.
+- System prompt documents `schema:` option with usage examples.
+- `direct_query_test.exs` — 7 tests covering parsed map return, model size, error
+  propagation, JSON decode failure, concurrency limits, parallel_query, and telemetry.
+- Integration test for end-to-end `RLM.run` with `lm_query(schema:)`.
+
 ### Changed
 
 **Structured output for LLM responses and feedback messages**

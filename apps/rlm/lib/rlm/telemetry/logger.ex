@@ -55,6 +55,22 @@ defmodule RLM.Telemetry.Logger do
     )
   end
 
+  def handle_event([:rlm, :direct_query, :start], _measurements, metadata, _config) do
+    Logger.debug("[RLM] Direct query started",
+      span_id: metadata.span_id,
+      query_id: metadata[:query_id],
+      model_size: metadata[:model_size]
+    )
+  end
+
+  def handle_event([:rlm, :direct_query, :stop], _measurements, metadata, _config) do
+    Logger.debug("[RLM] Direct query completed",
+      span_id: metadata.span_id,
+      query_id: metadata[:query_id],
+      status: metadata[:status]
+    )
+  end
+
   def handle_event([:rlm, :turn, :complete], measurements, metadata, _config) do
     Logger.info("[RLM] Turn completed",
       span_id: metadata.span_id,

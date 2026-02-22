@@ -28,12 +28,12 @@ defmodule RLM.LLM do
   @spec response_schema() :: map()
   def response_schema, do: @response_schema
 
-  @callback chat([map()], String.t(), RLM.Config.t()) ::
+  @callback chat([map()], String.t(), RLM.Config.t(), keyword()) ::
               {:ok, String.t(), usage()} | {:error, String.t()}
 
-  @spec chat([map()], String.t(), RLM.Config.t()) ::
+  @spec chat([map()], String.t(), RLM.Config.t(), keyword()) ::
           {:ok, String.t(), usage()} | {:error, String.t()}
-  def chat(messages, model, config) do
+  def chat(messages, model, config, opts \\ []) do
     url = String.trim_trailing(config.api_base_url, "/") <> "/v1/messages"
 
     {system_text, user_messages} = extract_system(messages)
@@ -44,6 +44,8 @@ defmodule RLM.LLM do
       {"content-type", "application/json"}
     ]
 
+    schema = Keyword.get(opts, :schema, @response_schema)
+
     body = %{
       model: model,
       max_tokens: 4096,
@@ -51,7 +53,7 @@ defmodule RLM.LLM do
       output_config: %{
         format: %{
           type: "json_schema",
-          schema: @response_schema
+          schema: schema
         }
       }
     }

@@ -41,6 +41,7 @@ rlm_umbrella/
 │   │   │       ├── sandbox_test.exs
 │   │   │       ├── worker_keep_alive_test.exs
 │   │   │       ├── worker_pubsub_test.exs
+│   │   │       ├── direct_query_test.exs
 │   │   │       ├── integration_test.exs
 │   │   │       ├── helpers_test.exs
 │   │   │       ├── live_api_test.exs
@@ -99,6 +100,16 @@ to handle `{:spawn_subcall, ...}` calls from eval'd code. This prevents deadlock
 - Worker handles the subcall, spawns a child Worker, stores `from` in `pending_subcalls`
 - Child result arrives as `{:rlm_result, child_span_id, result}` → Worker replies to blocked caller
 - Eval finishes → sends `{:eval_complete, result}` → Worker processes the result
+
+### Direct Query (Schema Mode)
+`lm_query(text, schema: json_schema)` takes a different path from regular subcalls.
+Instead of spawning a child Worker with a full iterate loop, it makes a **single direct
+LLM call** with the user's schema as `output_config` and returns the JSON-decoded response
+as a parsed map. This is handled via `{:direct_query, ...}` in the Worker, which:
+- Shares the `pending_subcalls` map and `max_concurrent_subcalls` limit with regular subcalls
+- Does NOT check `max_depth` (direct queries are leaf operations, not recursive)
+- Does NOT include a system prompt — messages are just `[%{role: :user, content: text}]`
+- Emits `[:rlm, :direct_query, :start/:stop]` telemetry events
 
 ### Three Invariants
 1. Raw input data never enters the LLM context window — only metadata/preview

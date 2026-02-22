@@ -153,6 +153,38 @@ defmodule RLM.IntegrationTest do
     end
   end
 
+  describe "direct query (schema mode)" do
+    test "lm_query with schema: returns parsed map via RLM.run" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "answer" => %{"type" => "string"}
+        },
+        "required" => ["answer"],
+        "additionalProperties" => false
+      }
+
+      schema_code = inspect(schema)
+
+      parent_code =
+        MockLLM.mock_response(
+          "{:ok, result} = lm_query(\"What is 1+1?\", schema: #{schema_code})\nfinal_answer = result",
+          "direct query with schema"
+        )
+
+      MockLLM.program_responses(self(), [
+        parent_code,
+        MockLLM.mock_direct_response(%{"answer" => "2"}, schema)
+      ])
+
+      assert {:ok, %{"answer" => "2"}, _run_id} =
+               RLM.run("test", "schema query",
+                 llm_module: MockLLM,
+                 max_depth: 3
+               )
+    end
+  end
+
   describe "sandbox helpers" do
     test "chunks helper is available in sandbox code" do
       MockLLM.program_responses(self(), [

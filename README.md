@@ -153,6 +153,10 @@ list_bindings()       # Current bindings info
 {:ok, result} = lm_query("subset of data", model_size: :small)
 results = parallel_query(["chunk1", "chunk2"], model_size: :small)
 
+# Structured extraction (schema mode) — single direct LLM call, returns parsed map
+schema = %{"type" => "object", "properties" => %{"names" => %{"type" => "array", "items" => %{"type" => "string"}}}, "required" => ["names"]}
+{:ok, %{"names" => names}} = lm_query("Extract names from: #{text}", schema: schema)
+
 # Filesystem tools
 {:ok, content} = read_file("path/to/file.ex")
 {:ok, _} = write_file("output.txt", "content")
@@ -179,7 +183,7 @@ File.write!("trace.jsonl", jsonl)
 
 ### Telemetry events
 
-15 events fire during RLM execution. Attach your own handler:
+17 events fire during RLM execution. Attach your own handler:
 
 ```elixir
 :telemetry.attach("my-handler", [:rlm, :iteration, :stop],
@@ -190,7 +194,8 @@ File.write!("trace.jsonl", jsonl)
 
 Event families: `[:rlm, :node, :*]`, `[:rlm, :iteration, :*]`,
 `[:rlm, :llm, :request, :*]`, `[:rlm, :eval, :*]`,
-`[:rlm, :subcall, :*]`, `[:rlm, :compaction, :run]`, `[:rlm, :turn, :complete]`
+`[:rlm, :subcall, :*]`, `[:rlm, :direct_query, :*]`,
+`[:rlm, :compaction, :run]`, `[:rlm, :turn, :complete]`
 
 ### PubSub live stream
 
