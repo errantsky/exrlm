@@ -1,21 +1,24 @@
-# Rlm
+# RLM — Recursive Language Model Engine
 
-**TODO: Add description**
+The core engine of the RLM umbrella project. Provides the iterate loop, eval sandbox,
+LLM client, filesystem tools, telemetry, and tracing infrastructure.
 
-## Installation
+This app has no web framework dependency. The Phoenix LiveView dashboard lives in
+the sibling `rlm_web` app.
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `rlm` to your list of dependencies in `mix.exs`:
+## Quick start
 
 ```elixir
-def deps do
-  [
-    {:rlm, "~> 0.1.0"}
-  ]
-end
+# One-shot: process data and get an answer
+{:ok, answer, run_id} = RLM.run(context, "Summarize the key findings")
+
+# Interactive: multi-turn session with persistent bindings
+{:ok, sid} = RLM.start_session(cwd: ".")
+{:ok, answer} = RLM.send_message(sid, "List the Elixir files")
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/rlm>.
+## Further reading
 
+See the umbrella root [`README.md`](../../README.md) for full usage documentation
+and [`docs/GUIDE.html`](../../docs/GUIDE.html) for the comprehensive architecture
+reference.

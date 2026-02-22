@@ -250,7 +250,32 @@
     margin-bottom: 10px; margin-top: 24px;
   }
   .category-label:first-child { margin-top: 0; }
+
+  /* ------------------------------------------------------------- Mermaid */
+  .mermaid {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
 </style>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    themeVariables: {
+      primaryColor: '#ede9fe',
+      primaryTextColor: '#1a1e27',
+      primaryBorderColor: '#7c3aed',
+      lineColor: '#5a6478',
+      secondaryColor: '#f0f2f5',
+      tertiaryColor: '#dbeafe'
+    }
+  });
+</script>
 </head>
 <body>
 
@@ -269,6 +294,8 @@
   <a href="#config">Config</a>
   <a href="#modules">Modules</a>
   <a href="#quickstart">Quick Start</a>
+  <a href="#decisions">Decisions</a>
+  <a href="#limitations">Limitations</a>
 </nav>
 
 <!-- ============================== HEADER ============================== -->
@@ -371,7 +398,7 @@
 &#x2502;       &#x2502;   &#x2514;&#x2500;&#x2500; endpoint.ex
 &#x2502;       &#x2514;&#x2500;&#x2500; test/
 &#x251C;&#x2500;&#x2500; docs/
-&#x2502;   &#x2514;&#x2500;&#x2500; architecture-discussion.html  # Architecture deep-dive &amp; review
+&#x2502;   &#x2514;&#x2500;&#x2500; GUIDE.html                   # Architecture &amp; reference guide
 &#x251C;&#x2500;&#x2500; examples/
 &#x2502;   &#x251C;&#x2500;&#x2500; map_reduce_analysis.exs      # Map-Reduce text analysis example
 &#x2502;   &#x251C;&#x2500;&#x2500; code_review.exs              # Recursive code review example
@@ -394,18 +421,33 @@
 <section id="otp">
 <h2>3. OTP Supervision Tree</h2>
 
-<div class="diagram">RLM.Supervisor (one_for_one)
-&#x251C;&#x2500; Registry         (RLM.Registry)          &mdash; named process lookup
-&#x251C;&#x2500; Phoenix.PubSub   (RLM.PubSub)            &mdash; event broadcasting
-&#x251C;&#x2500; Task.Supervisor  (RLM.TaskSupervisor)     &mdash; bash tool task processes
-&#x251C;&#x2500; DynamicSupervisor(RLM.RunSup)             &mdash; per-run coordinators
-&#x2502;   &#x2514;&#x2500; RLM.Run (per-run GenServer, :temporary)
-&#x2502;       &#x251C;&#x2500; DynamicSupervisor (workers)    &mdash; Worker GenServers, linked
-&#x2502;       &#x2514;&#x2500; Task.Supervisor (eval tasks)   &mdash; supervised eval processes, linked
-&#x251C;&#x2500; DynamicSupervisor(RLM.EventStore)         &mdash; EventLog Agents (:temporary)
-&#x251C;&#x2500; RLM.Telemetry    (GenServer)              &mdash; handler attachment on init
-&#x251C;&#x2500; RLM.TraceStore   (GenServer)              &mdash; :dets persistence
-&#x2514;&#x2500; RLM.EventLog.Sweeper (GenServer)          &mdash; periodic GC</div>
+<div class="mermaid">
+graph TD
+  SUP["RLM.Supervisor<br/><small>one_for_one</small>"]
+
+  SUP --> REG["RLM.Registry<br/><small>named process lookup</small>"]
+  SUP --> PS["RLM.PubSub<br/><small>event broadcasting</small>"]
+  SUP --> TS["RLM.TaskSupervisor<br/><small>bash tool tasks</small>"]
+  SUP --> RUNSUP["RLM.RunSup<br/><small>DynamicSupervisor</small>"]
+  SUP --> ES["RLM.EventStore<br/><small>EventLog Agents</small>"]
+  SUP --> TEL["RLM.Telemetry<br/><small>handler attachment</small>"]
+  SUP --> TRACE["RLM.TraceStore<br/><small>:dets persistence</small>"]
+  SUP --> SWEEP["EventLog.Sweeper<br/><small>periodic GC</small>"]
+
+  RUNSUP --> RUN["RLM.Run<br/><small>per-run GenServer, :temporary</small>"]
+  RUN --> WDYN["DynamicSupervisor<br/><small>Worker GenServers</small>"]
+  RUN --> EVALSUP["Task.Supervisor<br/><small>eval processes</small>"]
+  WDYN --> W1["RLM.Worker<br/><small>depth 0</small>"]
+  WDYN --> W2["RLM.Worker<br/><small>depth 1</small>"]
+  EVALSUP --> ET1["eval task"]
+  EVALSUP --> ET2["eval task"]
+
+  style SUP fill:#ede9fe,stroke:#7c3aed,stroke-width:2px
+  style RUNSUP fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px
+  style RUN fill:#dcfce7,stroke:#15803d,stroke-width:2px
+  style WDYN fill:#fef3c7,stroke:#b45309
+  style EVALSUP fill:#fef3c7,stroke:#b45309
+</div>
 
 <table>
   <tr><th>Child</th><th>OTP Type</th><th>Restart</th><th>Role</th></tr>
@@ -450,55 +492,74 @@
   <strong>Why async?</strong> The Worker must remain responsive to <code>{:spawn_subcall, ...}</code> calls from eval'd code. If eval ran synchronously, the Worker's mailbox would be blocked, and <code>GenServer.call</code> from within eval would deadlock.
 </div>
 
-<div class="diagram">Worker GenServer                     Supervised eval Task
-&#x2502;                                    &#x2502;
-&#x2502;&#x2500;&#x2500; handle_info(:iterate) &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2192;    &#x2502;
-&#x2502;   1. Call LLM (sync)               &#x2502;
-&#x2502;   2. Extract code                   &#x2502;
-&#x2502;   3. Task.Supervisor.async_nolink(  &#x2502;
-&#x2502;        eval_sup, fn -&gt;              &#x2502;
-&#x2502;        Eval.run(code, bindings)   &#x2500;&#x2500;&#x2500;&#x2500;&#x2192; Code.eval_string(...)
-&#x2502;      end)                           &#x2502;
-&#x2502;   4. Store eval_context + task_ref  &#x2502;
-&#x2502;   5. {:noreply, state}              &#x2502;
-&#x2502;                                     &#x2502; eval'd code calls lm_query()
-&#x2502;&#x2500;&#x2500; handle_call(:spawn_subcall) &#x2500;&#x2500;&#x2190;   GenServer.call(worker, ...)
-&#x2502;   6a. RLM.Run.start_worker(run_pid) &#x2502;
-&#x2502;       (Run monitors child)          &#x2502;
-&#x2502;   7a. Store from in pending_subcalls&#x2502; ...waiting for reply...
-&#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; OR handle_call(:direct_query) &#x2500;&#x2190;  lm_query(text, schema: ...)
-&#x2502;   6b. Task.Supervisor.start_child   &#x2502;
-&#x2502;       + Process.monitor             &#x2502;
-&#x2502;   7b. Store from in pending_subcalls&#x2502; ...waiting for reply...
-&#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; handle_info(:rlm_result)          &#x2502;
-&#x2502;   8a. Notify Run (cast :worker_done)&#x2502;
-&#x2502;   8a'. GenServer.reply(from, result)&#x2502;
-&#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; OR handle_info(:direct_query_result)
-&#x2502;   8b. GenServer.reply(from, result) &#x2502;
-&#x2502;                                     &#x2502; lm_query returns
-&#x2502;&#x2500;&#x2500; OR handle_info({:child_crashed})  &#x2502; eval continues...
-&#x2502;   8c. Crash propagated from Run     &#x2502;
-&#x2502;       Reply error to blocked caller  &#x2502;
-&#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; handle_info({ref, result}) &#x2500;&#x2500;&#x2190;   Task sends {ref, eval_result}
-&#x2502;   9. Update bindings                &#x2502;
-&#x2502;  10. Check final_answer             &#x2502;
-&#x2502;      &#x2514;&#x2500; loop or complete             &#x2502;
-&#x2502;                                     &#x2502;
-&#x2502;&#x2500;&#x2500; OR handle_info({:DOWN, ref, ...}) &#x2502; Task crashed
-&#x2502;   9'. Send error feedback, continue &#x2502;</div>
+<div class="mermaid">
+sequenceDiagram
+    participant W as Worker GenServer
+    participant E as Eval Task
+    participant R as RLM.Run
+    participant C as Child Worker
+
+    W->>W: handle_info(:iterate)
+    W->>W: 1. Call LLM (sync)
+    W->>W: 2. Extract code
+    W->>E: 3. Task.Supervisor.async_nolink(eval_sup)
+    Note over W: 4. Store eval_context + task_ref
+    Note over W: 5. {:noreply, state}
+    Note over W: Worker mailbox FREE
+
+    E->>E: Code.eval_string(code, bindings)
+    E->>W: lm_query() via GenServer.call(:spawn_subcall)
+    activate W
+    W->>R: 6a. Run.start_worker(run_pid)
+    R->>C: spawn + monitor child Worker
+    R-->>W: {:ok, child_pid}
+    Note over W: 7a. Store from in pending_subcalls
+    deactivate W
+    Note over E: ...blocked waiting for reply...
+
+    C->>C: iterate loop...
+    C->>W: {:rlm_result, span_id, result}
+    W->>R: cast :worker_done
+    W->>E: GenServer.reply(from, result)
+    Note over E: lm_query() returns
+
+    E->>E: eval continues...
+    E->>W: {ref, eval_result}
+    W->>W: 9. Update bindings
+    W->>W: 10. Check final_answer
+    Note over W: loop or complete
+
+    rect rgb(254, 226, 226)
+    Note over E,W: Error path: eval Task crashes
+    E--xW: {:DOWN, ref, :process, pid, reason}
+    W->>W: Send error feedback, continue
+    end
+</div>
 
 <h3>State Machine</h3>
 
-<div class="diagram">One-shot mode:         Keep-alive mode:
-
-  :running &#x2500;&#x2500;&#x2500;&#x2192; :ok        :idle &#x2500;&#x2500;&#x2500;&#x2192; :running &#x2500;&#x2500;&#x2500;&#x2192; :idle
-           &#x2514;&#x2500;&#x2500;&#x2192; :error       &#x2502;         (iterate)       &#x2502;
-                                &#x2502;                          &#x2502;
-                                &#x2514;&#x2500;&#x2500;&#x2500;&#x2500; send_message &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+<div class="card-grid">
+<div class="card-sm">
+<h4>One-shot mode</h4>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> running: RLM.run/3
+    running --> ok: final_answer set
+    running --> error: timeout / crash
+    ok --> [*]
+    error --> [*]
+</div>
+</div>
+<div class="card-sm">
+<h4>Keep-alive mode</h4>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> idle: start_session/1
+    idle --> running: send_message/3
+    running --> idle: final_answer set
+</div>
+</div>
+</div>
                                           completes with
                                           final_answer</div>
 
@@ -666,15 +727,24 @@ iex&gt; status(session)       # Print session stats</code></pre>
 </table>
 
 <h3>Event Flow</h3>
-<div class="diagram">Worker emits :telemetry.execute(event, measurements, metadata)
-                    &#x2502;
-                    &#x251C;&#x2500;&#x2500;&#x2192; Logger handler &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2192; Elixir Logger
-                    &#x2502;
-                    &#x251C;&#x2500;&#x2500;&#x2192; EventLogHandler &#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x2192; EventLog Agent (in-memory tree)
-                    &#x2502;                     &#x2514;&#x2500;&#x2500;&#x2192; TraceStore (:dets persistence)
-                    &#x2502;
-                    &#x2514;&#x2500;&#x2500;&#x2192; PubSub handler &#x2500;&#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x2192; "rlm:runs"
-                                           &#x2514;&#x2500;&#x2500;&#x2192; "rlm:run:&lt;run_id&gt;"</div>
+<div class="mermaid">
+flowchart LR
+    W["Worker<br/>:telemetry.execute"] --> L["Logger handler"]
+    W --> ELH["EventLogHandler"]
+    W --> PSH["PubSub handler"]
+
+    L --> LOG["Elixir Logger"]
+    ELH --> EA["EventLog Agent<br/><small>in-memory tree</small>"]
+    ELH --> TS["TraceStore<br/><small>:dets persistence</small>"]
+    PSH --> T1["rlm:runs"]
+    PSH --> T2["rlm:run:&lt;run_id&gt;"]
+
+    style W fill:#ede9fe,stroke:#7c3aed,stroke-width:2px
+    style EA fill:#dcfce7,stroke:#15803d
+    style TS fill:#dbeafe,stroke:#1d4ed8
+    style T1 fill:#fef3c7,stroke:#b45309
+    style T2 fill:#fef3c7,stroke:#b45309
+</div>
 </section>
 
 <!-- ============================== 8. TRACING ============================== -->
@@ -1054,6 +1124,101 @@ open http://localhost:4000
 
 # Run queries from IEx in another terminal
 # The dashboard updates live via PubSub</code></pre>
+</section>
+
+<!-- ============================== 13. DESIGN DECISIONS ============================== -->
+<section id="decisions">
+<h2>13. Design Decisions</h2>
+
+<h3>Run-Scoped Supervision (Feb 2026)</h3>
+<div class="card">
+<p>The original architecture used a flat <code>RLM.WorkerSup</code> DynamicSupervisor where all Workers from all runs lived as siblings. This created cleanup gaps: killing a mid-tree Worker orphaned its descendants, timeouts only terminated the root, and there was no single place to query "what's running in this run?"</p>
+<p>Four alternatives were evaluated:</p>
+<ol>
+  <li><strong>Process groups (<code>:pg</code>)</strong> &mdash; Run-scoped group for cleanup, but no supervision guarantees and crash propagation requires manual monitoring</li>
+  <li><strong>ETS-only tracking</strong> &mdash; Track worker tree in ETS, keep flat supervisor. Doesn't fix cascade shutdown</li>
+  <li><strong>Linked process tree</strong> &mdash; Link workers to parents. Brittle: one crash cascades upward uncontrollably</li>
+  <li><strong>Supervisor-per-subtree (chosen)</strong> &mdash; Each run gets an <code>RLM.Run</code> GenServer owning a DynamicSupervisor (workers) + Task.Supervisor (eval tasks). ETS table tracks the worker tree. Cascade shutdown is automatic</li>
+</ol>
+<p>Alternative 4 was chosen because it provides clean cascade shutdown (killing the Run kills everything), centralized crash propagation (Run monitors all workers and notifies parents), and run-scoped resource queries. The main trade-off is an additional GenServer hop for subcall spawning, mitigated by keeping Run&rarr;Worker communication as <code>send/2</code> (never <code>GenServer.call</code>) to prevent deadlocks.</p>
+</div>
+
+<h3>Deadlock Prevention Invariant</h3>
+<div class="callout">
+  <strong>Critical rule:</strong> <code>RLM.Run &rarr; RLM.Worker</code> communication must <strong>always</strong> use <code>send/2</code>, never <code>GenServer.call</code>. This prevents Worker&rarr;Run&rarr;Worker synchronous call cycles. An AST-based test in <code>run_test.exs</code> enforces this at test time by scanning <code>run.ex</code> for <code>GenServer.call</code> invocations and asserting only allowlisted public API functions contain them.
+</div>
+
+<h3>Async Eval Promotion</h3>
+<p>Eval processes were promoted from bare <code>spawn/1</code> to <code>Task.Supervisor.async_nolink/2</code> under the per-run Task.Supervisor. This provides:</p>
+<ul>
+  <li>Crash detection via <code>{:DOWN, ref, ...}</code> messages (prevents Worker hangs on eval crash)</li>
+  <li>Cascade cleanup when the Run terminates (Task.Supervisor kills all eval tasks)</li>
+  <li>The inner <code>Code.eval_string</code> subprocess uses <code>spawn_link</code> so it's killed when its parent eval task is killed</li>
+</ul>
+</section>
+
+<!-- ============================== 14. KNOWN LIMITATIONS ============================== -->
+<section id="limitations">
+<h2>14. Known Limitations &amp; Future Work</h2>
+
+<h3>Open Issues</h3>
+<table>
+  <tr><th>Priority</th><th>Issue</th><th>Details</th></tr>
+  <tr>
+    <td><span class="badge badge-amber">High</span></td>
+    <td>Synchronous telemetry handlers</td>
+    <td><code>EventLogHandler</code> calls <code>Agent.update</code> without timeout. If the EventLog Agent hangs, the Worker blocks. Fix: use <code>Agent.cast</code> or add a 5s timeout.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-amber">Medium</span></td>
+    <td>No HTTP connection pool config</td>
+    <td>Req uses default pool. High-concurrency scenarios may exhaust connections. Fix: configure explicit Finch pool settings.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-amber">Medium</span></td>
+    <td>Keep-alive binding accumulation</td>
+    <td>Bindings persist across turns with no size limit. Large file reads into bindings grow memory unbounded. Fix: add configurable binding size limit.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-amber">Medium</span></td>
+    <td>No Config validation</td>
+    <td><code>Config.load/1</code> accepts any values without validation. Negative timeouts or missing API keys surface as cryptic runtime errors. Fix: add <code>validate!/1</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-amber">Medium</span></td>
+    <td>System prompt disk reads</td>
+    <td><code>Prompt.system_prompt/0</code> reads from disk on every invocation. Fix: cache via module attribute or Application env.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">Low</span></td>
+    <td>No LLM retry logic</td>
+    <td>Transient API failures (429, 500) fail immediately. Consider exponential backoff for retriable errors.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">Low</span></td>
+    <td>Token estimation approximation</td>
+    <td><code>estimate_tokens/1</code> divides string length by 4. Actual BPE token counts differ for code/special characters. The 80% compaction threshold provides a safety buffer.</td>
+  </tr>
+</table>
+
+<h3>Dashboard Improvements</h3>
+<table>
+  <tr><th>Priority</th><th>Improvement</th></tr>
+  <tr><td><span class="badge badge-amber">Medium</span></td><td>Pagination for run list (currently renders all runs on load)</td></tr>
+  <tr><td><span class="badge badge-amber">Medium</span></td><td>Error boundaries around render (corrupted events can crash page)</td></tr>
+  <tr><td><span class="badge badge-amber">Medium</span></td><td>Accessibility: replace <code>&lt;div phx-click&gt;</code> with <code>&lt;button&gt;</code>, add ARIA attributes</td></tr>
+  <tr><td><span class="badge badge-blue">Low</span></td><td>Syntax highlighting for Elixir code blocks</td></tr>
+  <tr><td><span class="badge badge-blue">Low</span></td><td>Run list sorting and filtering</td></tr>
+  <tr><td><span class="badge badge-blue">Low</span></td><td>Trace export (JSON/JSONL download)</td></tr>
+</table>
+
+<h3>Testing Gaps</h3>
+<ul>
+  <li>No MockLLM error simulation helpers (<code>mock_error/1</code>, <code>mock_timeout/0</code>)</li>
+  <li><code>live_api_test.exs</code> has only 1 test (should cover schema, subcalls, errors)</li>
+  <li>Missing error-path tests: LLM failure, timeout, malformed response, binding overflow</li>
+  <li>Dashboard tests lack nested tree (depth &gt; 1) and accessibility coverage</li>
+</ul>
 </section>
 
 </div><!-- /content -->

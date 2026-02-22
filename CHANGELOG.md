@@ -8,6 +8,35 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**AST-based deadlock invariant test**
+
+- `run_test.exs` — parses `run.ex` source into AST via `Code.string_to_quoted` and
+  walks all `def`/`defp` nodes with `Macro.prewalk` to find `GenServer.call` invocations.
+  Asserts only allowlisted functions (currently `[:start_worker]`) contain them. Prevents
+  accidental introduction of synchronous Run→Worker calls that would create deadlock cycles.
+
+### Changed
+
+**Documentation consolidation**
+
+- Consolidated `docs/REVIEW.html` (system review) and `docs/architecture-discussion.html`
+  (design exploration) into `docs/GUIDE.html`. Added two new sections: "Design Decisions"
+  (run-scoped supervision rationale, deadlock prevention invariant, async eval promotion)
+  and "Known Limitations & Future Work" (open issues, dashboard improvements, testing gaps).
+- Consolidated `AGENTS.md` (Phoenix-generated conventions) into `CLAUDE.md` under a new
+  "Phoenix / LiveView Conventions (rlm_web)" section.
+- Updated umbrella `README.md` with corrected supervision tree diagram (`RunSup` instead of
+  `WorkerSup`) and link to `docs/GUIDE.html` for further reading.
+- Replaced placeholder `apps/rlm/README.md` with a real description and links to umbrella docs.
+
+### Removed
+
+- `docs/REVIEW.html` — content merged into GUIDE.html "Known Limitations" section
+- `docs/architecture-discussion.html` — content merged into GUIDE.html "Design Decisions" section
+- `AGENTS.md` — Phoenix conventions merged into CLAUDE.md
+
+### Added
+
 **Run-scoped supervision with centralized worker tree**
 
 - `RLM.Run` — new per-run coordinator GenServer that owns all workers and eval tasks

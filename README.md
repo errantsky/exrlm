@@ -221,9 +221,10 @@ Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
 │  │ RLM.Registry │  │ RLM.PubSub   │  │ RLM.TaskSupervisor│  │
 │  └──────────────┘  └──────────────┘  └──────────────────┘  │
 │  ┌──────────────┐  ┌──────────────┐                         │
-│  │  WorkerSup   │  │  EventStore  │                         │
-│  │(one-shot +   │  │(trace agents)│                         │
-│  │ keep_alive)  │  └──────────────┘                         │
+│  │   RunSup     │  │  EventStore  │                         │
+│  │ (per-run     │  │(trace agents)│                         │
+│  │  coordinators│  └──────────────┘                         │
+│  │  + workers)  │                                           │
 │  └──────────────┘                                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
 │  │ RLM.Telemetry│  │ TraceStore   │  │EventLog.Sweeper  │  │
@@ -240,3 +241,11 @@ One-shot mode (RLM.run/3):             Interactive mode (start_session/1):
 
 Tools live inside the sandbox — the eval'd code calls `read_file/1`, `bash/1`,
 `rg/1` etc. directly. No separate tool-use protocol needed.
+
+---
+
+## Further reading
+
+For a comprehensive architecture reference — OTP supervision tree, async-eval pattern,
+module map, telemetry events, configuration, and known limitations — see
+[`docs/GUIDE.html`](docs/GUIDE.html).

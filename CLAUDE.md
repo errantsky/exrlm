@@ -260,6 +260,23 @@ Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000
 - `RLM.run/3` monitors the Worker with `Process.monitor` so crashes return `{:error, reason}`
   rather than hanging indefinitely
 
+## Phoenix / LiveView Conventions (rlm_web)
+
+The dashboard app (`apps/rlm_web`) is a Phoenix 1.8 LiveView application. Key conventions:
+
+- Use `mix precommit` alias when done with changes (compile --warnings-as-errors, deps.unlock --unused, format, test)
+- Use `Req` for HTTP requests (already a dependency); never add HTTPoison, Tesla, or httpc
+- Templates use `~H` / `.html.heex` (HEEx) — never `~E`
+- Always begin LiveView templates with `<Layouts.app flash={@flash} ...>`
+- Use the imported `<.input>` component for form inputs (from `core_components.ex`)
+- Use `<.icon name="hero-x-mark">` for icons (from `core_components.ex`)
+- Tailwind CSS v4: no `tailwind.config.js`; uses `@import "tailwindcss" source(none);` in `app.css`
+- No inline `<script>` tags — use colocated JS hooks (`:type={Phoenix.LiveView.ColocatedHook}`) or external hooks in `assets/js/`
+- Always use LiveView streams for collections (avoid assigning plain lists)
+- Avoid LiveComponents unless specifically needed
+- Use `<.link navigate={href}>` / `<.link patch={href}>` — never `live_redirect` / `live_patch`
+- Use `start_supervised!/1` in tests for process cleanup; avoid `Process.sleep/1` in tests
+
 ## Orientation for Coding Agents
 
 When starting a task, read these files in order:
