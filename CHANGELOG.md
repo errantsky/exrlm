@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+**Developer experience tooling**
+
+- Permanent dev-only trace debug API: `GET /api/debug/traces` and
+  `GET /api/debug/traces/:run_id` endpoints (gated behind `dev_routes`).
+- Pre-commit hook (`.claude/hooks/pre-commit.sh`) — blocks `git commit` if
+  `mix compile --warnings-as-errors`, `mix test`, or `mix format --check-formatted` fail.
+- `/wrap-up` slash command (`.claude/commands/wrap-up.md`) — 8-point pre-merge checklist
+  covering build checks and documentation completeness.
+- Post-edit format hook (`.claude/hooks/post-edit-format.sh`) — auto-runs `mix format`
+  on `.ex`/`.exs` files after every Edit tool call.
+- `.envrc` with `dotenv` directive for automatic `CLAUDE_API_KEY` loading via direnv.
+
 ### Changed
 
 **System prompt delegation guidance rewrite**

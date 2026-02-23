@@ -199,6 +199,7 @@ Default models:
 | `RLM.Telemetry.Logger` | Structured logging handler |
 | `RLM.Telemetry.PubSub` | Phoenix.PubSub broadcast handler |
 | `RLM.Telemetry.EventLogHandler` | Routes telemetry events to EventLog Agent AND TraceStore |
+| `RLM.Application` | OTP application; starts `RLM.Supervisor` |
 
 ### Filesystem Tools
 
@@ -231,13 +232,27 @@ Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000
 
 | Field | Default | Notes |
 |---|---|---|
+| `api_base_url` | `"https://api.anthropic.com"` | Anthropic API base URL |
+| `api_key` | `CLAUDE_API_KEY` env var | API key for LLM requests |
 | `model_large` | `claude-sonnet-4-5-20250929` | Used for parent workers |
 | `model_small` | `claude-haiku-4-5-20251001` | Used for subcalls |
 | `max_iterations` | `25` | Per-worker LLM turn limit |
 | `max_depth` | `5` | Recursive subcall depth limit |
 | `max_concurrent_subcalls` | `10` | Parallel subcall limit per worker |
+| `context_window_tokens_large` | `200_000` | Context window size for large model |
+| `context_window_tokens_small` | `200_000` | Context window size for small model |
+| `truncation_head` | `4000` | Characters kept from start of truncated stdout |
+| `truncation_tail` | `4000` | Characters kept from end of truncated stdout |
 | `eval_timeout` | `300_000` | ms per eval (5 min) |
 | `llm_timeout` | `120_000` | ms per LLM request (2 min) |
+| `subcall_timeout` | `600_000` | ms per subcall (10 min) |
+| `cost_per_1k_prompt_tokens_large` | `0.003` | Cost tracking for large model input |
+| `cost_per_1k_prompt_tokens_small` | `0.0008` | Cost tracking for small model input |
+| `cost_per_1k_completion_tokens_large` | `0.015` | Cost tracking for large model output |
+| `cost_per_1k_completion_tokens_small` | `0.004` | Cost tracking for small model output |
+| `enable_otel` | `false` | Enable OpenTelemetry integration |
+| `enable_event_log` | `true` | Enable per-run EventLog trace agents |
+| `event_log_capture_full_stdout` | `false` | Store full stdout in traces (vs truncated) |
 | `llm_module` | `RLM.LLM` | Swappable for `RLM.Test.MockLLM` |
 
 ## Testing Conventions
