@@ -109,6 +109,10 @@ entity_schema = %{
 # result is %{"names" => ["Alice", "Bob"], "count" => 2}
 ```
 
+**Schema constraint:** Array types only support `minItems` of 0 or 1. Higher values
+(e.g. `"minItems" => 3`) will cause an API error. To enforce a minimum count, validate
+the result in your code after the call instead.
+
 ### 3. Full subcall — multi-step child worker (heavy, use sparingly)
 Bare `lm_query(text)` (without `schema:`) spawns a **full child Worker** with its own
 system prompt, REPL, and iterate loop. It can run code, use filesystem tools, and even
