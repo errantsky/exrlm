@@ -8,6 +8,18 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Depth-aware system prompts (root vs child)**
+
+- `priv/child_system_prompt.md` — focused child worker prompt that omits orchestration
+  sections (Structured Extraction, Concurrency, Interactive Mode, Monotonicity, Effort
+  Triage) and emphasises direct answering over further delegation. Child workers still
+  have access to `lm_query` for legitimate deep recursion but are instructed to use it
+  sparingly.
+- `RLM.Prompt.build_system_message/1` — accepts `depth:` option; returns the child
+  prompt for `depth > 0` and the root prompt for `depth == 0`.
+- `RLM.Worker` now passes `depth:` when building the system message, so child workers
+  automatically receive the focused child prompt.
+
 **AST-based deadlock invariant test**
 
 - `run_test.exs` — parses `run.ex` source into AST via `Code.string_to_quoted` and

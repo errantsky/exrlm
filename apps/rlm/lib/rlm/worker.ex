@@ -85,7 +85,7 @@ defmodule RLM.Worker do
 
     if keep_alive do
       # Keep-alive mode: start idle, wait for send_message
-      system_msg = RLM.Prompt.build_system_message()
+      system_msg = RLM.Prompt.build_system_message(depth: depth)
 
       state = %__MODULE__{
         span_id: span_id,
@@ -128,7 +128,7 @@ defmodule RLM.Worker do
         compacted_history: ""
       ]
 
-      system_msg = RLM.Prompt.build_system_message()
+      system_msg = RLM.Prompt.build_system_message(depth: depth)
 
       user_msg =
         RLM.Prompt.build_user_message(query, context_bytes, context_lines, context_preview)
@@ -535,7 +535,12 @@ defmodule RLM.Worker do
             tail: state.config.truncation_tail
           )
 
-        final_answer = Keyword.get(new_bindings, :final_answer)
+        final_answer =
+          case Keyword.get(new_bindings, :final_answer) do
+            {:ok, value} -> value
+            other -> other
+          end
+
         bindings_info = RLM.Helpers.list_bindings(new_bindings)
 
         feedback =
