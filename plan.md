@@ -126,7 +126,6 @@ mix phx.new rlm \
   --app rlm \
   --no-ecto \
   --no-mailer \
-  --no-dashboard \
   --no-gettext \
   --no-install
 ```
@@ -135,8 +134,8 @@ This produces:
 - App name: `:rlm`
 - Root module: `RLM`
 - Web module: `RLMWeb` (in `lib/rlm_web/`)
-- No database, no mailer, no LiveDashboard, no gettext
-- Tailwind v4, esbuild, LiveView, Bandit all included
+- No database, no mailer, no gettext
+- Tailwind v4, esbuild, LiveView, LiveDashboard, Bandit all included
 
 ### 1.3 — Files to copy/reference from the scaffold
 
@@ -179,6 +178,7 @@ Current `:rlm_web` deps (minus `{:rlm, in_umbrella: true}`):
 {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
 {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
 {:heroicons, tag: "v2.2.0", ...},
+{:phoenix_live_dashboard, "~> 0.8.3"},
 {:swoosh, "~> 1.16"},
 {:req, "~> 0.5"},
 {:telemetry_metrics, "~> 1.0"},
@@ -790,8 +790,8 @@ Everything else is mechanical file movement.
 
 2. **Keep or drop Swoosh?** The dashboard doesn't send emails. Recommendation: drop.
 
-3. **Keep or drop Phoenix.LiveDashboard?** Currently included in rlm_web deps but only in
-   dev routes. Recommendation: keep — it's useful for debugging and only loads in dev.
+3. ~~**Keep or drop Phoenix.LiveDashboard?**~~ **Resolved: keep.** Useful for dev debugging,
+   minimal overhead (one dep + one route), and easy to include from generation.
 
 4. **App version bump?** Recommendation: bump to 0.3.0 to mark the structural change.
 
