@@ -76,7 +76,8 @@ defmodule RLM.MixProject do
           RLM.EventLog,
           RLM.EventLog.Sweeper,
           RLM.TraceStore,
-          RLM.IEx
+          RLM.IEx,
+          RLM.Node
         ],
         "Filesystem Tools": [
           RLM.Tool,

@@ -6,6 +6,34 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+**Distributed Erlang node support**
+
+- `RLM.Node` — new module for managing distributed Erlang node lifecycle.
+  `start/1` enables distribution programmatically (sets short name + cookie),
+  `stop/0` disables it, `connect/1` joins a remote node, `info/0` returns
+  cluster status, `rpc/4` executes functions on remote nodes with error wrapping.
+  Configurable via `RLM_NODE_NAME` and `RLM_COOKIE` environment variables.
+- `RLM.IEx.remote/3` — run a one-shot query on a remote RLM node via RPC and
+  print the result. Useful for client nodes that want to offload work to a
+  running server.
+- `RLM.IEx.node_info/0` — print current node distribution status.
+- Release configuration (`rel/`) for production deployments:
+  - `env.sh.eex` — sets `RELEASE_DISTRIBUTION`, `RELEASE_NODE`, and
+    `RELEASE_COOKIE` from environment variables with sensible defaults.
+  - `vm.args.eex` — server VM tuning (32MB dist buffer, 15s net tick time,
+    kernel poll, 16 async threads).
+  - `remote.vm.args.eex` — lightweight VM config for `bin/rlm remote` and
+    `bin/rlm rpc` connections.
+- Release definition in umbrella `mix.exs` — `:rlm` release bundles both
+  `:rlm` and `:rlm_web` applications with `rel/` templates.
+- `.iex.exs` — auto-imports `RLM.IEx` helpers and prints a quick-start
+  banner when entering `iex -S mix` or connecting via `--remsh`.
+- `examples/distributed_node.exs` — step-by-step walkthrough of the
+  server/client workflow for distributed mode.
+- `RLM.NodeTest` — tests for `info/0`, `alive?/0`, `stop/0`, and `rpc/4`.
+
 ### Changed
 
 **System prompt delegation guidance rewrite**

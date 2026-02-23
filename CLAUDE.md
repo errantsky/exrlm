@@ -20,7 +20,8 @@ rlm_umbrella/
 │   │   │   ├── config.ex       # Config struct + loader
 │   │   │   ├── span.ex         # Span/run ID generation
 │   │   │   ├── truncate.ex     # Head+tail string truncation
-│   │   │   ├── iex.ex          # IEx convenience helpers
+│   │   │   ├── iex.ex          # IEx convenience helpers (+ remote shell support)
+│   │   │   ├── node.ex         # Distributed Erlang node management
 │   │   │   ├── event_log.ex    # Per-run trace Agent
 │   │   │   ├── event_log_sweeper.ex  # Periodic EventLog GC (GenServer)
 │   │   │   ├── trace_store.ex  # :dets persistence GenServer
@@ -38,6 +39,7 @@ rlm_umbrella/
 │   │   ├── test/
 │   │   │   ├── support/        # MockLLM, test helpers
 │   │   │   └── rlm/
+│   │   │       ├── node_test.exs
 │   │   │       ├── tools_test.exs
 │   │   │       ├── sandbox_test.exs
 │   │   │       ├── worker_keep_alive_test.exs
@@ -66,11 +68,17 @@ rlm_umbrella/
 │   ├── dev.exs
 │   ├── test.exs
 │   └── runtime.exs
+├── rel/
+│   ├── env.sh.eex              # Release env: node name + cookie
+│   ├── vm.args.eex             # VM flags for server (tick time, async threads)
+│   └── remote.vm.args.eex      # VM flags for remote shell / rpc
 ├── examples/
 │   ├── smoke_test.exs          # Live API smoke tests (mix rlm.smoke)
 │   ├── map_reduce_analysis.exs # Map-reduce text chunking + parallel analysis
 │   ├── code_review.exs         # Recursive code review with file tools
-│   └── research_synthesis.exs  # Multi-source structured extraction + synthesis
+│   ├── research_synthesis.exs  # Multi-source structured extraction + synthesis
+│   └── distributed_node.exs    # Distributed node workflow walkthrough
+├── .iex.exs                    # Auto-imports RLM.IEx helpers on shell start
 └── mix.exs
 ```
 
@@ -97,6 +105,70 @@ mix rlm.smoke
 
 # Interactive shell
 iex -S mix
+
+# Interactive shell as a named node (enables remote connections)
+iex --sname rlm --cookie rlm_dev -S mix
+
+# Connect a remote IEx shell to a running node
+iex --sname client --cookie rlm_dev --remsh rlm@$(hostname -s)
+
+# Build a release
+MIX_ENV=prod mix release rlm
+
+# Start the release (runs as rlm@hostname automatically)
+_build/prod/rel/rlm/bin/rlm start
+
+# Connect to a running release
+_build/prod/rel/rlm/bin/rlm remote
+```
+
+## Distributed Node
+
+RLM can run as a named Erlang node, allowing remote IEx sessions to connect
+for interactive use, debugging, and monitoring without restarting the server.
+
+### Development mode
+
+```bash
+# Option A: Start with --sname flag
+iex --sname rlm --cookie rlm_dev -S mix
+
+# Option B: Start distribution from within IEx
+iex -S mix
+iex> RLM.Node.start()
+{:ok, :rlm@myhost}
+```
+
+Then from another terminal:
+
+```bash
+iex --sname client --cookie rlm_dev --remsh rlm@$(hostname -s)
+```
+
+### Release mode
+
+Releases auto-configure the node name via `rel/env.sh.eex`. Override with
+environment variables:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `RLM_NODE_NAME` | `rlm` | Short name for the node |
+| `RLM_COOKIE` | (random on first build) | Shared secret for cluster auth |
+| `RELEASE_DISTRIBUTION` | `sname` | `sname` or `name` (FQDN) |
+
+### Programmatic RPC
+
+From a connected client node, use `RLM.Node.rpc/4` or `RLM.IEx.remote/3`:
+
+```elixir
+# Start the client as a node
+RLM.Node.start(name: :client)
+
+# Run a one-shot query on the remote server
+RLM.IEx.remote(:rlm@server, "Summarize this text", context: "...")
+
+# Or use RPC directly
+RLM.Node.rpc(:rlm@server, RLM, :start_session, [[cwd: "/project"]])
 ```
 
 ## Key Design Decisions
@@ -189,7 +261,8 @@ Default models:
 | `RLM.Helpers` | `chunks/2`, `grep/2`, `preview/2`, `list_bindings/0` |
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
 | `RLM.Span` | Span/run ID generation |
-| `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2` |
+| `RLM.Node` | Distributed Erlang node management: `start/1`, `stop/0`, `connect/1`, `info/0`, `rpc/4` |
+| `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2`, `remote/3`, `node_info/0` |
 | `Mix.Tasks.Rlm.Smoke` | `mix rlm.smoke` — live API smoke tests (delegates to `examples/smoke_test.exs`) |
 | `Mix.Tasks.Rlm.Examples` | `mix rlm.examples` — run example scenarios (all or by name) |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |

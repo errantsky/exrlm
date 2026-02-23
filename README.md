@@ -32,12 +32,17 @@ rlm_umbrella/
 │   │   │   ├── llm.ex                  # Anthropic Messages API client
 │   │   │   ├── sandbox.ex              # Eval sandbox (helpers + tools)
 │   │   │   ├── iex.ex                  # IEx convenience helpers
+│   │   │   ├── node.ex                 # Distributed Erlang node management
 │   │   │   ├── tool.ex                 # Tool behaviour
 │   │   │   ├── tool_registry.ex        # Tool dispatch + discovery
 │   │   │   ├── telemetry/              # Telemetry events + handlers
 │   │   │   └── tools/                  # 7 filesystem tools
 │   │   └── test/
 │   └── rlm_web/                        # Phoenix LiveView dashboard
+├── rel/                                # Release configuration
+│   ├── env.sh.eex                      # Node name + cookie setup
+│   ├── vm.args.eex                     # Server VM flags
+│   └── remote.vm.args.eex             # Remote shell VM flags
 └── config/
 ```
 
@@ -71,6 +76,61 @@ mix test --include live_api
 
 # Live smoke test (5 end-to-end tests against the real API)
 mix rlm.smoke
+```
+
+---
+
+## Running as a distributed node
+
+RLM can run as a named Erlang node, enabling remote IEx connections for
+interactive sessions, debugging, and monitoring — without restarting the server.
+
+### Development
+
+```bash
+# Start as a named node
+iex --sname rlm --cookie rlm_dev -S mix
+
+# Or start distribution from within IEx
+iex -S mix
+iex> RLM.Node.start()
+{:ok, :rlm@myhost}
+```
+
+Connect from another terminal:
+
+```bash
+# Full remote shell (runs inside the server process)
+iex --sname client --cookie rlm_dev --remsh rlm@$(hostname -s)
+```
+
+### Production (releases)
+
+```bash
+# Build the release
+MIX_ENV=prod mix release rlm
+
+# Start the server (named node is automatic)
+_build/prod/rel/rlm/bin/rlm start
+
+# Connect a remote shell
+_build/prod/rel/rlm/bin/rlm remote
+```
+
+Environment variables for releases:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RLM_NODE_NAME` | `rlm` | Node name |
+| `RLM_COOKIE` | (auto-generated) | Cluster authentication |
+| `RELEASE_DISTRIBUTION` | `sname` | `sname` (local) or `name` (FQDN) |
+
+### RPC from a client node
+
+```elixir
+# On the client
+RLM.Node.start(name: :client)
+RLM.IEx.remote(:rlm@server, "Summarize this", context: "...")
 ```
 
 ---

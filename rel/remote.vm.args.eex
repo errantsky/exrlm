@@ -1,0 +1,16 @@
+## -----------------------------------------------------------------------
+## RLM Release — Remote VM Arguments
+## -----------------------------------------------------------------------
+## These flags are passed to the Erlang VM when running `bin/rlm remote`,
+## `bin/rlm rpc`, or other commands that connect to the running node.
+## -----------------------------------------------------------------------
+
+## Use a hidden node for remote connections so they don't join the
+## full mesh and interfere with the running cluster.
+## (The release boot script already sets --hidden, but this is explicit.)
+
+## Keep the distribution buffer modest for the remote shell.
++zdbbl 1024
+
+## Reduce the async thread pool for the lightweight remote VM.
++A 1

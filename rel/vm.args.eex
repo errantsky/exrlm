@@ -1,0 +1,36 @@
+## -----------------------------------------------------------------------
+## RLM Release — VM Arguments
+## -----------------------------------------------------------------------
+## These flags are passed to the Erlang VM when the release starts.
+## See: https://www.erlang.org/doc/man/erl.html
+## -----------------------------------------------------------------------
+
+## Name and cookie are set by env.sh.eex via RELEASE_NODE / RELEASE_COOKIE.
+## Do NOT set -sname/-name or -setcookie here; the release boot script
+## handles that automatically.
+
+## Increase the number of concurrent ports/sockets (default: 65536)
+## +Q 65536
+
+## Increase the number of simultaneously existing processes (default: 262144)
+## +P 262144
+
+## Increase the distribution buffer size for large inter-node messages.
+## Default is 1MB; bump to 32MB for sending large trace data across nodes.
++zdbbl 32768
+
+## Set the net tick time (seconds). Nodes that don't respond within
+## 4 * net_ticktime are considered down. Default: 60s.
+## Lower values detect failures faster but are more sensitive to network jitter.
+-kernel net_ticktime 15
+
+## Enable the heart process for automatic restart on VM crash.
+## Uncomment for production deployments.
+## -heart
+
+## Enable kernel poll (epoll on Linux) for better I/O scaling.
++K true
+
+## Increase async thread pool size (default: 1).
+## Useful for file I/O operations in the tool system.
++A 16

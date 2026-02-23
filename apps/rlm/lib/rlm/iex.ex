@@ -20,6 +20,17 @@ defmodule RLM.IEx do
 
       iex> import RLM.IEx
       iex> {session, _} = start_chat("Count the lines in README.md")
+
+  ## Remote connections
+
+  When the RLM server runs as a named node, connect from a separate terminal:
+
+      # Via remsh (full IEx in the server's context):
+      iex --sname client --cookie rlm_dev --remsh rlm@hostname
+
+      # Or connect programmatically and call through RPC:
+      iex> RLM.Node.start(name: :client)
+      iex> RLM.IEx.remote(:rlm@hostname, "Summarize the README")
   """
 
   @doc """
@@ -121,6 +132,62 @@ defmodule RLM.IEx do
         IO.puts("[Error] Session #{session_id} not found")
         {:error, :not_found}
     end
+  end
+
+  @doc """
+  Run a one-shot query on a remote RLM node and print the result.
+
+  Requires that the local node has distribution started
+  (via `RLM.Node.start/1` or `--sname`/`--name` flag) and shares the
+  same cookie as the remote node.
+
+  ## Examples
+
+      iex> RLM.IEx.remote(:rlm@server, "Count the lines", context: "a\\nb\\nc")
+
+  ## Options
+
+    * `:context` — input data (default: `""`)
+    * `:timeout` — RPC timeout in ms (default: `120_000`)
+  """
+  @spec remote(node(), String.t(), keyword()) :: {String.t(), any()} | {:error, any()}
+  def remote(node, message, opts \\ []) do
+    context = Keyword.get(opts, :context, "")
+    timeout = Keyword.get(opts, :timeout, 120_000)
+
+    IO.puts("[Remote #{node}] #{message}\n")
+
+    case :rpc.call(node, RLM, :run, [context, message], timeout) do
+      {:ok, answer, run_id} ->
+        IO.puts("[RLM] run=#{run_id}\n#{inspect(answer)}\n")
+        {run_id, answer}
+
+      {:error, reason} ->
+        IO.puts("[Error] #{inspect(reason)}")
+        {:error, reason}
+
+      {:badrpc, reason} ->
+        IO.puts("[RPC Error] #{inspect(reason)}")
+        {:error, {:rpc_failed, reason}}
+    end
+  end
+
+  @doc """
+  Print current node distribution info. Useful for verifying
+  connectivity before using remote features.
+  """
+  @spec node_info() :: :ok
+  def node_info do
+    info = RLM.Node.info()
+
+    IO.puts("""
+    Node:       #{info.node}
+    Alive:      #{info.alive}
+    Cookie:     #{info.cookie}
+    Connected:  #{inspect(info.connected_nodes)}
+    """)
+
+    :ok
   end
 
   # ---------------------------------------------------------------------------
