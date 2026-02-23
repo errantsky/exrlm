@@ -166,9 +166,17 @@ answer = """beef: #{beef_count}
 **Sub-call results** — `lm_query` and `parallel_query` return tagged tuples.
 Always unwrap before using the value:
 ```elixir
+# Single sub-call
+{:ok, answer} = lm_query("summarize this text")
+# answer is a plain string — use it directly
+final_answer = answer
+
+# WRONG — do NOT assign the tuple to final_answer:
+# final_answer = lm_query("...")  # {:ok, "..."} is NOT a string!
+
+# Multiple sub-calls
 results = parallel_query(chunks)
 # results is [{:ok, "..."}, {:ok, "..."}, ...]
-
 texts = Enum.map(results, fn {:ok, text} -> text; {:error, _} -> "" end)
 ```
 
