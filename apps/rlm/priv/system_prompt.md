@@ -109,9 +109,18 @@ entity_schema = %{
 # result is %{"names" => ["Alice", "Bob"], "count" => 2}
 ```
 
-**Schema constraint:** Array types only support `minItems` of 0 or 1. Higher values
-(e.g. `"minItems" => 3`) will cause an API error. To enforce a minimum count, validate
-the result in your code after the call instead.
+**Schema rules** (violations cause an API error):
+- Every `"type" => "object"` — including nested ones — **must** have
+  `"additionalProperties" => false` and list **all** its properties in `"required"`.
+- `"minItems"` on arrays only supports 0 or 1. No `"maxItems"`.
+- No numerical constraints (`minimum`, `maximum`, `multipleOf`).
+- No string constraints (`minLength`, `maxLength`).
+- No recursive schemas.
+- Supported types: `object`, `array`, `string`, `integer`, `number`, `boolean`, `null`.
+- `"enum"` only accepts primitives (strings, numbers, bools, null).
+
+To enforce constraints the schema can't express (e.g. "at least 3 items"), validate the
+result in your code after the call.
 
 ### 3. Full subcall — multi-step child worker (heavy, use sparingly)
 Bare `lm_query(text)` (without `schema:`) spawns a **full child Worker** with its own
