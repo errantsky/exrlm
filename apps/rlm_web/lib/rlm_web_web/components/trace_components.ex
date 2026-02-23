@@ -76,6 +76,12 @@ defmodule RlmWebWeb.TraceComponents do
         <.eval_badge status={@iteration[:eval_status]} />
         <span :if={@iteration[:llm_prompt_tokens]} class="text-base-content/50 ml-auto">
           ↑{@iteration.llm_prompt_tokens} ↓{@iteration[:llm_completion_tokens]}
+          <span
+            :if={@iteration[:cache_read_input_tokens] && @iteration.cache_read_input_tokens > 0}
+            class="text-success"
+          >
+            cached:{@iteration.cache_read_input_tokens}
+          </span>
         </span>
         <span class="ml-auto text-base-content/40">
           {if @is_expanded, do: "▲", else: "▼"}

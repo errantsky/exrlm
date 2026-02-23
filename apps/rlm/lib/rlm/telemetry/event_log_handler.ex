@@ -54,6 +54,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       subcalls_spawned: metadata[:subcalls_spawned],
       llm_prompt_tokens: metadata[:llm_prompt_tokens],
       llm_completion_tokens: metadata[:llm_completion_tokens],
+      cache_creation_input_tokens: metadata[:cache_creation_input_tokens],
+      cache_read_input_tokens: metadata[:cache_read_input_tokens],
       llm_duration_ms: metadata[:llm_duration_ms],
       timestamp_us: System.system_time(:microsecond)
     }

@@ -19,6 +19,15 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Automatic prompt caching**
+
+- Enabled Anthropic automatic prompt caching (`cache_control: %{type: "ephemeral"}`) on
+  all LLM API requests. The system prompt and growing message history are cached
+  automatically, reducing input token costs by up to 90% on cache hits (iterations 2+).
+- Cache usage metrics (`cache_creation_input_tokens`, `cache_read_input_tokens`) are
+  captured in usage, propagated through telemetry, and stored in trace events.
+- Dashboard iteration cards show a green "cached:N" indicator when cache hits occur.
+
 **AST-based deadlock invariant test**
 
 - `run_test.exs` — parses `run.ex` source into AST via `Code.string_to_quoted` and

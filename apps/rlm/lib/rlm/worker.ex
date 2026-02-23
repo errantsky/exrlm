@@ -573,6 +573,8 @@ defmodule RLM.Worker do
           subcalls_spawned: 0,
           llm_prompt_tokens: ctx.usage.prompt_tokens,
           llm_completion_tokens: ctx.usage.completion_tokens,
+          cache_creation_input_tokens: ctx.usage.cache_creation_input_tokens,
+          cache_read_input_tokens: ctx.usage.cache_read_input_tokens,
           llm_duration_ms: ctx.llm_duration
         })
 
@@ -625,6 +627,8 @@ defmodule RLM.Worker do
           subcalls_spawned: 0,
           llm_prompt_tokens: ctx.usage.prompt_tokens,
           llm_completion_tokens: ctx.usage.completion_tokens,
+          cache_creation_input_tokens: ctx.usage.cache_creation_input_tokens,
+          cache_read_input_tokens: ctx.usage.cache_read_input_tokens,
           llm_duration_ms: ctx.llm_duration
         })
 
@@ -840,6 +844,8 @@ defmodule RLM.Worker do
       subcalls_spawned: 0,
       llm_prompt_tokens: usage.prompt_tokens,
       llm_completion_tokens: usage.completion_tokens,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens,
+      cache_read_input_tokens: usage.cache_read_input_tokens,
       llm_duration_ms: llm_duration
     })
   end

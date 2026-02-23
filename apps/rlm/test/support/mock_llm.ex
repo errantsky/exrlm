@@ -150,13 +150,26 @@ defmodule RLM.Test.MockLLM do
       nil ->
         # Default: set final_answer immediately
         {:ok, mock_response("final_answer = \"default mock answer\"", "default"),
-         %{prompt_tokens: 10, completion_tokens: 5, total_tokens: 15}}
+         %{
+           prompt_tokens: 10,
+           completion_tokens: 5,
+           total_tokens: 15,
+           cache_creation_input_tokens: nil,
+           cache_read_input_tokens: nil
+         }}
 
       {:error, reason} ->
         {:error, reason}
 
       text when is_binary(text) ->
-        {:ok, text, %{prompt_tokens: 100, completion_tokens: 50, total_tokens: 150}}
+        {:ok, text,
+         %{
+           prompt_tokens: 100,
+           completion_tokens: 50,
+           total_tokens: 150,
+           cache_creation_input_tokens: nil,
+           cache_read_input_tokens: nil
+         }}
     end
   end
 

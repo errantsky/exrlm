@@ -11,7 +11,9 @@ defmodule RLM.LLM do
   @type usage :: %{
           prompt_tokens: non_neg_integer() | nil,
           completion_tokens: non_neg_integer() | nil,
-          total_tokens: non_neg_integer() | nil
+          total_tokens: non_neg_integer() | nil,
+          cache_creation_input_tokens: non_neg_integer() | nil,
+          cache_read_input_tokens: non_neg_integer() | nil
         }
 
   @response_schema %{
@@ -49,6 +51,7 @@ defmodule RLM.LLM do
     body = %{
       model: model,
       max_tokens: 4096,
+      cache_control: %{type: "ephemeral"},
       messages: format_messages(user_messages),
       output_config: %{
         format: %{
@@ -138,11 +141,15 @@ defmodule RLM.LLM do
 
     input = Map.get(usage, "input_tokens")
     output = Map.get(usage, "output_tokens")
+    cache_creation = Map.get(usage, "cache_creation_input_tokens")
+    cache_read = Map.get(usage, "cache_read_input_tokens")
 
     %{
       prompt_tokens: input,
       completion_tokens: output,
-      total_tokens: if(input && output, do: input + output, else: nil)
+      total_tokens: if(input && output, do: input + output, else: nil),
+      cache_creation_input_tokens: cache_creation,
+      cache_read_input_tokens: cache_read
     }
   end
 end
