@@ -8,6 +8,12 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Web & HTTP documentation in system prompt**
+
+- Added "Web & HTTP (via bash)" section to `priv/system_prompt.md` documenting
+  that `curl` and `jq` are available through the existing `bash()` tool. Includes
+  examples for GET/POST requests, jq piping, recommended flags, and timeout handling.
+
 **AST-based deadlock invariant test**
 
 - `run_test.exs` — parses `run.ex` source into AST via `Code.string_to_quoted` and

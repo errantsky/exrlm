@@ -65,6 +65,40 @@ session working directory unless absolute.
 **Important**: `grep(pattern, string)` is the in-memory string search. Use `rg(pattern)`
 for filesystem searches. They are different functions — don't confuse them.
 
+## Web & HTTP (via bash)
+
+`curl` and `jq` are available on the system. Use them through `bash()` for web requests
+and JSON processing.
+
+```elixir
+# Simple GET request
+{:ok, body} = bash("curl -sS https://api.example.com/data")
+
+# Follow redirects, set timeout, add headers
+{:ok, body} = bash("curl -sSL --max-time 10 -H 'Accept: application/json' https://api.example.com/items")
+
+# POST with JSON body
+{:ok, resp} = bash(~s(curl -sSL -X POST -H 'Content-Type: application/json' -d '{"q":"elixir"}' https://api.example.com/search))
+
+# Pipe through jq to extract fields before storing
+{:ok, names} = bash("curl -sS https://api.example.com/users | jq '[.[].name]'")
+
+# jq on its own for processing JSON already in a file
+{:ok, filtered} = bash("jq '.results[] | select(.score > 0.8)' data.json")
+```
+
+Recommended curl flags:
+- `-s` — silent (no progress bar)
+- `-S` — show errors even in silent mode
+- `-L` — follow redirects
+- `--max-time N` — timeout in seconds (bash itself has a 30s default timeout; use `timeout:` for longer requests)
+- `--fail-with-body` — return non-zero exit code on HTTP errors while still capturing the response body
+
+For long downloads, increase the bash timeout:
+```elixir
+{:ok, body} = bash("curl -sSL --max-time 60 https://large-api.example.com/dump", timeout: 90_000)
+```
+
 ## Structured Extraction (schema mode)
 
 Use `schema:` to get structured JSON conforming to a JSON Schema:
