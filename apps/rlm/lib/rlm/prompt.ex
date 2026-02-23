@@ -21,13 +21,6 @@ defmodule RLM.Prompt do
     %{role: :system, content: system_prompt()}
   end
 
-  @spec build_system_message(keyword()) :: map()
-  def build_system_message(opts) when is_list(opts) do
-    depth = Keyword.get(opts, :depth, 0)
-    content = if depth > 0, do: child_system_prompt(), else: system_prompt()
-    %{role: :system, content: content}
-  end
-
   @spec build_user_message(String.t(), non_neg_integer(), non_neg_integer(), String.t()) :: map()
   def build_user_message(query, context_bytes, context_lines, context_preview) do
     content = """
@@ -125,15 +118,6 @@ defmodule RLM.Prompt do
   end
 
   defp format_bindings(_), do: []
-
-  defp child_system_prompt do
-    path = Application.app_dir(:rlm, "priv/child_system_prompt.md")
-
-    case File.read(path) do
-      {:ok, content} -> content
-      {:error, _} -> default_system_prompt()
-    end
-  end
 
   defp default_system_prompt do
     """

@@ -48,8 +48,7 @@ rlm_umbrella/
 │   │   │       ├── live_api_test.exs
 │   │   │       └── worker_test.exs
 │   │   └── priv/
-│   │       ├── system_prompt.md          # Root worker system prompt
-│   │       └── child_system_prompt.md    # Child worker system prompt (depth > 0)
+│   │       └── system_prompt.md
 │   └── rlm_web/                # Phoenix 1.8 LiveView dashboard (read-only)
 │       ├── lib/rlm_web_web/
 │       │   ├── live/

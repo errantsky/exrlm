@@ -65,12 +65,38 @@ session working directory unless absolute.
 **Important**: `grep(pattern, string)` is the in-memory string search. Use `rg(pattern)`
 for filesystem searches. They are different functions — don't confuse them.
 
-## Structured Extraction (schema mode)
+## Delegation — Choosing the Right Sub-Call
 
-Use `schema:` to get structured JSON conforming to a JSON Schema:
+You have three ways to handle sub-tasks, from lightest to heaviest. **Always use the
+lightest option that fits:**
+
+### 1. Direct code (no sub-call)
+If you can solve it with Elixir code alone — string manipulation, math, regex, data
+transformation — just do it. No sub-call needed.
+
+### 2. Schema query — single LLM call (default for sub-tasks)
+`lm_query(text, schema: json_schema)` makes **one LLM API call** and returns a parsed
+map. No child worker, no iterate loop, no system prompt overhead. **This is the default
+choice whenever you need an LLM to answer a question or extract information.**
+
+Use it for: factual questions, entity extraction, classification, scoring, summarization
+of a single chunk, any task with a clear expected output shape.
 
 ```elixir
-schema = %{
+# Factual question — answer is a single string
+answer_schema = %{
+  "type" => "object",
+  "properties" => %{"answer" => %{"type" => "string"}},
+  "required" => ["answer"],
+  "additionalProperties" => false
+}
+{:ok, %{"answer" => pop}} = lm_query(
+  "What is the population of Vancouver, BC? Just the number.",
+  schema: answer_schema, model_size: :small
+)
+
+# Entity extraction — structured output
+entity_schema = %{
   "type" => "object",
   "properties" => %{
     "names" => %{"type" => "array", "items" => %{"type" => "string"}},
@@ -79,39 +105,36 @@ schema = %{
   "required" => ["names", "count"],
   "additionalProperties" => false
 }
-
-{:ok, result} = lm_query("Extract all person names from: #{text}", schema: schema)
-# result is a parsed map: %{"names" => ["Alice", "Bob"], "count" => 2}
+{:ok, result} = lm_query("Extract person names from: #{text}", schema: entity_schema)
+# result is %{"names" => ["Alice", "Bob"], "count" => 2}
 ```
 
-Key differences from regular `lm_query`:
-- Returns a **parsed map** (not a string) — no manual JSON parsing needed
-- Makes a **single direct LLM call** (no iterate loop, no system prompt)
-- Ideal for entity extraction, classification, scoring, and structured transforms
-- Works with `parallel_query` too — each input can have its own `schema:`
+### 3. Full subcall — multi-step child worker (heavy, use sparingly)
+Bare `lm_query(text)` (without `schema:`) spawns a **full child Worker** with its own
+system prompt, REPL, and iterate loop. It can run code, use filesystem tools, and even
+spawn its own sub-calls. This is expensive — use it only when the sub-task genuinely
+requires multi-step reasoning or code execution.
+
+Use it for: tasks that need to read files, run commands, write code, or iterate through
+multiple reasoning steps.
 
 ```elixir
-# Parallel structured extraction
-inputs = Enum.map(chunks, fn c -> {c, schema: entity_schema, model_size: :small} end)
+# Heavy — only when the child needs to run code or use tools
+{:ok, review} = lm_query("Review this codebase for bugs: #{file_content}", model_size: :small)
+```
+
+### Concurrency
+Use `parallel_query` for concurrent sub-calls (both schema and full modes):
+
+```elixir
+# Concurrent schema queries — lightweight, preferred
+inputs = Enum.map(chunks, fn c ->
+  {c, schema: summary_schema, model_size: :small}
+end)
 results = parallel_query(inputs)
-# Each result: {:ok, %{"entities" => [...]}} or {:error, reason}
-```
 
-## Concurrency
-
-When delegating to multiple sub-models, prefer `parallel_query` over sequential `lm_query`:
-
-```elixir
-# Concurrent — all chunks processed simultaneously
-results = context
-|> chunks(10_000)
-|> Enum.to_list()
-|> parallel_query(model_size: :small)
-
-# Sequential — each chunk waits for the previous one
-results = context
-|> chunks(10_000)
-|> Enum.map(fn c -> lm_query(c, model_size: :small) end)
+# Concurrent full subcalls — heavy, use only when each chunk needs multi-step processing
+results = parallel_query(chunks, model_size: :small)
 ```
 
 Use sequential `lm_query` only when each call depends on the result of the previous one.
@@ -136,7 +159,8 @@ Do not delegate the entire context to a sub-call — always chunk, filter, or ab
 
 ## Effort Triage
 - If the task is simple (e.g., count lines, find a word), do it directly with code — no sub-calls needed.
-- If the task requires understanding or summarization over large input, chunk and delegate.
+- If you need an LLM to answer a question or extract data, use `schema:` mode — it's a single fast API call.
+- Only use bare `lm_query(text)` (full subcall) when the sub-task needs multi-step code execution or tool access.
 - Match the model size to the difficulty: use `:small` for mechanical tasks, `:large` for reasoning.
 
 ## Elixir Syntax Rules (strictly enforced by the compiler)
