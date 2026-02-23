@@ -101,9 +101,10 @@ defmodule RlmWebWeb.TraceComponents do
         <div :if={@iteration[:bindings_snapshot] && @iteration.bindings_snapshot != []}>
           <p class="text-base-content/50 mb-1 uppercase tracking-wide text-[10px]">Bindings</p>
           <table class="w-full text-xs">
-            <tr :for={{k, v} <- @iteration.bindings_snapshot} class="border-b border-base-200">
-              <td class="py-0.5 pr-2 font-mono font-semibold">{k}</td>
-              <td class="py-0.5 font-mono text-base-content/70 truncate max-w-xs">{inspect(v)}</td>
+            <tr :for={{name, type, bytes} <- @iteration.bindings_snapshot} class="border-b border-base-200">
+              <td class="py-0.5 pr-2 font-mono font-semibold">{name}</td>
+              <td class="py-0.5 font-mono text-base-content/70">{type}</td>
+              <td class="py-0.5 font-mono text-base-content/50 text-right">{format_bytes(bytes)}</td>
             </tr>
           </table>
         </div>
