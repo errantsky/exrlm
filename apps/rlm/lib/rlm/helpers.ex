@@ -40,12 +40,13 @@ defmodule RLM.Helpers do
     end
   end
 
-  @spec list_bindings(keyword()) :: [{atom(), String.t(), non_neg_integer()}]
+  @spec list_bindings(keyword()) :: [{atom(), String.t(), non_neg_integer(), String.t()}]
   def list_bindings(bindings) when is_list(bindings) do
     Enum.map(bindings, fn {name, value} ->
       type = type_of(value)
       size = byte_size_of(value)
-      {name, type, size}
+      preview = preview(value, 100)
+      {name, type, size, preview}
     end)
   end
 

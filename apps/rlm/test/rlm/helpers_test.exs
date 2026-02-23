@@ -56,11 +56,16 @@ defmodule RLM.HelpersTest do
   end
 
   describe "list_bindings/1" do
-    test "returns name, type, and size for each binding" do
+    test "returns name, type, size, and preview for each binding" do
       bindings = [x: 42, name: "hello", items: [1, 2, 3]]
       result = RLM.Helpers.list_bindings(bindings)
 
-      assert [{:x, "integer", _}, {:name, "string", 5}, {:items, "list", _}] = result
+      assert [
+               {:x, "integer", _, "42"},
+               {:name, "string", 5, "\"hello\""},
+               {:items, "list", _, "[1, 2, 3]"}
+             ] =
+               result
     end
   end
 end

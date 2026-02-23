@@ -109,7 +109,7 @@ defmodule RLM.Prompt do
 
   defp format_bindings(bindings_info) when is_list(bindings_info) do
     Enum.map(bindings_info, fn
-      {name, type, bytes} ->
+      {name, type, bytes, _preview} ->
         %{"name" => to_string(name), "type" => to_string(type), "bytes" => bytes}
 
       other ->
