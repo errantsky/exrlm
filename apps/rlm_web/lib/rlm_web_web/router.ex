@@ -28,7 +28,7 @@ defmodule RlmWebWeb.Router do
   #   pipe_through :api
   # end
 
-  # Enable LiveDashboard and Swoosh mailbox preview in development
+  # Enable LiveDashboard, Swoosh mailbox preview, and trace debug API in development
   if Application.compile_env(:rlm_web, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put
     # it behind authentication and allow only admins to access it.
@@ -42,6 +42,13 @@ defmodule RlmWebWeb.Router do
 
       live_dashboard "/dashboard", metrics: RlmWebWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+
+    scope "/api/debug", RlmWebWeb do
+      pipe_through :api
+
+      get "/traces", TraceDebugController, :index
+      get "/traces/:run_id", TraceDebugController, :show
     end
   end
 end

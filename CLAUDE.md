@@ -224,6 +224,7 @@ Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000
 | `RlmWebWeb.RunListLive` | `/` — list of all runs (from TraceStore + live PubSub updates) |
 | `RlmWebWeb.RunDetailLive` | `/runs/:run_id` — recursive span tree with expandable iterations |
 | `RlmWebWeb.TraceComponents` | HEEx components: `span_node/1`, `iteration_card/1` |
+| `RlmWebWeb.TraceDebugController` | Dev-only JSON API: `GET /api/debug/traces`, `GET /api/debug/traces/:run_id` |
 | `RlmWebWeb.Endpoint` | Phoenix endpoint using `RLM.PubSub` as pubsub_server |
 
 ## Config Fields
