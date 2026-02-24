@@ -21,6 +21,7 @@ rlm/
 │   │   ├── span.ex               # Span/run ID generation
 │   │   ├── truncate.ex           # Head+tail string truncation
 │   │   ├── iex.ex                # IEx convenience helpers
+│   │   ├── node.ex               # Distributed Erlang: start/1, info/0, rpc/4
 │   │   ├── event_log.ex          # Per-run trace Agent
 │   │   ├── event_log_sweeper.ex  # Periodic EventLog GC
 │   │   ├── trace_store.ex        # :dets persistence GenServer
@@ -55,6 +56,7 @@ rlm/
 │   ├── static/                   # Built assets, favicon, etc.
 │   ├── gettext/                  # Translations
 │   └── system_prompt.md          # LLM system prompt
+├── rel/                          # Release templates (env.sh.eex, vm.args.eex)
 ├── examples/                     # Smoke tests and example scenarios
 └── mix.exs
 ```
@@ -63,7 +65,7 @@ rlm/
 
 Enforced at compile time via the `boundary` library:
 
-- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Telemetry, Tool, ToolRegistry.
+- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Telemetry, Tool, ToolRegistry.
 - **`RLMWeb`** — Phoenix web layer. Depends on `RLM`. Exports: Endpoint.
 - **`RLM.Application`** — Top-level. Depends on both `RLM` and `RLMWeb`. Starts the unified supervision tree.
 
@@ -190,7 +192,8 @@ Default models:
 | `RLM.Helpers` | `chunks/2`, `grep/2`, `preview/2`, `list_bindings/0` |
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
 | `RLM.Span` | Span/run ID generation |
-| `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2` |
+| `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2`, `remote/3`, `node_info/0` |
+| `RLM.Node` | Distributed Erlang: `start/1`, `info/0`, `rpc/4` (uses `:erpc`) |
 | `Mix.Tasks.Rlm.Smoke` | `mix rlm.smoke` — live API smoke tests (delegates to `examples/smoke_test.exs`) |
 | `Mix.Tasks.Rlm.Examples` | `mix rlm.examples` — run example scenarios (all or by name) |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |

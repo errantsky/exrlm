@@ -6,7 +6,26 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
-_(nothing yet)_
+### Added
+
+**Distributed Erlang node support**
+
+- `RLM.Node` — lightweight wrapper for OTP distribution with three public functions:
+  - `start/1` — start distribution with short names (configurable via `RLM_NODE_NAME`
+    and `RLM_COOKIE` env vars, defaults to `rlm@<hostname>` with `:rlm_dev` cookie)
+  - `info/0` — returns a map of node name, alive status, cookie, and connected/visible/hidden
+    node lists
+  - `rpc/4` — remote procedure call using `:erpc.call/4` (modern OTP, raises structured
+    `ErlangError` instead of legacy `{:badrpc, reason}` tuples)
+- `RLM.IEx.remote/3` — send an `RLM.run/3` call to a remote node via `:erpc.call/5`
+- `RLM.IEx.node_info/0` — print distribution status to the console
+- `.iex.exs` — auto-imports `RLM.IEx` and prints a startup banner with quick-start hints
+- Release configuration for `mix release`:
+  - `rel/env.sh.eex` — sets `RELEASE_DISTRIBUTION`, `RELEASE_NODE`, `RELEASE_COOKIE`
+    from `RLM_NODE_NAME` and `RLM_COOKIE` env vars
+  - `rel/vm.args.eex` — server VM tuning: 32 MB dist buffer, 15 s net ticktime, kernel
+    poll, 16 async I/O threads
+  - `rel/remote.vm.args.eex` — lightweight remote shell: 1 MB dist buffer, 1 async thread
 
 ---
 

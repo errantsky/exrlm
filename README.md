@@ -154,6 +154,35 @@ history(session)
 status(session)
 ```
 
+### Distributed Erlang
+
+Connect multiple RLM nodes for remote execution:
+
+```elixir
+# Start distribution (auto-configures from RLM_NODE_NAME / RLM_COOKIE env vars)
+RLM.Node.start()
+# => {:ok, :rlm@hostname}
+
+# Check distribution status
+RLM.Node.info()
+# => %{node: :rlm@hostname, alive: true, cookie: :rlm_dev, connected_nodes: [], ...}
+
+# Execute on a remote node (uses :erpc — modern OTP)
+RLM.Node.rpc(:"rlm@other_host", Kernel, :+, [1, 2])
+# => 3
+
+# Run an RLM query on a remote node (IEx helper)
+import RLM.IEx
+remote(:"rlm@other_host", "Summarize the key themes")
+```
+
+For releases, distribution is configured via environment variables:
+
+```bash
+RLM_NODE_NAME=rlm   # Defaults to release name
+RLM_COOKIE=secret    # Shared secret for node authentication
+```
+
 ### Configuration overrides
 
 ```elixir

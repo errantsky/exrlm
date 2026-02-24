@@ -123,6 +123,58 @@ defmodule RLM.IEx do
     end
   end
 
+  @doc """
+  Run an RLM one-shot query on a remote node and print the result.
+
+  Requires distribution to be started (via `RLM.Node.start/1` or
+  `--sname`/`--name` flag) with a shared cookie.
+
+  ## Options
+
+    * `:context` — input data (default: `""`)
+    * `:timeout` — RPC timeout in ms (default: `120_000`)
+  """
+  @spec remote(node(), String.t(), keyword()) :: {String.t(), any()} | {:error, any()}
+  def remote(node, message, opts \\ []) do
+    context = Keyword.get(opts, :context, "")
+    timeout = Keyword.get(opts, :timeout, 120_000)
+
+    IO.puts("[Remote #{node}] #{message}\n")
+
+    try do
+      case :erpc.call(node, RLM, :run, [context, message], timeout) do
+        {:ok, answer, run_id} ->
+          IO.puts("[RLM] run=#{run_id}\n#{inspect(answer)}\n")
+          {run_id, answer}
+
+        {:error, reason} ->
+          IO.puts("[Error] #{inspect(reason)}")
+          {:error, reason}
+      end
+    rescue
+      e in ErlangError ->
+        IO.puts("[RPC Error] #{inspect(e.original)}")
+        {:error, {:rpc_failed, e.original}}
+    end
+  end
+
+  @doc """
+  Print current node distribution info.
+  """
+  @spec node_info() :: :ok
+  def node_info do
+    info = RLM.Node.info()
+
+    IO.puts("""
+    Node:       #{info.node}
+    Alive:      #{info.alive}
+    Cookie:     #{info.cookie}
+    Connected:  #{inspect(info.connected_nodes)}
+    """)
+
+    :ok
+  end
+
   # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
