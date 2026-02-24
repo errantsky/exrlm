@@ -110,7 +110,8 @@ defmodule Mix.Tasks.Rlm.Examples do
               IO.puts("\n  View trace: http://localhost:4000/runs/#{run_id}\n")
               :pass
 
-            {:error, _} ->
+            {:error, reason} ->
+              IO.puts("\n  FAIL: #{inspect(reason, limit: 500)}\n")
               :fail
           end
         else

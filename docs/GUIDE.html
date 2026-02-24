@@ -315,7 +315,7 @@
 <h2>1. Executive Summary</h2>
 
 <div class="card">
-<p>The <strong>Recursive Language Model (RLM)</strong> engine is an Elixir umbrella application that lets an LLM write and execute Elixir code in an iterative REPL loop. The engine operates in two modes from a single unified codebase:</p>
+<p>The <strong>Recursive Language Model (RLM)</strong> engine is an Elixir application that lets an LLM write and execute Elixir code in an iterative REPL loop. The engine operates in two modes from a single unified codebase:</p>
 
 <ul>
   <li><strong>One-shot</strong> &mdash; <code>RLM.run/3</code> processes input data through iterative LLM+eval cycles, returning a final answer and run ID</li>
@@ -328,8 +328,8 @@
 <div class="card-grid">
   <div class="card-sm">
     <h4>Umbrella Structure</h4>
-    <p><code>apps/rlm</code> &mdash; core engine (no web framework)<br>
-       <code>apps/rlm_web</code> &mdash; Phoenix LiveView dashboard (read-only)</p>
+    <p><code>lib/rlm/</code> &mdash; core engine (no web framework)<br>
+       <code>lib/rlm_web/</code> &mdash; Phoenix LiveView dashboard (read-only)</p>
   </div>
   <div class="card-sm">
     <h4>Three Invariants</h4>
@@ -351,52 +351,41 @@
 <h2>2. Architecture Overview</h2>
 
 <h3>File Structure</h3>
-<div class="diagram">rlm_umbrella/
-&#x251C;&#x2500;&#x2500; apps/
+<div class="diagram">rlm/
+&#x251C;&#x2500;&#x2500; lib/
+&#x2502;   &#x251C;&#x2500;&#x2500; rlm.ex                      # Public API: run/3, start_session/1, send_message/3
 &#x2502;   &#x251C;&#x2500;&#x2500; rlm/                        # Core engine
-&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; lib/rlm/
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; rlm.ex              # Public API: run/3, start_session/1, send_message/3
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; worker.ex           # GenServer: iterate loop + keep_alive mode
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; eval.ex             # Sandboxed Code.eval_string
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; sandbox.ex          # Functions injected into eval'd code
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; llm.ex              # Anthropic Messages API client
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; prompt.ex           # System prompt + message formatting
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; config.ex           # Config struct + loader
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; span.ex             # Span/run ID generation
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; truncate.ex         # Head+tail string truncation
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; helpers.ex          # chunks/2, grep/2, preview/2, list_bindings/1
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; iex.ex              # IEx convenience helpers
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; event_log.ex        # Per-run trace Agent
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; event_log_sweeper.ex # Periodic EventLog GC
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; trace_store.ex      # :dets persistence GenServer
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; tool.ex             # Tool behaviour
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; tool_registry.ex    # Tool dispatch + discovery
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; telemetry/
-&#x2502;   &#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; telemetry.ex    # Event defs + handler attachment
-&#x2502;   &#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; logger.ex       # Structured logging handler
-&#x2502;   &#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; pubsub.ex       # PubSub broadcast handler
-&#x2502;   &#x2502;   &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; event_log_handler.ex # Routes to EventLog + TraceStore
-&#x2502;   &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; tools/
-&#x2502;   &#x2502;   &#x2502;       &#x251C;&#x2500;&#x2500; read_file.ex    &#x251C;&#x2500;&#x2500; write_file.ex
-&#x2502;   &#x2502;   &#x2502;       &#x251C;&#x2500;&#x2500; edit_file.ex    &#x251C;&#x2500;&#x2500; bash.ex
-&#x2502;   &#x2502;   &#x2502;       &#x251C;&#x2500;&#x2500; grep.ex         &#x251C;&#x2500;&#x2500; glob.ex
-&#x2502;   &#x2502;   &#x2502;       &#x2514;&#x2500;&#x2500; ls.ex
-&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; lib/mix/tasks/
-&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; rlm.examples.ex     # mix rlm.examples — run example scenarios
-&#x2502;   &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; rlm.smoke.ex        # mix rlm.smoke — live API smoke tests
-&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; test/
-&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; priv/system_prompt.md
-&#x2502;   &#x2514;&#x2500;&#x2500; rlm_web/                    # Phoenix 1.8 LiveView dashboard
-&#x2502;       &#x251C;&#x2500;&#x2500; lib/rlm_web_web/
-&#x2502;       &#x2502;   &#x251C;&#x2500;&#x2500; live/
-&#x2502;       &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; run_list_live.ex    # GET /
-&#x2502;       &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; run_detail_live.ex  # GET /runs/:run_id
-&#x2502;       &#x2502;   &#x251C;&#x2500;&#x2500; components/
-&#x2502;       &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; core_components.ex
-&#x2502;       &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; trace_components.ex
-&#x2502;       &#x2502;   &#x251C;&#x2500;&#x2500; router.ex
-&#x2502;       &#x2502;   &#x2514;&#x2500;&#x2500; endpoint.ex
-&#x2502;       &#x2514;&#x2500;&#x2500; test/
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; application.ex          # Unified OTP application (core + web)
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; worker.ex               # GenServer: iterate loop + keep_alive mode
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; run.ex                  # Per-run coordinator GenServer
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; eval.ex                 # Sandboxed Code.eval_string
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; sandbox.ex              # Functions injected into eval'd code
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; llm.ex                  # Anthropic Messages API client
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; prompt.ex               # System prompt + message formatting
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; config.ex               # Config struct + loader
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; span.ex                 # Span/run ID generation
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; truncate.ex             # Head+tail string truncation
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; helpers.ex              # chunks/2, grep/2, preview/2, list_bindings/1
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; iex.ex                  # IEx convenience helpers
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; event_log.ex            # Per-run trace Agent
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; event_log_sweeper.ex    # Periodic EventLog GC
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; trace_store.ex          # :dets persistence GenServer
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; tool.ex                 # Tool behaviour
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; tool_registry.ex        # Tool dispatch + discovery
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; telemetry/              # Telemetry events + handlers
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; tools/                  # 7 filesystem tools
+&#x2502;   &#x251C;&#x2500;&#x2500; rlm_web.ex                  # Phoenix web module
+&#x2502;   &#x251C;&#x2500;&#x2500; rlm_web/                    # Phoenix LiveView dashboard
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; endpoint.ex
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; router.ex
+&#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; live/
+&#x2502;   &#x2502;   &#x2502;   &#x251C;&#x2500;&#x2500; run_list_live.ex    # GET /
+&#x2502;   &#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; run_detail_live.ex  # GET /runs/:run_id
+&#x2502;   &#x2502;   &#x2514;&#x2500;&#x2500; components/
+&#x2502;   &#x2502;       &#x251C;&#x2500;&#x2500; core_components.ex
+&#x2502;   &#x2502;       &#x2514;&#x2500;&#x2500; trace_components.ex
+&#x2502;   &#x2514;&#x2500;&#x2500; mix/tasks/                  # mix rlm.smoke, mix rlm.examples
+&#x251C;&#x2500;&#x2500; test/
 &#x251C;&#x2500;&#x2500; docs/
 &#x2502;   &#x2514;&#x2500;&#x2500; GUIDE.html                   # Architecture &amp; reference guide
 &#x251C;&#x2500;&#x2500; examples/
@@ -797,13 +786,13 @@ flowchart LR
 <section id="dashboard">
 <h2>9. LiveView Dashboard</h2>
 
-<p>The <code>apps/rlm_web</code> app provides a read-only Phoenix LiveView dashboard for visualizing RLM runs. It reuses <code>RLM.PubSub</code> (started by the <code>rlm</code> app) for real-time updates.</p>
+<p>The <code>lib/rlm_web/</code> layer provides a read-only Phoenix LiveView dashboard for visualizing RLM runs. It reuses <code>RLM.PubSub</code> for real-time updates.</p>
 
 <h3>Routes</h3>
 <table>
   <tr><th>Path</th><th>LiveView</th><th>Description</th></tr>
-  <tr><td><code>GET /</code></td><td><code>RlmWebWeb.RunListLive</code></td><td>Table of all runs with status, iterations, duration</td></tr>
-  <tr><td><code>GET /runs/:run_id</code></td><td><code>RlmWebWeb.RunDetailLive</code></td><td>Recursive span tree with expandable iteration cards</td></tr>
+  <tr><td><code>GET /</code></td><td><code>RLMWeb.RunListLive</code></td><td>Table of all runs with status, iterations, duration</td></tr>
+  <tr><td><code>GET /runs/:run_id</code></td><td><code>RLMWeb.RunDetailLive</code></td><td>Recursive span tree with expandable iteration cards</td></tr>
 </table>
 
 <h3>RunListLive</h3>
@@ -1001,26 +990,26 @@ flowchart LR
   </div>
 </div>
 
-<p class="category-label">Dashboard (apps/rlm_web)</p>
+<p class="category-label">Dashboard (lib/rlm_web)</p>
 <div class="card-grid">
   <div class="card-sm">
-    <h4>RlmWebWeb.RunListLive</h4>
+    <h4>RLMWeb.RunListLive</h4>
     <p><code>GET /</code> &mdash; live table of all runs from TraceStore + PubSub</p>
   </div>
   <div class="card-sm">
-    <h4>RlmWebWeb.RunDetailLive</h4>
+    <h4>RLMWeb.RunDetailLive</h4>
     <p><code>GET /runs/:run_id</code> &mdash; recursive span tree with expandable iterations</p>
   </div>
   <div class="card-sm">
-    <h4>RlmWebWeb.TraceComponents</h4>
+    <h4>RLMWeb.TraceComponents</h4>
     <p>HEEx components: <code>span_node/1</code>, <code>iteration_card/1</code></p>
   </div>
   <div class="card-sm">
-    <h4>RlmWebWeb.Endpoint</h4>
+    <h4>RLMWeb.Endpoint</h4>
     <p>Phoenix endpoint using <code>RLM.PubSub</code> as pubsub_server</p>
   </div>
   <div class="card-sm">
-    <h4>RlmWebWeb.Router</h4>
+    <h4>RLMWeb.Router</h4>
     <p>Routes: <code>/</code> &rarr; RunListLive, <code>/runs/:run_id</code> &rarr; RunDetailLive</p>
   </div>
 </div>
@@ -1052,7 +1041,7 @@ flowchart LR
 
 <h3>Setup</h3>
 <pre><code># Clone and install
-cd rlm_umbrella
+cd rlm
 mix deps.get
 mix compile
 

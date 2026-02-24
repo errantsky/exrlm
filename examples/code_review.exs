@@ -21,7 +21,7 @@ defmodule RLM.Examples.CodeReview do
   @moduledoc false
 
   # We'll review the RLM.Sandbox module — it's a good size and has varied patterns
-  @target_file "apps/rlm/lib/rlm/sandbox.ex"
+  @target_file "lib/rlm/sandbox.ex"
 
   @query """
   Perform a thorough code review of an Elixir source file by following these steps:

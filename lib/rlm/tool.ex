@@ -9,7 +9,7 @@ defmodule RLM.Tool do
 
   ## Adding a new tool
 
-  1. Create `apps/rlm/lib/rlm/tools/my_tool.ex`
+  1. Create `lib/rlm/tools/my_tool.ex`
   2. `use RLM.Tool` and implement the three callbacks
   3. Register it in `RLM.ToolRegistry`
   """
