@@ -94,7 +94,7 @@ Recommended curl flags:
 - `--max-time N` — timeout in seconds (keep below the bash tool's own timeout)
 - `--fail-with-body` — non-zero exit on HTTP errors while still capturing the response body
 
-For long downloads, increase the bash timeout to match:
+For long downloads, increase the bash timeout (in milliseconds) to exceed curl's `--max-time` (in seconds):
 ```elixir
 {:ok, body} = bash("curl -sSL --max-time 60 https://large-api.example.com/dump", timeout: 90_000)
 ```
