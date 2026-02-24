@@ -40,6 +40,11 @@ defmodule Mix.Tasks.Rlm.Examples do
       "examples/research_synthesis.exs",
       "RLM.Examples.ResearchSynthesis",
       "Multi-Source Research Synthesis — schema extraction + cross-reference"
+    },
+    "web_fetch" => {
+      "examples/web_fetch.exs",
+      "RLM.Examples.WebFetch",
+      "Web Fetch & JSON Processing — curl + jq via bash tool"
     }
   }
 

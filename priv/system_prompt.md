@@ -65,6 +65,40 @@ session working directory unless absolute.
 **Important**: `grep(pattern, string)` is the in-memory string search. Use `rg(pattern)`
 for filesystem searches. They are different functions — don't confuse them.
 
+## Web & HTTP (via bash)
+
+`curl` and `jq` are available on the system. Use them through `bash()` for web requests
+and JSON processing.
+
+```elixir
+# Simple GET request
+{:ok, body} = bash("curl -sS https://api.example.com/data")
+
+# Follow redirects, set timeout, add headers
+{:ok, body} = bash("curl -sSL --max-time 10 -H 'Accept: application/json' https://api.example.com/items")
+
+# POST with JSON body
+{:ok, resp} = bash(~s(curl -sSL -X POST -H 'Content-Type: application/json' -d '{"q":"elixir"}' https://api.example.com/search))
+
+# Pipe through jq to extract fields
+{:ok, names} = bash("curl -sS https://api.example.com/users | jq '[.[].name]'")
+
+# jq on its own for processing JSON already in a variable or file
+{:ok, filtered} = bash("jq '.results[] | select(.score > 0.8)' data.json")
+```
+
+Recommended curl flags:
+- `-s` — silent (no progress bar)
+- `-S` — show errors even in silent mode
+- `-L` — follow redirects
+- `--max-time N` — timeout in seconds (keep below the bash tool's own timeout)
+- `--fail-with-body` — non-zero exit on HTTP errors while still capturing the response body
+
+For long downloads, increase the bash timeout (in milliseconds) to exceed curl's `--max-time` (in seconds):
+```elixir
+{:ok, body} = bash("curl -sSL --max-time 60 https://large-api.example.com/dump", timeout: 90_000)
+```
+
 ## Delegation — Choosing the Right Sub-Call
 
 You have three ways to handle sub-tasks, from lightest to heaviest. **Always use the
