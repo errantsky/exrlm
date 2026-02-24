@@ -29,6 +29,12 @@ All notable changes to this project are documented here.
     poll, 16 async I/O threads
   - `rel/remote.vm.args.eex` — lightweight remote shell: 1 MB dist buffer, 1 async thread
 
+**Web & HTTP documentation in system prompt**
+
+- Added "Web & HTTP (via bash)" section to `priv/system_prompt.md` documenting
+  that `curl` and `jq` are available through the `bash()` tool. Includes examples
+  for GET/POST requests, jq piping, recommended curl flags, and timeout handling.
+
 ---
 
 ## [0.3.0] — 2026-02-24
