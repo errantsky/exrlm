@@ -27,10 +27,9 @@ erl_crash.dump
 .DS_Store
 
 # RLM runtime artifacts
-apps/rlm/priv/traces.dets
+priv/traces.dets
 trace.jsonl
 
 # Local-only notes and scratch scripts (kept uncommitted intentionally)
 DEMO_RUN_NOTES.md
 test.exs
-apps/rlm/priv/foodlab.epub

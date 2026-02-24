@@ -7,15 +7,21 @@
 # General application configuration
 import Config
 
-config :rlm_web,
+# RLM engine configuration
+config :rlm,
+  api_base_url: "https://api.anthropic.com",
+  model_large: "claude-sonnet-4-5-20250929",
+  model_small: "claude-haiku-4-5-20251001"
+
+config :rlm,
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
-config :rlm_web, RlmWebWeb.Endpoint,
+config :rlm, RLMWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: RlmWebWeb.ErrorHTML, json: RlmWebWeb.ErrorJSON],
+    formats: [html: RLMWeb.ErrorHTML, json: RLMWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: RLM.PubSub,
@@ -28,27 +34,27 @@ config :rlm_web, RlmWebWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :rlm_web, RlmWeb.Mailer, adapter: Swoosh.Adapters.Local
+config :rlm, RLMWeb.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  rlm_web: [
+  rlm: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
-    cd: Path.expand("../apps/rlm_web/assets", __DIR__),
+    cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
 
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.12",
-  rlm_web: [
+  rlm: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css
     ),
-    cd: Path.expand("../apps/rlm_web", __DIR__)
+    cd: Path.expand("..", __DIR__)
   ]
 
 # Configure Elixir's Logger
@@ -59,17 +65,12 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Import environment specific config. This must remain at the bottom
-# of this file so it overrides the configuration defined above.
-import_config "#{config_env()}.exs"
-
-config :rlm,
-  api_base_url: "https://api.anthropic.com",
-  model_large: "claude-sonnet-4-5-20250929",
-  model_small: "claude-haiku-4-5-20251001"
-
 config :logger, :default_handler, level: :info
 
 if config_env() == :test do
   config :logger, :default_handler, level: :warning
 end
+
+# Import environment specific config. This must remain at the bottom
+# of this file so it overrides the configuration defined above.
+import_config "#{config_env()}.exs"

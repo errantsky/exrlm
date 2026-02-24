@@ -6,7 +6,52 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+_(nothing yet)_
+
+---
+
+## [0.3.0] — 2026-02-24
+
+### Changed
+
+**Umbrella → single Phoenix app migration**
+
+- Migrated from two-app umbrella (`apps/rlm` + `apps/rlm_web`) to a single Phoenix
+  application at the project root. Eliminates split configs, dual `mix.exs` files,
+  two separate supervision trees, and the `RlmWebWeb` double-namespace.
+- Unified supervision tree: `RLM.Application` now starts both core engine children
+  (`Registry`, `PubSub`, `TaskSupervisor`, `RunSup`, `EventStore`, `Telemetry`,
+  `TraceStore`, `Sweeper`) and web children (`RLMWeb.Telemetry`, `DNSCluster`,
+  `RLMWeb.Endpoint`) in a single `one_for_one` supervisor.
+- All config keys consolidated: `:rlm_web` → `:rlm`. All `otp_app:` declarations
+  updated across Endpoint, Gettext, Mailer.
+- Esbuild/Tailwind asset profiles renamed from `rlm_web:` → `rlm:` with updated
+  paths (`../apps/rlm_web/assets` → `../assets`).
+
+**Module rename: `RlmWebWeb` → `RLMWeb`**
+
+- All web modules renamed from `RlmWebWeb.*` to `RLMWeb.*` (e.g.
+  `RlmWebWeb.Endpoint` → `RLMWeb.Endpoint`, `RlmWebWeb.Router` → `RLMWeb.Router`).
+- `RlmWeb.Mailer` → `RLMWeb.Mailer`, `RlmWeb.Supervisor` → removed (merged into
+  `RLM.Application`).
+- Asset references updated: `phoenix-colocated/rlm_web` → `phoenix-colocated/rlm`,
+  `@source "../../lib/rlm_web_web"` → `@source "../../lib/rlm_web"`.
+
 ### Added
+
+**Compile-time architecture enforcement**
+
+- Added `boundary` library (`~> 0.10.4`) for compile-time module dependency checking.
+  Three zones defined:
+  - `RLM` — core engine, zero web deps
+  - `RLMWeb` — web layer, depends on `RLM`
+  - `RLM.Application` — top-level, depends on both
+- Mix tasks classified to `RLM` boundary via `use Boundary, classify_to: RLM`.
+
+**Tidewave dev tooling**
+
+- Added `tidewave` (`~> 0.5.5`, dev-only) for AI-assisted development via MCP.
+- Tidewave plug added to `RLMWeb.Endpoint` (guarded behind `Code.ensure_loaded?/1`).
 
 **Developer experience tooling**
 
@@ -19,19 +64,6 @@ All notable changes to this project are documented here.
 - Post-edit format hook (`.claude/hooks/post-edit-format.sh`) — auto-runs `mix format`
   on `.ex`/`.exs` files after every Edit tool call.
 - `.envrc` with `dotenv` directive for automatic `CLAUDE_API_KEY` loading via direnv.
-
-### Changed
-
-**System prompt delegation guidance rewrite**
-
-- Replaced separate "Structured Extraction" and "Concurrency" sections with a unified
-  "Delegation — Choosing the Right Sub-Call" section that presents three tiers: direct
-  code (no sub-call), schema query (single LLM call, default for sub-tasks), and full
-  subcall (multi-step child worker, use sparingly). Makes clear that `schema:` mode is
-  the lightweight default and bare `lm_query(text)` is the heavy option.
-- Updated "Effort Triage" to reinforce schema-first delegation.
-
-### Added
 
 **Automatic prompt caching**
 
@@ -51,6 +83,15 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+**System prompt delegation guidance rewrite**
+
+- Replaced separate "Structured Extraction" and "Concurrency" sections with a unified
+  "Delegation — Choosing the Right Sub-Call" section that presents three tiers: direct
+  code (no sub-call), schema query (single LLM call, default for sub-tasks), and full
+  subcall (multi-step child worker, use sparingly). Makes clear that `schema:` mode is
+  the lightweight default and bare `lm_query(text)` is the heavy option.
+- Updated "Effort Triage" to reinforce schema-first delegation.
+
 **Documentation consolidation**
 
 - Consolidated `docs/REVIEW.html` (system review) and `docs/architecture-discussion.html`
@@ -59,12 +100,12 @@ All notable changes to this project are documented here.
   and "Known Limitations & Future Work" (open issues, dashboard improvements, testing gaps).
 - Consolidated `AGENTS.md` (Phoenix-generated conventions) into `CLAUDE.md` under a new
   "Phoenix / LiveView Conventions (rlm_web)" section.
-- Updated umbrella `README.md` with corrected supervision tree diagram (`RunSup` instead of
+- Updated `README.md` with corrected supervision tree diagram (`RunSup` instead of
   `WorkerSup`) and link to `docs/GUIDE.html` for further reading.
-- Replaced placeholder `apps/rlm/README.md` with a real description and links to umbrella docs.
 
 ### Removed
 
+- `apps/` umbrella directory — entire two-app structure replaced by single-app layout
 - `docs/REVIEW.html` — content merged into GUIDE.html "Known Limitations" section
 - `docs/architecture-discussion.html` — content merged into GUIDE.html "Design Decisions" section
 - `AGENTS.md` — Phoenix conventions merged into CLAUDE.md

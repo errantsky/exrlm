@@ -2,77 +2,70 @@
 
 ## Project Structure
 
-This is an Elixir umbrella project at `rlm_umbrella/`.
+This is a single Phoenix application with `boundary` for compile-time architecture enforcement.
 
 ```
-rlm_umbrella/
-├── apps/
-│   ├── rlm/                    # Core engine (no web framework)
-│   │   ├── lib/rlm/
-│   │   │   ├── rlm.ex          # Public API: run/3, start_session/1, send_message/3
-│   │   │   ├── run.ex          # Per-run coordinator GenServer (worker tree, cascade shutdown)
-│   │   │   ├── worker.ex       # RLM GenServer (iterate loop + keep_alive mode)
-│   │   │   ├── eval.ex         # Sandboxed Code.eval_string
-│   │   │   ├── llm.ex          # Anthropic Messages API client
-│   │   │   ├── helpers.ex      # chunks/2, grep/2, preview/2, list_bindings/0
-│   │   │   ├── sandbox.ex      # Eval sandbox: helpers + LLM calls + tool wrappers
-│   │   │   ├── prompt.ex       # System prompt + message formatting
-│   │   │   ├── config.ex       # Config struct + loader
-│   │   │   ├── span.ex         # Span/run ID generation
-│   │   │   ├── truncate.ex     # Head+tail string truncation
-│   │   │   ├── iex.ex          # IEx convenience helpers
-│   │   │   ├── event_log.ex    # Per-run trace Agent
-│   │   │   ├── event_log_sweeper.ex  # Periodic EventLog GC (GenServer)
-│   │   │   ├── trace_store.ex  # :dets persistence GenServer
-│   │   │   ├── tool.ex         # Tool behaviour
-│   │   │   ├── tool_registry.ex # Tool dispatch + discovery
-│   │   │   ├── telemetry/      # Telemetry events + handlers
-│   │   │   └── tools/
-│   │   │       ├── read_file.ex
-│   │   │       ├── write_file.ex
-│   │   │       ├── edit_file.ex
-│   │   │       ├── bash.ex
-│   │   │       ├── grep.ex
-│   │   │       ├── glob.ex
-│   │   │       └── ls.ex
-│   │   ├── test/
-│   │   │   ├── support/        # MockLLM, test helpers
-│   │   │   └── rlm/
-│   │   │       ├── tools_test.exs
-│   │   │       ├── sandbox_test.exs
-│   │   │       ├── worker_keep_alive_test.exs
-│   │   │       ├── worker_pubsub_test.exs
-│   │   │       ├── direct_query_test.exs
-│   │   │       ├── integration_test.exs
-│   │   │       ├── helpers_test.exs
-│   │   │       ├── live_api_test.exs
-│   │   │       └── worker_test.exs
-│   │   └── priv/
-│   │       └── system_prompt.md
-│   └── rlm_web/                # Phoenix 1.8 LiveView dashboard (read-only)
-│       ├── lib/rlm_web_web/
-│       │   ├── live/
-│       │   │   ├── run_list_live.ex    # GET /
-│       │   │   └── run_detail_live.ex  # GET /runs/:run_id
-│       │   ├── components/
-│       │   │   ├── core_components.ex
-│       │   │   └── trace_components.ex # span_node, iteration_card
-│       │   ├── router.ex
-│       │   └── endpoint.ex
-│       └── test/
-│           └── rlm_web_web/live/
+rlm/
+├── lib/
+│   ├── rlm.ex                    # Public API: run/3, start_session/1, send_message/3
+│   ├── rlm/                      # Core engine
+│   │   ├── application.ex        # Unified OTP application (core + web)
+│   │   ├── run.ex                # Per-run coordinator GenServer
+│   │   ├── worker.ex             # RLM GenServer (iterate loop + keep_alive)
+│   │   ├── eval.ex               # Sandboxed Code.eval_string
+│   │   ├── llm.ex                # Anthropic Messages API client
+│   │   ├── helpers.ex            # chunks/2, grep/2, preview/2, list_bindings/0
+│   │   ├── sandbox.ex            # Eval sandbox: helpers + LLM calls + tool wrappers
+│   │   ├── prompt.ex             # System prompt + message formatting
+│   │   ├── config.ex             # Config struct + loader
+│   │   ├── span.ex               # Span/run ID generation
+│   │   ├── truncate.ex           # Head+tail string truncation
+│   │   ├── iex.ex                # IEx convenience helpers
+│   │   ├── event_log.ex          # Per-run trace Agent
+│   │   ├── event_log_sweeper.ex  # Periodic EventLog GC
+│   │   ├── trace_store.ex        # :dets persistence GenServer
+│   │   ├── tool.ex               # Tool behaviour
+│   │   ├── tool_registry.ex      # Tool dispatch + discovery
+│   │   ├── telemetry/            # Telemetry events + handlers
+│   │   └── tools/                # Filesystem tools (read, write, edit, bash, grep, glob, ls)
+│   ├── rlm_web.ex                # Phoenix web module (use RLMWeb, :live_view etc.)
+│   ├── rlm_web/                  # Phoenix 1.8 LiveView dashboard
+│   │   ├── endpoint.ex
+│   │   ├── router.ex
+│   │   ├── telemetry.ex
+│   │   ├── gettext.ex
+│   │   ├── mailer.ex
+│   │   ├── live/                 # RunListLive (/), RunDetailLive (/runs/:run_id)
+│   │   ├── components/           # CoreComponents, Layouts, TraceComponents
+│   │   └── controllers/          # ErrorHTML, ErrorJSON, PageController, TraceDebugController
+│   └── mix/tasks/                # mix rlm.smoke, mix rlm.examples
+├── test/
+│   ├── test_helper.exs
+│   ├── support/                  # MockLLM, test helpers, ConnCase
+│   ├── rlm/                      # Core engine tests
+│   └── rlm_web/                  # Web layer tests
 ├── config/
 │   ├── config.exs
 │   ├── dev.exs
 │   ├── test.exs
+│   ├── prod.exs
 │   └── runtime.exs
-├── examples/
-│   ├── smoke_test.exs          # Live API smoke tests (mix rlm.smoke)
-│   ├── map_reduce_analysis.exs # Map-reduce text chunking + parallel analysis
-│   ├── code_review.exs         # Recursive code review with file tools
-│   └── research_synthesis.exs  # Multi-source structured extraction + synthesis
+├── assets/                       # JS, CSS, vendor
+├── priv/
+│   ├── static/                   # Built assets, favicon, etc.
+│   ├── gettext/                  # Translations
+│   └── system_prompt.md          # LLM system prompt
+├── examples/                     # Smoke tests and example scenarios
 └── mix.exs
 ```
+
+### Architecture Boundaries
+
+Enforced at compile time via the `boundary` library:
+
+- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Telemetry, Tool, ToolRegistry.
+- **`RLMWeb`** — Phoenix web layer. Depends on `RLM`. Exports: Endpoint.
+- **`RLM.Application`** — Top-level. Depends on both `RLM` and `RLMWeb`. Starts the unified supervision tree.
 
 ## Build & Run
 
@@ -97,6 +90,11 @@ mix rlm.smoke
 
 # Interactive shell
 iex -S mix
+
+# Start web server
+mix phx.server
+# or
+iex -S mix phx.server
 ```
 
 ## Key Design Decisions
@@ -151,7 +149,10 @@ RLM.Supervisor (one_for_one)
 ├── DynamicSupervisor (RLM.EventStore)     ← EventLog Agents
 ├── RLM.Telemetry   (GenServer)
 ├── RLM.TraceStore  (GenServer)            ← :dets persistence (rlm_traces table)
-└── RLM.EventLog.Sweeper (GenServer)       ← GCs stale trace agents + :dets TTL sweep
+├── RLM.EventLog.Sweeper (GenServer)       ← GCs stale trace agents + :dets TTL sweep
+├── RLMWeb.Telemetry (Supervisor)          ← Phoenix telemetry poller
+├── DNSCluster                             ← DNS-based cluster discovery
+└── RLMWeb.Endpoint                        ← Phoenix web server
 ```
 
 ### RLM.run/3 Return Value
@@ -199,7 +200,7 @@ Default models:
 | `RLM.Telemetry.Logger` | Structured logging handler |
 | `RLM.Telemetry.PubSub` | Phoenix.PubSub broadcast handler |
 | `RLM.Telemetry.EventLogHandler` | Routes telemetry events to EventLog Agent AND TraceStore |
-| `RLM.Application` | OTP application; starts `RLM.Supervisor` |
+| `RLM.Application` | OTP application; starts unified supervision tree (core + web) |
 
 ### Filesystem Tools
 
@@ -215,18 +216,24 @@ Default models:
 | `RLM.Tools.Glob` | Find files by pattern |
 | `RLM.Tools.Ls` | List directory with sizes |
 
-### Dashboard (apps/rlm_web)
+### Web Dashboard
 
-Read-only Phoenix LiveView app. Reuses `RLM.PubSub` started by the rlm app.
-Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000`.
+Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 
 | Module | Purpose |
 |---|---|
-| `RlmWebWeb.RunListLive` | `/` — list of all runs (from TraceStore + live PubSub updates) |
-| `RlmWebWeb.RunDetailLive` | `/runs/:run_id` — recursive span tree with expandable iterations |
-| `RlmWebWeb.TraceComponents` | HEEx components: `span_node/1`, `iteration_card/1` |
-| `RlmWebWeb.TraceDebugController` | Dev-only JSON API: `GET /api/debug/traces`, `GET /api/debug/traces/:run_id` |
-| `RlmWebWeb.Endpoint` | Phoenix endpoint using `RLM.PubSub` as pubsub_server |
+| `RLMWeb` | Phoenix web module (verified routes, component imports) |
+| `RLMWeb.Endpoint` | Phoenix endpoint using `RLM.PubSub` as pubsub_server |
+| `RLMWeb.Router` | Routes: `/` (RunListLive), `/runs/:run_id` (RunDetailLive), `/dev/dashboard`, `/dev/mailbox` |
+| `RLMWeb.RunListLive` | `/` — list of all runs (from TraceStore + live PubSub updates) |
+| `RLMWeb.RunDetailLive` | `/runs/:run_id` — recursive span tree with expandable iterations |
+| `RLMWeb.TraceComponents` | HEEx components: `span_node/1`, `iteration_card/1` |
+| `RLMWeb.TraceDebugController` | Dev-only JSON API: `GET /api/debug/traces`, `GET /api/debug/traces/:run_id` |
+| `RLMWeb.Telemetry` | Phoenix telemetry metrics supervisor |
+| `RLMWeb.CoreComponents` | Core UI components (flash, button, input, table, icon, etc.) |
+| `RLMWeb.Layouts` | App layout, flash group, theme toggle |
+| `RLMWeb.Gettext` | Internationalization backend |
+| `RLMWeb.Mailer` | Swoosh mailer |
 
 ## Config Fields
 
@@ -262,7 +269,7 @@ Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000
 - Tool tests and sandbox tests can run `async: true` (no global state)
 - Live API tests tagged with `@moduletag :live_api` and excluded by default
 - `mix test --include live_api` requires `CLAUDE_API_KEY` env var
-- Test support files in `apps/rlm/test/support/`
+- Test support files in `test/support/`
 - Tool tests use a per-test temp directory (created in `setup`, cleaned in `on_exit`)
 - Worker concurrency/depth tests use `RLM.Test.Helpers.start_test_run/1` to create a Run, then spawn Workers via `RLM.Run.start_worker/2`
 
@@ -276,9 +283,9 @@ Start with `mix phx.server` from umbrella root; serves on `http://localhost:4000
 - `RLM.run/3` monitors the Worker with `Process.monitor` so crashes return `{:error, reason}`
   rather than hanging indefinitely
 
-## Phoenix / LiveView Conventions (rlm_web)
+## Phoenix / LiveView Conventions
 
-The dashboard app (`apps/rlm_web`) is a Phoenix 1.8 LiveView application. Key conventions:
+The dashboard is a Phoenix 1.8 LiveView application. Key conventions:
 
 - Use `mix precommit` alias when done with changes (compile --warnings-as-errors, deps.unlock --unused, format, test)
 - Use `Req` for HTTP requests (already a dependency); never add HTTPoison, Tesla, or httpc
@@ -310,13 +317,12 @@ Key invariants **never to break**:
 
 Before committing, always run:
 ```bash
-# From the umbrella root
 mix compile --warnings-as-errors
 mix test
 mix format --check-formatted
 ```
 
-If you add or modify a public function, run `mix docs` from `apps/rlm/` to verify ExDoc
+If you add or modify a public function, run `mix docs` to verify ExDoc
 compiles cleanly (warnings indicate missing or broken `@doc` / `@spec` annotations).
 
 ## Feature Development Checklist
@@ -345,8 +351,7 @@ documentation artifacts **as part of the same commit or PR**:
 ### Regenerate ExDoc
 
 ```bash
-cd apps/rlm
-mix docs        # output: apps/rlm/doc/
+mix docs        # output: doc/
 ```
 
 Commit the regenerated `doc/` only if the project tracks it (check `.gitignore`).
