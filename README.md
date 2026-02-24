@@ -1,4 +1,4 @@
-# RLM Umbrella — Recursive Language Model Engine
+# RLM — Recursive Language Model Engine
 
 This project is my exploration of coding agents and Recursive Language Models, built in
 Elixir because OTP's supervision trees and process model felt like a natural fit for
@@ -9,9 +9,10 @@ I wanted to take further, and the design philosophy behind
 [pi](https://github.com/badlogic/pi-mono/) — a coding agent that keeps things simple and
 transparent. This is very much a learning project, but it works and it's been fun to build.
 
-An Elixir umbrella project implementing a unified AI execution engine where the LLM writes
-Elixir code that runs in a persistent REPL, with recursive sub-LLM spawning and built-in
-filesystem tools.
+A single Phoenix application implementing a unified AI execution engine where the LLM writes
+Elixir code that runs in a persistent REPL, with recursive sub-LLM spawning, built-in
+filesystem tools, and compile-time architecture enforcement via
+[`boundary`](https://hex.pm/packages/boundary).
 
 **One engine, two modes:**
 1. **One-shot** — `RLM.run/3` processes data and returns a result
@@ -22,24 +23,39 @@ filesystem tools.
 ## Project structure
 
 ```
-rlm_umbrella/
-├── apps/
-│   ├── rlm/
-│   │   ├── lib/rlm/
-│   │   │   ├── rlm.ex                  # Public API
-│   │   │   ├── worker.ex               # GenServer (iterate loop + keep_alive)
-│   │   │   ├── eval.ex                 # Sandboxed Code.eval_string
-│   │   │   ├── llm.ex                  # Anthropic Messages API client
-│   │   │   ├── sandbox.ex              # Eval sandbox (helpers + tools)
-│   │   │   ├── iex.ex                  # IEx convenience helpers
-│   │   │   ├── tool.ex                 # Tool behaviour
-│   │   │   ├── tool_registry.ex        # Tool dispatch + discovery
-│   │   │   ├── telemetry/              # Telemetry events + handlers
-│   │   │   └── tools/                  # 7 filesystem tools
-│   │   └── test/
-│   └── rlm_web/                        # Phoenix LiveView dashboard
-└── config/
+rlm/
+├── lib/
+│   ├── rlm.ex                    # Public API: run/3, start_session/1, send_message/3
+│   ├── rlm/                      # Core engine
+│   │   ├── application.ex        # Unified OTP application (core + web)
+│   │   ├── worker.ex             # GenServer (iterate loop + keep_alive)
+│   │   ├── run.ex                # Per-run coordinator GenServer
+│   │   ├── eval.ex               # Sandboxed Code.eval_string
+│   │   ├── llm.ex                # Anthropic Messages API client
+│   │   ├── sandbox.ex            # Eval sandbox (helpers + tools)
+│   │   ├── iex.ex                # IEx convenience helpers
+│   │   ├── tool.ex               # Tool behaviour
+│   │   ├── tool_registry.ex      # Tool dispatch + discovery
+│   │   ├── telemetry/            # Telemetry events + handlers
+│   │   └── tools/                # 7 filesystem tools
+│   ├── rlm_web.ex                # Phoenix web module
+│   └── rlm_web/                  # Phoenix LiveView dashboard
+├── test/
+├── config/
+├── assets/                       # JS, CSS, vendor (esbuild + tailwind)
+├── priv/
+│   ├── static/                   # Built assets
+│   └── system_prompt.md          # LLM system prompt
+└── examples/                     # Smoke tests and example scenarios
 ```
+
+### Architecture boundaries
+
+Enforced at compile time via `boundary`:
+
+- **`RLM`** — Core engine. Zero web dependencies.
+- **`RLMWeb`** — Phoenix web layer. Depends only on `RLM`.
+- **`RLM.Application`** — Top-level. Starts the unified supervision tree.
 
 ---
 
@@ -224,21 +240,28 @@ Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      RLM.Supervisor                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ RLM.Registry │  │ RLM.PubSub   │  │ RLM.TaskSupervisor│  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-│  ┌──────────────┐  ┌──────────────┐                         │
-│  │   RunSup     │  │  EventStore  │                         │
-│  │ (per-run     │  │(trace agents)│                         │
-│  │  coordinators│  └──────────────┘                         │
-│  │  + workers)  │                                           │
-│  └──────────────┘                                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ RLM.Telemetry│  │ TraceStore   │  │EventLog.Sweeper  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                       RLM.Supervisor                          │
+│                                                               │
+│  Core engine ─────────────────────────────────────────────    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐    │
+│  │ RLM.Registry │  │ RLM.PubSub   │  │RLM.TaskSupervisor│    │
+│  └──────────────┘  └──────────────┘  └──────────────────┘    │
+│  ┌──────────────┐  ┌──────────────┐                           │
+│  │   RunSup     │  │  EventStore  │                           │
+│  │ (per-run     │  │(trace agents)│                           │
+│  │  coordinators│  └──────────────┘                           │
+│  │  + workers)  │                                             │
+│  └──────────────┘                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐    │
+│  │ RLM.Telemetry│  │ TraceStore   │  │EventLog.Sweeper  │    │
+│  └──────────────┘  └──────────────┘  └──────────────────┘    │
+│                                                               │
+│  Web dashboard ───────────────────────────────────────────    │
+│  ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │RLMWeb.Telemetry  │  │  DNSCluster  │  │RLMWeb.Endpoint│   │
+│  └──────────────────┘  └──────────────┘  └──────────────┘    │
+└───────────────────────────────────────────────────────────────┘
 
 One-shot mode (RLM.run/3):             Interactive mode (start_session/1):
   Worker starts → iterate loop            Worker starts idle
