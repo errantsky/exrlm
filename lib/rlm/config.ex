@@ -36,8 +36,8 @@ defmodule RLM.Config do
     %__MODULE__{
       api_base_url: get(overrides, :api_base_url, "https://api.anthropic.com"),
       api_key: get(overrides, :api_key, System.get_env("CLAUDE_API_KEY")),
-      model_large: get(overrides, :model_large, "claude-sonnet-4-5-20250929"),
-      model_small: get(overrides, :model_small, "claude-haiku-4-5-20251001"),
+      model_large: get(overrides, :model_large, "claude-sonnet-4-6"),
+      model_small: get(overrides, :model_small, "claude-haiku-4-5"),
       max_iterations: get(overrides, :max_iterations, 25),
       max_depth: get(overrides, :max_depth, 5),
       max_concurrent_subcalls: get(overrides, :max_concurrent_subcalls, 10),

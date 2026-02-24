@@ -170,8 +170,8 @@ code extraction and provides clean separation of reasoning from executable code.
 messages after eval are also structured JSON.
 
 Default models:
-- Large: `claude-sonnet-4-5-20250929`
-- Small: `claude-haiku-4-5-20251001`
+- Large: `claude-sonnet-4-6`
+- Small: `claude-haiku-4-5`
 
 ## Module Map
 
@@ -241,8 +241,8 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 |---|---|---|
 | `api_base_url` | `"https://api.anthropic.com"` | Anthropic API base URL |
 | `api_key` | `CLAUDE_API_KEY` env var | API key for LLM requests |
-| `model_large` | `claude-sonnet-4-5-20250929` | Used for parent workers |
-| `model_small` | `claude-haiku-4-5-20251001` | Used for subcalls |
+| `model_large` | `claude-sonnet-4-6` | Used for parent workers |
+| `model_small` | `claude-haiku-4-5` | Used for subcalls |
 | `max_iterations` | `25` | Per-worker LLM turn limit |
 | `max_depth` | `5` | Recursive subcall depth limit |
 | `max_concurrent_subcalls` | `10` | Parallel subcall limit per worker |

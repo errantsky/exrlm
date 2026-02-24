@@ -10,8 +10,8 @@ import Config
 # RLM engine configuration
 config :rlm,
   api_base_url: "https://api.anthropic.com",
-  model_large: "claude-sonnet-4-5-20250929",
-  model_small: "claude-haiku-4-5-20251001"
+  model_large: "claude-sonnet-4-6",
+  model_small: "claude-haiku-4-5"
 
 config :rlm,
   generators: [timestamp_type: :utc_datetime]
