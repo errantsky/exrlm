@@ -14,7 +14,8 @@ defmodule RLM.MixProject do
       listeners: [Phoenix.CodeReloader],
       name: "RLM",
       source_url: "https://github.com/errantsky/exrlm",
-      docs: docs()
+      docs: docs(),
+      releases: releases()
     ]
   end
 
@@ -95,6 +96,14 @@ defmodule RLM.MixProject do
     ]
   end
 
+  defp releases do
+    [
+      rlm: [
+        rel_templates_path: "rel"
+      ]
+    ]
+  end
+
   defp docs do
     [
       main: "readme",
@@ -117,7 +126,9 @@ defmodule RLM.MixProject do
           RLM.EventLog,
           RLM.EventLog.Sweeper,
           RLM.TraceStore,
-          RLM.IEx
+          RLM.IEx,
+          RLM.Node,
+          RLM.Node.Info
         ],
         "Filesystem Tools": [
           RLM.Tool,

@@ -10,6 +10,7 @@ defmodule RLM do
       Helpers,
       Span,
       IEx,
+      Node,
       Telemetry,
       Telemetry.PubSub,
       Tool,

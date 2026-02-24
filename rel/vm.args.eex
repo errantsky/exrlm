@@ -1,0 +1,16 @@
+## RLM Release — VM Arguments
+##
+## Node name and cookie are set by env.sh.eex via RELEASE_NODE / RELEASE_COOKIE.
+## Do NOT set -sname/-name or -setcookie here.
+
+## Increase distribution buffer for large inter-node messages (32MB).
++zdbbl 32768
+
+## Net tick time (seconds). Nodes unresponsive for 4x this are considered down.
+-kernel net_ticktime 15
+
+## Enable kernel poll (epoll/kqueue) for better I/O scaling.
++K true
+
+## Async thread pool for file I/O in the tool system.
++A 16
