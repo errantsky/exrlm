@@ -38,6 +38,13 @@ All notable changes to this project are documented here.
   GitHub API via `curl` + `jq`, parses with `Jason`, and generates summaries via
   parallel schema queries. Run with `mix rlm.examples web_fetch`.
 
+**Behavioral directives in system prompt**
+
+- Added a "Behavior" section at the top of `priv/system_prompt.md`: be direct (skip
+  filler), explore before asking, confirm before irreversible actions. Replaces the
+  separate `soul.md` approach from PR #3 with three actionable lines in the existing
+  prompt.
+
 ---
 
 ## [0.3.0] — 2026-02-24
