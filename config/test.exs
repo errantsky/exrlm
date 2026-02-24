@@ -2,13 +2,13 @@ import Config
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :rlm_web, RlmWebWeb.Endpoint,
+config :rlm, RLMWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "wGMmiWW+w1iw84uJuC13MGBtRyTSECbvCuOgLhxi2fgyC3qgc/n+iJQXmqYAdAMo",
   server: false
 
 # In test we don't send emails
-config :rlm_web, RlmWeb.Mailer, adapter: Swoosh.Adapters.Test
+config :rlm, RLMWeb.Mailer, adapter: Swoosh.Adapters.Test
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
