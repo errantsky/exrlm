@@ -1,6 +1,7 @@
 ## RLM Release — Remote VM Arguments (bin/rlm remote, bin/rlm rpc)
 
-## Modest distribution buffer for the lightweight remote VM.
+## Default 1 MB distribution buffer — the remote shell doesn't need
+## the larger server-side buffer.
 +zdbbl 1024
 
 ## Minimal async thread pool.

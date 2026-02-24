@@ -193,7 +193,7 @@ Default models:
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
 | `RLM.Span` | Span/run ID generation |
 | `RLM.IEx` | IEx convenience helpers: `start/1`, `chat/2`, `start_chat/2`, `watch/2`, `remote/3`, `node_info/0` |
-| `RLM.Node` | Distributed Erlang: `start/1`, `info/0`, `rpc/4` (uses `:erpc`) |
+| `RLM.Node` | Distributed Erlang: `start/1`, `info/0`, `rpc/5` (uses `:erpc`); `RLM.Node.Info` struct |
 | `Mix.Tasks.Rlm.Smoke` | `mix rlm.smoke` — live API smoke tests (delegates to `examples/smoke_test.exs`) |
 | `Mix.Tasks.Rlm.Examples` | `mix rlm.examples` — run example scenarios (all or by name) |
 | `RLM.EventLog` | Per-run Agent storing structured reasoning trace |

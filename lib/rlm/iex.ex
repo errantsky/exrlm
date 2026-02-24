@@ -129,50 +129,69 @@ defmodule RLM.IEx do
   Requires distribution to be started (via `RLM.Node.start/1` or
   `--sname`/`--name` flag) with a shared cookie.
 
+  Returns `{:ok, answer, run_id}` on success or `{:error, reason}` on failure.
+
   ## Options
 
     * `:context` — input data (default: `""`)
     * `:timeout` — RPC timeout in ms (default: `120_000`)
   """
-  @spec remote(node(), String.t(), keyword()) :: {String.t(), any()} | {:error, any()}
+  @spec remote(node(), String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
   def remote(node, message, opts \\ []) do
-    context = Keyword.get(opts, :context, "")
-    timeout = Keyword.get(opts, :timeout, 120_000)
+    unless Node.alive?() do
+      IO.puts("[Error] Distribution not started. Run RLM.Node.start() first.")
+      {:error, :not_distributed}
+    else
+      context = Keyword.get(opts, :context, "")
+      timeout = Keyword.get(opts, :timeout, 120_000)
 
-    IO.puts("[Remote #{node}] #{message}\n")
+      IO.puts("[Remote #{node}] #{message}\n")
 
-    try do
-      case :erpc.call(node, RLM, :run, [context, message], timeout) do
-        {:ok, answer, run_id} ->
+      case RLM.Node.rpc(node, RLM, :run, [context, message], timeout) do
+        {:ok, {:ok, answer, run_id}} ->
           IO.puts("[RLM] run=#{run_id}\n#{inspect(answer)}\n")
-          {run_id, answer}
+          {:ok, answer, run_id}
 
-        {:error, reason} ->
+        {:ok, {:error, reason}} ->
           IO.puts("[Error] #{inspect(reason)}")
           {:error, reason}
+
+        {:ok, other} ->
+          IO.puts("[Unexpected response] #{inspect(other)}")
+          {:error, {:unexpected_response, other}}
+
+        {:error, {:rpc_failed, _} = err} ->
+          IO.puts("[RPC Error] #{inspect(err)}")
+          {:error, err}
       end
-    rescue
-      e in ErlangError ->
-        IO.puts("[RPC Error] #{inspect(e.original)}")
-        {:error, {:rpc_failed, e.original}}
     end
   end
 
   @doc """
-  Print current node distribution info.
+  Print current node distribution info. Cookie is redacted in output.
   """
   @spec node_info() :: :ok
   def node_info do
-    info = RLM.Node.info()
+    %RLM.Node.Info{} = info = RLM.Node.info()
 
     IO.puts("""
     Node:       #{info.node}
     Alive:      #{info.alive}
-    Cookie:     #{info.cookie}
+    Cookie:     #{redact_cookie(info.cookie)}
     Connected:  #{inspect(info.connected_nodes)}
     """)
 
     :ok
+  end
+
+  defp redact_cookie(cookie) do
+    str = Atom.to_string(cookie)
+
+    if String.length(str) > 4 do
+      String.slice(str, 0, 4) <> "****"
+    else
+      "****"
+    end
   end
 
   # ---------------------------------------------------------------------------

@@ -165,15 +165,16 @@ RLM.Node.start()
 
 # Check distribution status
 RLM.Node.info()
-# => %{node: :rlm@hostname, alive: true, cookie: :rlm_dev, connected_nodes: [], ...}
+# => %RLM.Node.Info{node: :rlm@hostname, alive: true, cookie: :rlm_dev, ...}
 
 # Execute on a remote node (uses :erpc — modern OTP)
 RLM.Node.rpc(:"rlm@other_host", Kernel, :+, [1, 2])
-# => 3
+# => {:ok, 3}
 
 # Run an RLM query on a remote node (IEx helper)
 import RLM.IEx
 remote(:"rlm@other_host", "Summarize the key themes")
+# => {:ok, "summary of themes...", "run-abc123"}
 ```
 
 For releases, distribution is configured via environment variables:

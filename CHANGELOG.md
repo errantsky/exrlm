@@ -13,11 +13,13 @@ All notable changes to this project are documented here.
 - `RLM.Node` — lightweight wrapper for OTP distribution with three public functions:
   - `start/1` — start distribution with short names (configurable via `RLM_NODE_NAME`
     and `RLM_COOKIE` env vars, defaults to `rlm@<hostname>` with `:rlm_dev` cookie)
-  - `info/0` — returns a map of node name, alive status, cookie, and connected/visible/hidden
-    node lists
-  - `rpc/4` — remote procedure call using `:erpc.call/4` (modern OTP, raises structured
-    `ErlangError` instead of legacy `{:badrpc, reason}` tuples)
-- `RLM.IEx.remote/3` — send an `RLM.run/3` call to a remote node via `:erpc.call/5`
+  - `info/0` — returns an `%RLM.Node.Info{}` struct with node name, alive status, cookie,
+    and connected/visible/hidden node lists
+  - `rpc/5` — remote procedure call using `:erpc.call/5` (modern OTP); returns
+    `{:ok, result}` on success or `{:error, {:rpc_failed, reason}}` on failure, catching
+    both connection errors and remote exceptions
+- `RLM.Node.Info` — struct for `info/0` return values with typed fields
+- `RLM.IEx.remote/3` — send an `RLM.run/3` call to a remote node via `RLM.Node.rpc/5`
 - `RLM.IEx.node_info/0` — print distribution status to the console
 - `.iex.exs` — auto-imports `RLM.IEx` and prints a startup banner with quick-start hints
 - Release configuration for `mix release`:
