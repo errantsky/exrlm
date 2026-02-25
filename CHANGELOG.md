@@ -44,7 +44,6 @@ All notable changes to this project are documented here.
 ### Changed
 
 - API key log output now shows only last 4 characters instead of first 12
-- Replaced default Phoenix landing page with RLM-branded page
 - `.envrc` untracked and added to `.gitignore` (local direnv preference)
 - Added `@moduledoc` to `RLMWeb.Endpoint`, `RLMWeb.Router`, `RLMWeb.RunListLive`,
   `RLMWeb.RunDetailLive`, and `RLMWeb.Telemetry`
