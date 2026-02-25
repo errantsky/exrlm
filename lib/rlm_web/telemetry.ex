@@ -1,4 +1,5 @@
 defmodule RLMWeb.Telemetry do
+  @moduledoc "Phoenix telemetry metrics supervisor for the web dashboard."
   use Supervisor
   import Telemetry.Metrics
 

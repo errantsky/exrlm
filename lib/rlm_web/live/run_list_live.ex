@@ -1,4 +1,5 @@
 defmodule RLMWeb.RunListLive do
+  @moduledoc "LiveView for the run history table at `/`. Subscribes to PubSub for live updates."
   use RLMWeb, :live_view
 
   alias Phoenix.PubSub
