@@ -137,7 +137,7 @@ defmodule Mix.Tasks.Rlm.Examples do
         System.halt(1)
 
       key ->
-        IO.puts("  API key: #{String.slice(key, 0, 12)}...")
+        IO.puts("  API key: ...#{String.slice(key, -4, 4)}")
     end
   end
 
