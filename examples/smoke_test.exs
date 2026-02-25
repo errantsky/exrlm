@@ -160,7 +160,7 @@ defmodule RLM.SmokeTest do
       key ->
         IO.puts("\nRLM Smoke Test")
         IO.puts("==============")
-        IO.puts("API key: #{String.slice(key, 0, 12)}...")
+        IO.puts("API key: ...#{String.slice(key, -4, 4)}")
         IO.puts("")
     end
   end
