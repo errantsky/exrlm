@@ -1,4 +1,5 @@
 defmodule RLMWeb.Router do
+  @moduledoc "Routes for the RLM web dashboard and dev-only debug API."
   use RLMWeb, :router
 
   pipeline :browser do

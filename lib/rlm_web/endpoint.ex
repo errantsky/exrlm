@@ -1,4 +1,5 @@
 defmodule RLMWeb.Endpoint do
+  @moduledoc "Phoenix endpoint for the RLM web dashboard."
   use Phoenix.Endpoint, otp_app: :rlm
 
   # The session will be stored in the cookie and signed,

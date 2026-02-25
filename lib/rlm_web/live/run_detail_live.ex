@@ -1,4 +1,5 @@
 defmodule RLMWeb.RunDetailLive do
+  @moduledoc "LiveView for a single run's trace at `/runs/:run_id`. Shows the recursive span tree with expandable iterations."
   use RLMWeb, :live_view
 
   import RLMWeb.TraceComponents
