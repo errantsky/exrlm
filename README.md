@@ -269,40 +269,8 @@ Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
 
 ## Architecture
 
-```
-┌───────────────────────────────────────────────────────────────┐
-│                       RLM.Supervisor                          │
-│                                                               │
-│  Core engine ─────────────────────────────────────────────    │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │ RLM.Registry │  │ RLM.PubSub   │  │RLM.TaskSupervisor│    │
-│  └──────────────┘  └──────────────┘  └──────────────────┘    │
-│  ┌──────────────┐  ┌──────────────┐                           │
-│  │   RunSup     │  │  EventStore  │                           │
-│  │ (per-run     │  │(trace agents)│                           │
-│  │  coordinators│  └──────────────┘                           │
-│  │  + workers)  │                                             │
-│  └──────────────┘                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐    │
-│  │ RLM.Telemetry│  │ TraceStore   │  │EventLog.Sweeper  │    │
-│  └──────────────┘  └──────────────┘  └──────────────────┘    │
-│                                                               │
-│  Web dashboard ───────────────────────────────────────────    │
-│  ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │RLMWeb.Telemetry  │  │  DNSCluster  │  │RLMWeb.Endpoint│   │
-│  └──────────────────┘  └──────────────┘  └──────────────┘    │
-└───────────────────────────────────────────────────────────────┘
-
-One-shot mode (RLM.run/3):             Interactive mode (start_session/1):
-  Worker starts → iterate loop            Worker starts idle
-    → LLM chat (sync)                     → send_message triggers iteration
-    → spawn eval (async)                  → LLM chat → eval → final_answer
-      ↕ subcall requests                  → Reply to caller, reset to idle
-    → final_answer → terminate            → Bindings persist for next turn
-```
-
-Tools live inside the sandbox — the eval'd code calls `read_file/1`, `bash/1`,
-`rg/1` etc. directly. No separate tool-use protocol needed.
+See [`docs/GUIDE.html`](docs/GUIDE.html) for the full architecture reference — OTP
+supervision tree, async-eval pattern, module map, telemetry events, and configuration.
 
 ---
 
@@ -320,10 +288,3 @@ configurable timeouts.
 
 This project is licensed under the [MIT License](LICENSE).
 
----
-
-## Further reading
-
-For a comprehensive architecture reference — OTP supervision tree, async-eval pattern,
-module map, telemetry events, configuration, and known limitations — see
-[`docs/GUIDE.html`](docs/GUIDE.html).
