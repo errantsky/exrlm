@@ -34,12 +34,6 @@ defmodule RLMWeb do
     end
   end
 
-  def channel do
-    quote do
-      use Phoenix.Channel
-    end
-  end
-
   def controller do
     quote do
       use Phoenix.Controller, formats: [:html, :json]

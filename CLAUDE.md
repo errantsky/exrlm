@@ -38,7 +38,7 @@ rlm/
 │   │   ├── mailer.ex
 │   │   ├── live/                 # RunListLive (/), RunDetailLive (/runs/:run_id)
 │   │   ├── components/           # CoreComponents, Layouts, TraceComponents
-│   │   └── controllers/          # ErrorHTML, ErrorJSON, PageController, TraceDebugController
+│   │   └── controllers/          # ErrorHTML, ErrorJSON, TraceDebugController
 │   └── mix/tasks/                # mix rlm.smoke, mix rlm.examples
 ├── test/
 │   ├── test_helper.exs
