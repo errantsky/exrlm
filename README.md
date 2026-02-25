@@ -306,6 +306,16 @@ Tools live inside the sandbox — the eval'd code calls `read_file/1`, `bash/1`,
 
 ---
 
+## Security
+
+RLM executes LLM-generated Elixir code via `Code.eval_string` with full access to the
+host filesystem, network, and shell. **Do not expose RLM to untrusted users or untrusted
+LLM providers.** It is designed for local development, trusted API backends (Anthropic),
+and controlled environments. There is no sandboxing beyond process-level isolation and
+configurable timeouts.
+
+---
+
 ## Further reading
 
 For a comprehensive architecture reference — OTP supervision tree, async-eval pattern,
