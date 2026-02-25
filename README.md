@@ -316,6 +316,12 @@ configurable timeouts.
 
 ---
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
 ## Further reading
 
 For a comprehensive architecture reference — OTP supervision tree, async-eval pattern,
