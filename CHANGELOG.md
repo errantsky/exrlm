@@ -38,6 +38,9 @@ All notable changes to this project are documented here.
   GitHub API via `curl` + `jq`, parses with `Jason`, and generates summaries via
   parallel schema queries. Run with `mix rlm.examples web_fetch`.
 
+- GitHub Actions CI workflow (compile, format, test)
+- Security notice in README documenting the trust boundary
+
 ### Changed
 
 - API key log output now shows only last 4 characters instead of first 12
