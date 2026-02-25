@@ -173,7 +173,7 @@ RLM.Node.rpc(:"rlm@other_host", Kernel, :+, [1, 2])
 
 # Run an RLM query on a remote node (IEx helper)
 import RLM.IEx
-remote(:"rlm@other_host", "Summarize the key themes")
+remote(:"rlm@other_host", "Summarize the key themes", context: my_large_text)
 # => {:ok, "summary of themes...", "run-abc123"}
 ```
 
