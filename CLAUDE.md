@@ -227,7 +227,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 |---|---|
 | `RLMWeb` | Phoenix web module (verified routes, component imports) |
 | `RLMWeb.Endpoint` | Phoenix endpoint using `RLM.PubSub` as pubsub_server |
-| `RLMWeb.Router` | Routes: `/` (RunListLive), `/runs/:run_id` (RunDetailLive), `/dev/dashboard`, `/dev/mailbox` |
+| `RLMWeb.Router` | Routes: `/` (RunListLive), `/runs/:run_id` (RunDetailLive), `/dev/dashboard` |
 | `RLMWeb.RunListLive` | `/` — list of all runs (from TraceStore + live PubSub updates) |
 | `RLMWeb.RunDetailLive` | `/runs/:run_id` — recursive span tree with expandable iterations |
 | `RLMWeb.TraceComponents` | HEEx components: `span_node/1`, `iteration_card/1` |
@@ -236,7 +236,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | `RLMWeb.CoreComponents` | Core UI components (flash, button, input, table, icon, etc.) |
 | `RLMWeb.Layouts` | App layout, flash group, theme toggle |
 | `RLMWeb.Gettext` | Internationalization backend |
-| `RLMWeb.Mailer` | Swoosh mailer |
+
 
 ## Config Fields
 

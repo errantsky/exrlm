@@ -7,12 +7,6 @@ config :rlm, RLMWeb.Endpoint,
   secret_key_base: "wGMmiWW+w1iw84uJuC13MGBtRyTSECbvCuOgLhxi2fgyC3qgc/n+iJQXmqYAdAMo",
   server: false
 
-# In test we don't send emails
-config :rlm, RLMWeb.Mailer, adapter: Swoosh.Adapters.Test
-
-# Disable swoosh api client as it is only required for production adapters
-config :swoosh, :api_client, false
-
 # Print only warnings and errors during test
 config :logger, level: :warning
 

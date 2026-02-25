@@ -64,7 +64,6 @@ defmodule RLM.MixProject do
        app: false,
        compile: false,
        depth: 1},
-      {:swoosh, "~> 1.16"},
       {:gettext, "~> 1.0"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
