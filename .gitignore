@@ -22,6 +22,7 @@ erl_crash.dump
 # Environment files with secrets
 .env
 .env.*
+.envrc
 
 # macOS metadata
 .DS_Store
