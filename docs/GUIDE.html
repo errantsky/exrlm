@@ -612,6 +612,8 @@ iex&gt; status(session)       # Print session stats</code></pre>
   <tr><td><code>watch/2</code></td><td>Subscribe to PubSub events, print iterations live until turn completes</td></tr>
   <tr><td><code>history/1</code></td><td>Print full message history</td></tr>
   <tr><td><code>status/1</code></td><td>Print session metadata</td></tr>
+  <tr><td><code>remote/3</code></td><td>Run an RLM query on a remote node via <code>RLM.Node.rpc</code></td></tr>
+  <tr><td><code>node_info/0</code></td><td>Print distribution status via <code>RLM.Node.info</code></td></tr>
 </table>
 </section>
 
@@ -914,7 +916,15 @@ flowchart LR
   </div>
   <div class="card-sm">
     <h4>RLM.IEx</h4>
-    <p>IEx convenience helpers: <code>start</code>, <code>chat</code>, <code>start_chat</code>, <code>watch</code>, <code>history</code>, <code>status</code></p>
+    <p>IEx convenience helpers: <code>start</code>, <code>chat</code>, <code>start_chat</code>, <code>watch</code>, <code>history</code>, <code>status</code>, <code>remote</code>, <code>node_info</code></p>
+  </div>
+  <div class="card-sm">
+    <h4>RLM.Node</h4>
+    <p>Distributed Erlang: <code>start/1</code> (configure distribution), <code>info/0</code> (cluster status), <code>rpc/5</code> (remote calls via <code>:erpc</code>)</p>
+  </div>
+  <div class="card-sm">
+    <h4>RLM.Node.Info</h4>
+    <p>Struct holding distribution status: <code>node</code>, <code>alive</code>, <code>cookie</code>, <code>connected_nodes</code>, <code>visible_nodes</code>, <code>hidden_nodes</code></p>
   </div>
   <div class="card-sm">
     <h4>RLM.Application</h4>
