@@ -424,6 +424,9 @@ graph TD
   SUP --> TEL["RLM.Telemetry<br/><small>handler attachment</small>"]
   SUP --> TRACE["RLM.TraceStore<br/><small>:dets persistence</small>"]
   SUP --> SWEEP["EventLog.Sweeper<br/><small>periodic GC</small>"]
+  SUP --> WEBTEL["RLMWeb.Telemetry<br/><small>metrics supervisor</small>"]
+  SUP --> DNS["DNSCluster<br/><small>cluster discovery</small>"]
+  SUP --> EP["RLMWeb.Endpoint<br/><small>Phoenix web server</small>"]
 
   RUNSUP --> RUN["RLM.Run<br/><small>per-run GenServer, :temporary</small>"]
   RUN --> WDYN["DynamicSupervisor<br/><small>Worker GenServers</small>"]
@@ -450,6 +453,9 @@ graph TD
   <tr><td><code>RLM.Telemetry</code></td><td>GenServer</td><td>:permanent</td><td>Attaches all <code>:telemetry</code> handlers on init (Logger, EventLog, PubSub)</td></tr>
   <tr><td><code>RLM.TraceStore</code></td><td>GenServer</td><td>:permanent</td><td>Owns <code>:dets</code> table for persistent trace storage across restarts</td></tr>
   <tr><td><code>RLM.EventLog.Sweeper</code></td><td>GenServer</td><td>:permanent</td><td>Periodically GCs stale EventLog agents and old :dets records</td></tr>
+  <tr><td><code>RLMWeb.Telemetry</code></td><td>Supervisor</td><td>:permanent</td><td>Phoenix telemetry metrics poller</td></tr>
+  <tr><td><code>DNSCluster</code></td><td>GenServer</td><td>:permanent</td><td>DNS-based cluster discovery for distributed deployments</td></tr>
+  <tr><td><code>RLMWeb.Endpoint</code></td><td>Supervisor</td><td>:permanent</td><td>Phoenix web server (Bandit) serving the LiveView dashboard</td></tr>
 </table>
 
 <div class="callout">
@@ -912,7 +918,7 @@ flowchart LR
   </div>
   <div class="card-sm">
     <h4>RLM.Application</h4>
-    <p>OTP application module. Starts 8-child supervision tree</p>
+    <p>OTP application module. Starts 11-child supervision tree (8 core + 3 web)</p>
   </div>
 </div>
 
