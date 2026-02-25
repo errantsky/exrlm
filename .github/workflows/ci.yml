@@ -21,6 +21,9 @@ jobs:
     env:
       MIX_ENV: test
     steps:
+      - name: Install system dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+
       - uses: actions/checkout@v4
 
       - uses: erlef/setup-beam@v1
