@@ -12,6 +12,11 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 
+# Skip checks if mix is not available (e.g., in CI or sandboxed environments)
+if ! command -v mix &> /dev/null; then
+  exit 0
+fi
+
 echo "Running pre-commit checks..." >&2
 
 if ! mix compile --warnings-as-errors 2>&1; then

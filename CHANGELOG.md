@@ -38,6 +38,23 @@ All notable changes to this project are documented here.
   GitHub API via `curl` + `jq`, parses with `Jason`, and generates summaries via
   parallel schema queries. Run with `mix rlm.examples web_fetch`.
 
+### Changed
+
+- API key log output now shows only last 4 characters instead of first 12
+- Replaced default Phoenix landing page with RLM-branded page
+- `.envrc` untracked and added to `.gitignore` (local direnv preference)
+- Added `@moduledoc` to `RLMWeb.Endpoint`, `RLMWeb.Router`, `RLMWeb.RunListLive`,
+  `RLMWeb.RunDetailLive`, and `RLMWeb.Telemetry`
+- Pre-commit hook skips gracefully when `mix` is not available
+
+### Removed
+
+- `demo_run.exs` — referenced missing `priv/foodlab.epub`; would crash on clone
+- `RLMWeb.PageController`, `RLMWeb.PageHTML` — unused Phoenix generator leftovers
+- `RLMWeb.channel/0` helper — no channels in the application
+- Swoosh dependency and `RLMWeb.Mailer` — no email functionality exists
+- `/dev/mailbox` route — removed with Swoosh
+
 ---
 
 ## [0.3.0] — 2026-02-24
