@@ -57,6 +57,9 @@ Enforced at compile time via `boundary`:
 - **`RLMWeb`** — Phoenix web layer. Depends only on `RLM`.
 - **`RLM.Application`** — Top-level. Starts the unified supervision tree.
 
+See [`docs/GUIDE.html`](docs/GUIDE.html) for the full architecture reference — OTP
+supervision tree, async-eval pattern, module map, telemetry events, and configuration.
+
 ---
 
 ## Prerequisites
@@ -264,13 +267,6 @@ Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:runs")
 # Subscribe to a specific run
 Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
 ```
-
----
-
-## Architecture
-
-See [`docs/GUIDE.html`](docs/GUIDE.html) for the full architecture reference — OTP
-supervision tree, async-eval pattern, module map, telemetry events, and configuration.
 
 ---
 
