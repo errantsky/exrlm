@@ -35,7 +35,6 @@ rlm/
 │   │   ├── router.ex
 │   │   ├── telemetry.ex
 │   │   ├── gettext.ex
-│   │   ├── mailer.ex
 │   │   ├── live/                 # RunListLive (/), RunDetailLive (/runs/:run_id)
 │   │   ├── components/           # CoreComponents, Layouts, TraceComponents
 │   │   └── controllers/          # ErrorHTML, ErrorJSON, TraceDebugController

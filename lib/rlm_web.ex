@@ -1,7 +1,7 @@
 defmodule RLMWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
-  as controllers, components, channels, and so on.
+  as controllers, components, and so on.
 
   This can be used in your application as:
 
