@@ -10,8 +10,7 @@ I wanted to take further, and the design philosophy behind
 transparent. This is very much a learning project, but it works and it's been fun to build.
 
 A single Phoenix application: an AI execution engine where Claude writes Elixir code that
-runs in a persistent REPL, with recursive sub-agent spawning, built-in filesystem tools,
-and compile-time architecture enforcement via [`boundary`](https://hex.pm/packages/boundary).
+runs in a persistent REPL, with recursive sub-agent spawning and built-in filesystem tools.
 
 **One engine, two modes:**
 1. **One-shot** — `RLM.run/3` processes data and returns a result
@@ -213,7 +212,7 @@ and are never restarted.
 
 ### Architecture boundaries
 
-Enforced at compile time via [`boundary`](https://hex.pm/packages/boundary):
+Enforced at compile time:
 
 | Layer | Module | Rule |
 |---|---|---|
