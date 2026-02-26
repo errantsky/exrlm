@@ -9,10 +9,9 @@ I wanted to take further, and the design philosophy behind
 [pi](https://github.com/badlogic/pi-mono/) — a coding agent that keeps things simple and
 transparent. This is very much a learning project, but it works and it's been fun to build.
 
-A single Phoenix application implementing a unified AI execution engine where the LLM writes
-Elixir code that runs in a persistent REPL, with recursive sub-LLM spawning, built-in
-filesystem tools, and compile-time architecture enforcement via
-[`boundary`](https://hex.pm/packages/boundary).
+A single Phoenix application: an AI execution engine where Claude writes Elixir code that
+runs in a persistent REPL, with recursive sub-agent spawning, built-in filesystem tools,
+and compile-time architecture enforcement via [`boundary`](https://hex.pm/packages/boundary).
 
 **One engine, two modes:**
 1. **One-shot** — `RLM.run/3` processes data and returns a result
@@ -20,152 +19,85 @@ filesystem tools, and compile-time architecture enforcement via
 
 ---
 
-## Project structure
+## How it works
 
-```
-rlm/
-├── lib/
-│   ├── rlm.ex                    # Public API: run/3, start_session/1, send_message/3
-│   ├── rlm/                      # Core engine
-│   │   ├── application.ex        # Unified OTP application (core + web)
-│   │   ├── worker.ex             # GenServer (iterate loop + keep_alive)
-│   │   ├── run.ex                # Per-run coordinator GenServer
-│   │   ├── eval.ex               # Sandboxed Code.eval_string
-│   │   ├── llm.ex                # Anthropic Messages API client
-│   │   ├── sandbox.ex            # Eval sandbox (helpers + tools)
-│   │   ├── iex.ex                # IEx convenience helpers
-│   │   ├── tool.ex               # Tool behaviour
-│   │   ├── tool_registry.ex      # Tool dispatch + discovery
-│   │   ├── telemetry/            # Telemetry events + handlers
-│   │   └── tools/                # 7 filesystem tools
-│   ├── rlm_web.ex                # Phoenix web module
-│   └── rlm_web/                  # Phoenix LiveView dashboard
-├── test/
-├── config/
-├── assets/                       # JS, CSS, vendor (esbuild + tailwind)
-├── priv/
-│   ├── static/                   # Built assets
-│   └── system_prompt.md          # LLM system prompt
-└── examples/                     # Smoke tests and example scenarios
+Each `RLM.run/3` call launches a **Worker** that runs an iterate loop: send the
+conversation history to Claude, receive back `{reasoning, code}`, evaluate the code in a
+sandboxed Elixir REPL, feed the output back, and repeat until the code sets a
+`final_answer` variable.
+
+The eval step runs in a separate lightweight process so the Worker stays responsive.
+Code inside the REPL can call `lm_query/2` to hand off a sub-task to a **child Worker** —
+that call goes to the Worker as a message, which it handles while eval waits for the
+result. Without the async pattern this would deadlock.
+
+```mermaid
+flowchart TD
+    A(["RLM.run(context, query)"]) --> W
+
+    subgraph W["Worker loop"]
+        direction TB
+        LLM["Claude API\nreasoning + code"] --> EVAL
+        EVAL["async eval\nCode.eval_string"] -- "final_answer set" --> OUT(["return {:ok, answer, run_id}"])
+        EVAL -- "no final_answer" --> LLM
+    end
+
+    EVAL -. "lm_query() →\nspawns child Worker" .-> CHILD["child Worker\n(flat sibling, same DynSup)"]
+    CHILD -. "result" .-> EVAL
 ```
 
-### Architecture boundaries
-
-Enforced at compile time via `boundary`:
-
-- **`RLM`** — Core engine. Zero web dependencies.
-- **`RLMWeb`** — Phoenix web layer. Depends only on `RLM`.
-- **`RLM.Application`** — Top-level. Starts the unified supervision tree.
-
-### OTP supervision tree
-
-```
-┌─ RLM.Supervisor (one_for_one) ──────────────────────────────────┐
-│  RLM.Registry       · named process lookup                      │
-│  RLM.PubSub         · event broadcasting                        │
-│  RLM.TaskSupervisor · bash tool tasks                           │
-│  RLM.RunSup ────────────────────────────────────────────┐       │
-│  │  RLM.Run (per run, :temporary) ─────────────────┐   │       │
-│  │  │  DynSup ─┬─ RLM.Worker (flat, any depth)     │   │       │
-│  │  │           └─ RLM.Worker (flat, any depth)     │   │       │
-│  │  │  Task.Sup ─ eval task                         │   │       │
-│  │  └──────────────────────────────────────────────-┘   │       │
-│  └──────────────────────────────────────────────────────┘       │
-│  RLM.EventStore     · EventLog Agents                           │
-│  RLM.TraceStore     · :dets persistence                         │
-│  RLM.EventLog.Sweeper · periodic GC                             │
-│  RLMWeb.Endpoint    · Phoenix / LiveView                        │
-└─────────────────────────────────────────────────────────────────┘
-# depth/parent tree is tracked in ETS, not OTP supervision
-```
-
-Each `RLM.run/3` call spawns an `RLM.Run` GenServer that owns a `DynamicSupervisor`
-for `RLM.Worker` processes and a `Task.Supervisor` for async eval tasks. Workers at
-all depths are **flat siblings** under the same `DynamicSupervisor` — the
-parent-child relationship between workers is tracked in an ETS table owned by `Run`,
-not encoded in OTP supervision. Workers are `:temporary` and never restarted. The
-eval task runs `Code.eval_string` asynchronously so the Worker's mailbox stays free
-to handle `lm_query/2` subcall requests without deadlocking.
-
-See [`docs/GUIDE.html`](docs/GUIDE.html) for the full architecture reference — OTP
-supervision tree, async-eval pattern, module map, telemetry events, and configuration.
+Three invariants the engine enforces:
+- Raw input data never enters the LLM context window — only metadata or previews
+- Sub-LLM outputs stay in variables, never surfaced directly to the parent LLM
+- Stdout is truncated head+tail to prevent context overflow
 
 ---
 
-## Prerequisites
+## Quick start
 
-- Elixir >= 1.19 / OTP 27
-- `CLAUDE_API_KEY` environment variable (Anthropic API key)
+Requires Elixir ≥ 1.19 / OTP 27 and an [Anthropic API key](https://console.anthropic.com/).
 
 ```bash
 export CLAUDE_API_KEY=sk-ant-...
+mix deps.get && mix compile
+mix test        # excludes live API tests
+iex -S mix      # interactive shell
 ```
 
 ---
 
-## Build and test
+## Usage
 
-```bash
-# Install dependencies
-mix deps.get
-
-# Compile
-mix compile
-
-# Run tests (live API tests excluded by default)
-mix test
-
-# Run all tests including live API (requires CLAUDE_API_KEY)
-mix test --include live_api
-
-# Live smoke test (5 end-to-end tests against the real API)
-mix rlm.smoke
-```
-
----
-
-## Using the RLM Engine
-
-### One-shot mode
-
-The LLM writes Elixir code that runs in a sandboxed REPL with a persistent binding map.
-It can call itself recursively via `lm_query/2`.
-
-```bash
-iex -S mix
-```
+### One-shot
 
 ```elixir
-# Basic usage — synchronous, returns {:ok, answer, run_id}
+# Synchronous — returns {:ok, answer, run_id}
+# run_id lets you retrieve the execution trace afterwards
 {:ok, answer, run_id} = RLM.run(
   "line 1\nline 2\nline 3\nline 4",
   "Count the lines and return the count as an integer"
 )
 # => {:ok, 4, "run-abc123"}
 
-# Async — returns immediately; result arrives as {:rlm_result, span_id, result}
+# Async — returns immediately; result delivered as {:rlm_result, span_id, result}
 {:ok, run_id, pid} = RLM.run_async(my_large_text, "Summarize the key themes")
 
-# Inspect the execution trace
+# Retrieve the execution trace
 tree = RLM.EventLog.get_tree(run_id)
 ```
 
 ### Interactive sessions
 
-Multi-turn sessions where bindings persist across turns. The Worker stays alive
-between messages, and filesystem tools are available in the sandbox.
+Bindings persist across turns. The Worker stays alive between messages.
 
 ```elixir
-# Start a session
 {:ok, sid} = RLM.start_session(cwd: ".")
 
-# Send messages — each returns {:ok, answer} when the LLM sets final_answer
 {:ok, answer1} = RLM.send_message(sid, "List files in the current directory using bash")
 {:ok, answer2} = RLM.send_message(sid, "Now read the README")
 
-# Introspection
-RLM.history(sid)    # Full message history
-RLM.status(sid)     # Session status map
+RLM.history(sid)   # full message history
+RLM.status(sid)    # session status map
 ```
 
 ### IEx helpers
@@ -173,48 +105,9 @@ RLM.status(sid)     # Session status map
 ```elixir
 import RLM.IEx
 
-# Start a session and send first message in one step
-{session, _response} = start_chat("What Elixir version is this project using?")
-
-# Continue the conversation
+{session, _} = start_chat("What Elixir version is this project using?")
 chat(session, "Now show me the supervision tree")
-
-# Watch live telemetry events
-watch(session)
-
-# Inspect history and stats
-history(session)
-status(session)
-```
-
-### Distributed Erlang
-
-Connect multiple RLM nodes for remote execution:
-
-```elixir
-# Start distribution (auto-configures from RLM_NODE_NAME / RLM_COOKIE env vars)
-RLM.Node.start()
-# => {:ok, :rlm@hostname}
-
-# Check distribution status
-RLM.Node.info()
-# => %RLM.Node.Info{node: :rlm@hostname, alive: true, cookie: :rlm_dev, ...}
-
-# Execute on a remote node (uses :erpc — modern OTP)
-RLM.Node.rpc(:"rlm@other_host", Kernel, :+, [1, 2])
-# => {:ok, 3}
-
-# Run an RLM query on a remote node (IEx helper)
-import RLM.IEx
-remote(:"rlm@other_host", "Summarize the key themes", context: my_large_text)
-# => {:ok, "summary of themes...", "run-abc123"}
-```
-
-For releases, distribution is configured via environment variables:
-
-```bash
-RLM_NODE_NAME=rlm   # Defaults to release name
-RLM_COOKIE=secret    # Shared secret for node authentication
+watch(session)     # attach a live telemetry stream
 ```
 
 ### Configuration overrides
@@ -228,53 +121,129 @@ RLM_COOKIE=secret    # Shared secret for node authentication
 )
 ```
 
-### Sandbox functions
+### Sandbox API
 
-Available inside the REPL sandbox (both one-shot and interactive modes):
+Functions available inside the LLM's eval'd code:
 
 ```elixir
 # Data helpers
-context               # String — the input data (one-shot mode only)
-chunks(context, 1000) # Stream of 1000-byte chunks
-grep("pattern", ctx)  # In-memory string search: [{line_num, line}]
-preview(term, 200)    # Truncated inspect
-list_bindings()       # Current bindings info
+chunks(context, 1000)    # stream of 1000-byte chunks
+grep("pattern", ctx)     # [{line_num, line}, ...]
+preview(term, 200)       # truncated inspect
+list_bindings()          # current bindings info
 
-# LLM sub-calls (recursive)
-{:ok, result} = lm_query("subset of data", model_size: :small)
-results = parallel_query(["chunk1", "chunk2"], model_size: :small)
+# Recursive LLM calls
+{:ok, result} = lm_query("summarise this chunk", model_size: :small)
+results       = parallel_query(["chunk1", "chunk2"], model_size: :small)
 
-# Structured extraction (schema mode) — single direct LLM call, returns parsed map
-schema = %{"type" => "object", "properties" => %{"names" => %{"type" => "array", "items" => %{"type" => "string"}}}, "required" => ["names"]}
-{:ok, %{"names" => names}} = lm_query("Extract names from: #{text}", schema: schema)
+# Structured extraction — single direct LLM call, returns a parsed map
+{:ok, %{"names" => names}} = lm_query("Extract names from: #{text}",
+  schema: %{
+    "type" => "object",
+    "properties" => %{"names" => %{"type" => "array", "items" => %{"type" => "string"}}},
+    "required" => ["names"]
+  }
+)
 
 # Filesystem tools
 {:ok, content} = read_file("path/to/file.ex")
-{:ok, _} = write_file("output.txt", "content")
-{:ok, _} = edit_file("file.ex", "old text", "new text")
-{:ok, output} = bash("mix test")
+{:ok, _}       = write_file("output.txt", "content")
+{:ok, _}       = edit_file("file.ex", "old text", "new text")
+{:ok, output}  = bash("mix test")
 {:ok, matches} = rg("defmodule", "lib/")
-{:ok, files} = find_files("**/*.ex")
+{:ok, files}   = find_files("**/*.ex")
 {:ok, listing} = ls()
 ```
 
 ---
 
-## Tracing and observability
+## Architecture
+
+### OTP supervision tree
+
+> **New to OTP?** A *Supervisor* is a process whose only job is to start and monitor
+> other processes; a *DynamicSupervisor* spawns children on demand at runtime.
+> A *GenServer* is a long-lived process with a message inbox — Elixir's version of an actor.
+
+```mermaid
+graph TD
+    SUP["RLM.Supervisor\none_for_one"]
+
+    SUP --> REG["RLM.Registry\nnamed process lookup"]
+    SUP --> PS["Phoenix.PubSub\nevent broadcasting"]
+    SUP --> TS["RLM.TaskSupervisor\nbash tool tasks"]
+    SUP --> RUNSUP["RLM.RunSup\nDynamicSupervisor"]
+    SUP --> ES["RLM.EventStore\nDynamicSupervisor · EventLog Agents"]
+    SUP --> TEL["RLM.Telemetry\nhandler attachment"]
+    SUP --> TRACE["RLM.TraceStore\n:dets persistence"]
+    SUP --> SWEEP["EventLog.Sweeper\nperiodic GC"]
+    SUP --> WEBTEL["RLMWeb.Telemetry\nPhoenix metrics"]
+    SUP --> DNS["DNSCluster\ncluster discovery"]
+    SUP --> EP["RLMWeb.Endpoint\nPhoenix / LiveView"]
+
+    RUNSUP --> RUN["RLM.Run\n:temporary"]
+
+    subgraph RunScope["Per-run scope — owned and linked by RLM.Run"]
+        WD["DynamicSupervisor\nworker pool"]
+        EVALSUP["Task.Supervisor\neval tasks"]
+        WD --> W1["RLM.Worker :temporary"]
+        WD --> W2["RLM.Worker :temporary"]
+        EVALSUP --> ET["eval Task\nper iteration"]
+    end
+
+    RUN --> WD
+    RUN --> EVALSUP
+
+    ETS[/"ETS table\nspan_id → parent_span_id · depth · status\nnot OTP supervision"/]
+    RUN -. "tracks worker relationships" .-> ETS
+
+    style SUP fill:#ede9fe,stroke:#7c3aed,color:#1a1e27
+    style RUNSUP fill:#dbeafe,stroke:#1d4ed8,color:#1a1e27
+    style RUN fill:#dcfce7,stroke:#15803d,color:#1a1e27
+    style WD fill:#fef3c7,stroke:#b45309,color:#1a1e27
+    style EVALSUP fill:#fef3c7,stroke:#b45309,color:#1a1e27
+    style ETS fill:#f5f0e0,stroke:#c8b87a,color:#6b5e3a
+```
+
+All Workers at all recursion depths are **flat siblings** under the run's single
+`DynamicSupervisor`. The parent-child depth relationship is recorded in an ETS table
+(Erlang's built-in in-memory key-value store) owned by `RLM.Run`, not encoded in OTP
+supervision. Workers use `restart: :temporary` — they exit after completing their task
+and are never restarted.
+
+### Architecture boundaries
+
+Enforced at compile time via [`boundary`](https://hex.pm/packages/boundary):
+
+| Layer | Module | Rule |
+|---|---|---|
+| Core engine | `RLM` | Zero web dependencies |
+| Web dashboard | `RLMWeb` | Depends only on `RLM` |
+| Application | `RLM.Application` | Starts the unified supervision tree |
+
+See [`docs/GUIDE.html`](docs/GUIDE.html) for the full architecture reference — module map,
+async-eval pattern walkthrough, telemetry event catalogue, and all configuration fields.
+
+---
+
+## Observability
 
 ### Event log
 
 ```elixir
 {:ok, _result, run_id} = RLM.run(context, query)
 
-tree = RLM.EventLog.get_tree(run_id)
+tree  = RLM.EventLog.get_tree(run_id)    # recursive span tree
 jsonl = RLM.EventLog.to_jsonl(run_id)
 File.write!("trace.jsonl", jsonl)
 ```
 
-### Telemetry events
+The LiveView dashboard at `http://localhost:4000` shows the same span tree live with
+expandable iteration cards for every run in the current session.
 
-17 events fire during RLM execution. Attach your own handler:
+### Telemetry
+
+17 events fire during execution. Attach your own handler:
 
 ```elixir
 :telemetry.attach("my-handler", [:rlm, :iteration, :stop],
@@ -285,17 +254,37 @@ File.write!("trace.jsonl", jsonl)
 
 Event families: `[:rlm, :node, :*]`, `[:rlm, :iteration, :*]`,
 `[:rlm, :llm, :request, :*]`, `[:rlm, :eval, :*]`,
-`[:rlm, :subcall, :*]`, `[:rlm, :direct_query, :*]`,
-`[:rlm, :compaction, :run]`, `[:rlm, :turn, :complete]`
+`[:rlm, :subcall, :*]`, `[:rlm, :direct_query, :*]`
 
-### PubSub live stream
+### PubSub
 
 ```elixir
-# Subscribe to all runs
 Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:runs")
-
-# Subscribe to a specific run
 Phoenix.PubSub.subscribe(RLM.PubSub, "rlm:run:#{run_id}")
+```
+
+---
+
+## Distributed Erlang
+
+Connect multiple RLM nodes for remote execution:
+
+```elixir
+RLM.Node.start()
+# => {:ok, :rlm@hostname}
+
+RLM.Node.rpc(:"rlm@other_host", Kernel, :+, [1, 2])
+# => {:ok, 3}
+
+import RLM.IEx
+remote(:"rlm@other_host", "Summarize the key themes", context: my_large_text)
+```
+
+Configure for releases:
+
+```bash
+RLM_NODE_NAME=rlm   # defaults to release name
+RLM_COOKIE=secret   # shared secret for node authentication
 ```
 
 ---
@@ -313,4 +302,3 @@ configurable timeouts.
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
