@@ -57,6 +57,33 @@ Enforced at compile time via `boundary`:
 - **`RLMWeb`** — Phoenix web layer. Depends only on `RLM`.
 - **`RLM.Application`** — Top-level. Starts the unified supervision tree.
 
+### OTP supervision tree
+
+```
+┌─ RLM.Supervisor (one_for_one) ──────────────────────────────────┐
+│  RLM.Registry       · named process lookup                      │
+│  RLM.PubSub         · event broadcasting                        │
+│  RLM.TaskSupervisor · bash tool tasks                           │
+│  RLM.RunSup ────────────────────────────────────────────┐       │
+│  │  RLM.Run (per run, :temporary) ─────────────────┐   │       │
+│  │  │  DynSup ── RLM.Worker (depth 0)              │   │       │
+│  │  │               └─ RLM.Worker (d+1)            │   │       │
+│  │  │  Task.Sup ─ eval task                        │   │       │
+│  │  └─────────────────────────────────────────────-┘   │       │
+│  └──────────────────────────────────────────────────────┘       │
+│  RLM.EventStore     · EventLog Agents                           │
+│  RLM.TraceStore     · :dets persistence                         │
+│  RLM.EventLog.Sweeper · periodic GC                             │
+│  RLMWeb.Endpoint    · Phoenix / LiveView                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Each `RLM.run/3` call spawns an `RLM.Run` GenServer that owns a `DynamicSupervisor`
+for `RLM.Worker` processes and a `Task.Supervisor` for async eval tasks. Workers are
+`:temporary` — they terminate after completion and are never restarted. The eval task
+runs `Code.eval_string` asynchronously so the Worker's mailbox stays free to handle
+`lm_query/2` subcall requests without deadlocking.
+
 See [`docs/GUIDE.html`](docs/GUIDE.html) for the full architecture reference — OTP
 supervision tree, async-eval pattern, module map, telemetry events, and configuration.
 
