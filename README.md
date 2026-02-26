@@ -212,7 +212,7 @@ and are never restarted.
 
 ### Architecture boundaries
 
-Enforced at compile time:
+Enforced at compile time via `boundary`:
 
 | Layer | Module | Rule |
 |---|---|---|
