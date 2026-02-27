@@ -36,12 +36,12 @@ flowchart TD
 
     subgraph W["Worker loop"]
         direction TB
-        LLM["Claude API\nreasoning + code"] --> EVAL
-        EVAL["async eval\nCode.eval_string"] -- "final_answer set" --> OUT(["return {:ok, answer, run_id}"])
+        LLM["Claude API reasoning + code"] --> EVAL
+        EVAL["async eval Code.eval_string"] -- "final_answer set" --> OUT(["return {:ok, answer, run_id}"])
         EVAL -- "no final_answer" --> LLM
     end
 
-    EVAL -. "lm_query() →\nspawns child Worker" .-> CHILD["child Worker\n(flat sibling, same DynSup)"]
+    EVAL -. "lm_query() → spawns child Worker" .-> CHILD["child Worker (flat sibling, same DynSup)"]
     CHILD -. "result" .-> EVAL
 ```
 
