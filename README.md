@@ -166,35 +166,35 @@ results       = parallel_query(["chunk1", "chunk2"], model_size: :small)
 
 ```mermaid
 graph LR
-    SUP["RLM.Supervisor\none_for_one"]
+    SUP["RLM.Supervisor · one_for_one"]
 
-    SUP --> REG["RLM.Registry\nnamed process lookup"]
-    SUP --> PS["Phoenix.PubSub\nevent broadcasting"]
-    SUP --> TS["RLM.TaskSupervisor\nbash tool tasks"]
-    SUP --> RUNSUP["RLM.RunSup\nDynamicSupervisor"]
-    SUP --> ES["RLM.EventStore\nDynamicSupervisor\nEventLog Agents"]
-    SUP --> TEL["RLM.Telemetry\nhandler attachment"]
-    SUP --> TRACE["RLM.TraceStore\n:dets persistence"]
-    SUP --> SWEEP["EventLog.Sweeper\nperiodic GC"]
-    SUP --> WEBTEL["RLMWeb.Telemetry\nPhoenix metrics"]
-    SUP --> DNS["DNSCluster\ncluster discovery"]
-    SUP --> EP["RLMWeb.Endpoint\nPhoenix / LiveView"]
+    SUP --> REG["RLM.Registry · process lookup"]
+    SUP --> PS["Phoenix.PubSub · event broadcasting"]
+    SUP --> TS["RLM.TaskSupervisor · bash tool tasks"]
+    SUP --> RUNSUP["RLM.RunSup · DynamicSupervisor"]
+    SUP --> ES["RLM.EventStore · EventLog Agents"]
+    SUP --> TEL["RLM.Telemetry · handler attachment"]
+    SUP --> TRACE["RLM.TraceStore · :dets persistence"]
+    SUP --> SWEEP["EventLog.Sweeper · periodic GC"]
+    SUP --> WEBTEL["RLMWeb.Telemetry · Phoenix metrics"]
+    SUP --> DNS["DNSCluster · cluster discovery"]
+    SUP --> EP["RLMWeb.Endpoint · Phoenix / LiveView"]
 
-    RUNSUP --> RUN["RLM.Run\n:temporary"]
+    RUNSUP --> RUN["RLM.Run · :temporary"]
 
     subgraph RunScope["Per-run scope — owned and linked by RLM.Run"]
         direction TB
-        WD["DynamicSupervisor\nworker pool"]
-        EVALSUP["Task.Supervisor\neval tasks"]
-        WD --> W1["RLM.Worker :temporary"]
-        WD --> W2["RLM.Worker :temporary"]
-        EVALSUP --> ET["eval Task\nper iteration"]
+        WD["DynamicSupervisor · worker pool"]
+        EVALSUP["Task.Supervisor · eval tasks"]
+        WD --> W1["RLM.Worker · :temporary"]
+        WD --> W2["RLM.Worker · :temporary"]
+        EVALSUP --> ET["eval Task · per iteration"]
     end
 
     RUN --> WD
     RUN --> EVALSUP
 
-    ETS[/"ETS table\nspan_id · parent_span_id\ndepth · status\nnot OTP supervision"/]
+    ETS[/"ETS · span_id, parent_span_id, depth, status · not OTP supervision"/]
     RUN -. "tracks worker relationships" .-> ETS
 
     style SUP fill:#ede9fe,stroke:#7c3aed,color:#1a1e27
