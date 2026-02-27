@@ -165,14 +165,14 @@ results       = parallel_query(["chunk1", "chunk2"], model_size: :small)
 > A *GenServer* is a long-lived process with a message inbox — Elixir's version of an actor.
 
 ```mermaid
-graph TD
+graph LR
     SUP["RLM.Supervisor\none_for_one"]
 
     SUP --> REG["RLM.Registry\nnamed process lookup"]
     SUP --> PS["Phoenix.PubSub\nevent broadcasting"]
     SUP --> TS["RLM.TaskSupervisor\nbash tool tasks"]
     SUP --> RUNSUP["RLM.RunSup\nDynamicSupervisor"]
-    SUP --> ES["RLM.EventStore\nDynamicSupervisor · EventLog Agents"]
+    SUP --> ES["RLM.EventStore\nDynamicSupervisor\nEventLog Agents"]
     SUP --> TEL["RLM.Telemetry\nhandler attachment"]
     SUP --> TRACE["RLM.TraceStore\n:dets persistence"]
     SUP --> SWEEP["EventLog.Sweeper\nperiodic GC"]
@@ -183,6 +183,7 @@ graph TD
     RUNSUP --> RUN["RLM.Run\n:temporary"]
 
     subgraph RunScope["Per-run scope — owned and linked by RLM.Run"]
+        direction TB
         WD["DynamicSupervisor\nworker pool"]
         EVALSUP["Task.Supervisor\neval tasks"]
         WD --> W1["RLM.Worker :temporary"]
@@ -193,7 +194,7 @@ graph TD
     RUN --> WD
     RUN --> EVALSUP
 
-    ETS[/"ETS table\nspan_id → parent_span_id · depth · status\nnot OTP supervision"/]
+    ETS[/"ETS table\nspan_id · parent_span_id\ndepth · status\nnot OTP supervision"/]
     RUN -. "tracks worker relationships" .-> ETS
 
     style SUP fill:#ede9fe,stroke:#7c3aed,color:#1a1e27
