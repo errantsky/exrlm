@@ -18,6 +18,29 @@ runs in a persistent REPL, with recursive sub-agent spawning and built-in filesy
 
 ---
 
+## Table of contents
+
+- [How it works](#how-it-works)
+- [Quick start](#quick-start)
+- [Usage](#usage)
+  - [One-shot](#one-shot)
+  - [Interactive sessions](#interactive-sessions)
+  - [IEx helpers](#iex-helpers)
+  - [Configuration overrides](#configuration-overrides)
+  - [Sandbox API](#sandbox-api)
+- [Architecture](#architecture)
+  - [OTP supervision tree](#otp-supervision-tree)
+  - [Architecture boundaries](#architecture-boundaries)
+- [Observability](#observability)
+  - [Event log](#event-log)
+  - [Telemetry](#telemetry)
+  - [PubSub](#pubsub)
+- [Distributed Erlang](#distributed-erlang)
+- [Security](#security)
+- [License](#license)
+
+---
+
 ## How it works
 
 Each `RLM.run/3` call launches a **Worker** that runs an iterate loop: send the
