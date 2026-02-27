@@ -172,13 +172,28 @@ graph LR
     SUP --> PS["Phoenix.PubSub · event broadcasting"]
     SUP --> TS["RLM.TaskSupervisor · bash tool tasks"]
     SUP --> RUNSUP["RLM.RunSup · DynamicSupervisor"]
-    SUP --> ES["RLM.EventStore · EventLog Agents"]
-    SUP --> TEL["RLM.Telemetry · handler attachment"]
-    SUP --> TRACE["RLM.TraceStore · :dets persistence"]
-    SUP --> SWEEP["EventLog.Sweeper · periodic GC"]
-    SUP --> WEBTEL["RLMWeb.Telemetry · Phoenix metrics"]
-    SUP --> DNS["DNSCluster · cluster discovery"]
-    SUP --> EP["RLMWeb.Endpoint · Phoenix / LiveView"]
+
+    subgraph Obs["Observability"]
+        direction TB
+        ES["RLM.EventStore · EventLog Agents"]
+        TEL["RLM.Telemetry · handler attachment"]
+        TRACE["RLM.TraceStore · :dets"]
+        SWEEP["EventLog.Sweeper · periodic GC"]
+    end
+    SUP --> ES
+    SUP --> TEL
+    SUP --> TRACE
+    SUP --> SWEEP
+
+    subgraph Web["Web Layer"]
+        direction TB
+        WEBTEL["RLMWeb.Telemetry · metrics"]
+        DNS["DNSCluster · cluster discovery"]
+        EP["RLMWeb.Endpoint · Phoenix / LiveView"]
+    end
+    SUP --> WEBTEL
+    SUP --> DNS
+    SUP --> EP
 
     RUNSUP --> RUN["RLM.Run · :temporary"]
 
@@ -190,11 +205,10 @@ graph LR
         WD --> W2["RLM.Worker · :temporary"]
         EVALSUP --> ET["eval Task · per iteration"]
     end
-
     RUN --> WD
     RUN --> EVALSUP
 
-    ETS[/"ETS · span_id, parent_span_id, depth, status · not OTP supervision"/]
+    ETS[/"ETS · span_id, parent, depth, status · not OTP supervision"/]
     RUN -. "tracks worker relationships" .-> ETS
 
     style SUP fill:#ede9fe,stroke:#7c3aed,color:#1a1e27
