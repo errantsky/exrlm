@@ -151,6 +151,47 @@ defmodule RLM.Sandbox do
     RLM.Tools.Ls.execute(%{"path" => resolve(path)})
   end
 
+  # ---------------------------------------------------------------------------
+  # Skills
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Activate a skill by name. Loads the skill's full instructions and injects
+  them into the worker's context for subsequent iterations.
+
+  Returns `{:ok, skill_name}` or `{:error, reason}`.
+  """
+  def activate_skill(name) do
+    worker_pid = Process.get(:rlm_worker_pid)
+
+    if is_nil(worker_pid) do
+      {:error, "activate_skill not available (no worker context)"}
+    else
+      timeout = Process.get(:rlm_subcall_timeout, 600_000)
+      GenServer.call(worker_pid, {:activate_skill, name}, timeout)
+    end
+  end
+
+  @doc "List all available skills with their names and descriptions."
+  def list_skills do
+    worker_pid = Process.get(:rlm_worker_pid)
+
+    if is_nil(worker_pid) do
+      "No skills available (no worker context)"
+    else
+      summaries = GenServer.call(worker_pid, :list_skills)
+
+      if summaries == [] do
+        "No skills available."
+      else
+        listing =
+          Enum.map_join(summaries, "\n", fn {name, desc} -> "  #{name} — #{desc}" end)
+
+        "Available skills:\n" <> listing
+      end
+    end
+  end
+
   @doc "List all available tool functions with descriptions."
   def list_tools do
     RLM.ToolRegistry.descriptions()

@@ -149,4 +149,23 @@ defmodule RLM.SandboxTest do
       assert stdout =~ "relative content"
     end
   end
+
+  describe "skill functions from inside eval" do
+    test "list_skills returns message when no worker context" do
+      {:ok, stdout, _, _} =
+        eval_in_sandbox(~s|IO.puts(list_skills())|)
+
+      assert stdout =~ "No skills available"
+    end
+
+    test "activate_skill returns error when no worker context" do
+      {:ok, stdout, _, _} =
+        eval_in_sandbox("""
+        result = activate_skill("test")
+        IO.inspect(result)
+        """)
+
+      assert stdout =~ "error"
+    end
+  end
 end

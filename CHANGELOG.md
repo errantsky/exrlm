@@ -8,6 +8,37 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Agent Skills system with Hegelian Dialectic skill**
+
+- `RLM.Skill` — parser and struct for SKILL.md files (Agent Skills specification format).
+  YAML frontmatter (`name`, `description`, `version`, `license`, `metadata`) + markdown
+  body. Supports progressive loading: `parse_metadata/1` (cheap discovery) and
+  `load_instructions/1` (on-demand activation). Custom lightweight YAML parser — no
+  external dependency needed.
+- `RLM.SkillRegistry` — stateless discovery module scanning configurable filesystem paths
+  for SKILL.md files. Search order (first-found wins): extra paths from config > project
+  `./skills/` > user `~/.rlm/skills/` > bundled `priv/skills/`. Functions: `discover/1`,
+  `activate/2`, `summaries/1`, `default_paths/2`.
+- Bundled Hegelian Dialectic skill (`priv/skills/dialectic/SKILL.md`) — adapted from
+  [Kyle Mathews' Electric Monks](https://github.com/KyleAMathews/hegelian-dialectic-skill).
+  Full 7-phase process (Elenctic Interview, Monk Prompts, Spawn Electric Monks, Determinate
+  Negation, Sublation, Validation, Recursion) rewritten to reference RLM primitives
+  (`parallel_query`, `lm_query`, `write_file`, `bash`).
+- `activate_skill(name)` and `list_skills()` sandbox functions available in eval'd code.
+  `activate_skill` injects the skill's full instructions into the worker's message history
+  as a user message (preserving prompt cache stability).
+- `skills:` option on `RLM.run/3`, `RLM.run_async/3`, and `RLM.start_session/1` for
+  pre-activating skills at startup. Example:
+  `RLM.run("topic", "Analyze with dialectic", skills: ["dialectic"])`.
+- `skill_paths` config field — extra filesystem paths to scan for SKILL.md files.
+- System prompt updated with Skills section documenting `list_skills()` and
+  `activate_skill(name)`.
+- Worker `init/1` discovers skills at root depth (depth == 0 only) and passes summaries
+  to the system message. Subcall workers skip skill discovery.
+- Worker `:status` response includes `active_skills` field listing activated skill names.
+- Tests: `skill_test.exs` (parser), `skill_registry_test.exs` (discovery/activation),
+  `skill_integration_test.exs` (end-to-end with MockLLM), sandbox skill function tests.
+
 **Distributed Erlang node support**
 
 - `RLM.Node` — lightweight wrapper for OTP distribution with three public functions:

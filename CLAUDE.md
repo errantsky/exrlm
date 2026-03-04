@@ -27,6 +27,8 @@ rlm/
 │   │   ├── trace_store.ex        # :dets persistence GenServer
 │   │   ├── tool.ex               # Tool behaviour
 │   │   ├── tool_registry.ex      # Tool dispatch + discovery
+│   │   ├── skill.ex              # Skill struct + SKILL.md parser
+│   │   ├── skill_registry.ex     # Skill discovery from filesystem paths
 │   │   ├── telemetry/            # Telemetry events + handlers
 │   │   └── tools/                # Filesystem tools (read, write, edit, bash, grep, glob, ls)
 │   ├── rlm_web.ex                # Phoenix web module (use RLMWeb, :live_view etc.)
@@ -54,7 +56,9 @@ rlm/
 ├── priv/
 │   ├── static/                   # Built assets, favicon, etc.
 │   ├── gettext/                  # Translations
-│   └── system_prompt.md          # LLM system prompt
+│   ├── system_prompt.md          # LLM system prompt
+│   └── skills/                   # Bundled Agent Skills
+│       └── dialectic/SKILL.md    # Hegelian Dialectic skill
 ├── rel/                          # Release templates (env.sh.eex, vm.args.eex)
 ├── examples/                     # Smoke tests and example scenarios
 └── mix.exs
@@ -64,7 +68,7 @@ rlm/
 
 Enforced at compile time via the `boundary` library:
 
-- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Telemetry, Tool, ToolRegistry.
+- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Telemetry, Tool, ToolRegistry, Skill, SkillRegistry.
 - **`RLMWeb`** — Phoenix web layer. Depends on `RLM`. Exports: Endpoint.
 - **`RLM.Application`** — Top-level. Depends on both `RLM` and `RLMWeb`. Starts the unified supervision tree.
 
@@ -210,6 +214,8 @@ Default models:
 |---|---|
 | `RLM.Tool` | `@behaviour` with `name/0`, `description/0`, `execute/1` callbacks |
 | `RLM.ToolRegistry` | Central dispatch; `all/0`, `names/0`, `descriptions/0`, `execute/2` |
+| `RLM.Skill` | Skill struct + SKILL.md parser; `parse_file/1`, `parse_metadata/1`, `load_instructions/1` |
+| `RLM.SkillRegistry` | Stateless skill discovery from filesystem paths; `discover/1`, `activate/2`, `summaries/1` |
 | `RLM.Tools.ReadFile` | Read file contents (≤ 100 KB) |
 | `RLM.Tools.WriteFile` | Write or overwrite a file (creates parents) |
 | `RLM.Tools.EditFile` | Exact-string replacement (uniqueness-guarded) |
@@ -263,6 +269,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | `enable_event_log` | `true` | Enable per-run EventLog trace agents |
 | `event_log_capture_full_stdout` | `false` | Store full stdout in traces (vs truncated) |
 | `llm_module` | `RLM.LLM` | Swappable for `RLM.Test.MockLLM` |
+| `skill_paths` | `[]` | Extra filesystem paths to scan for SKILL.md files |
 
 ## Testing Conventions
 

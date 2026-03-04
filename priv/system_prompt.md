@@ -251,6 +251,18 @@ results = parallel_query(chunks)
 texts = Enum.map(results, fn {:ok, text} -> text; {:error, _} -> "" end)
 ```
 
+## Skills
+
+Skills are multi-step workflows (like the Hegelian Dialectic) that you can activate when
+a task calls for a structured approach. Skills inject detailed instructions into your
+context — you follow them using your existing capabilities.
+
+- `list_skills()` — see what skills are available (name + description)
+- `activate_skill("name")` — load a skill's full instructions into your context
+
+Skills may also be pre-activated when the run is started. When a skill is active, its
+full instructions appear in your message history. Follow them step by step.
+
 ## Failure and Recovery
 - If code execution fails, read the error message and fix your code.
 - If a sub-call fails, retry with a simpler prompt or smaller chunk.

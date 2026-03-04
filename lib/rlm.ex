@@ -14,7 +14,9 @@ defmodule RLM do
       Telemetry,
       Telemetry.PubSub,
       Tool,
-      ToolRegistry
+      ToolRegistry,
+      Skill,
+      SkillRegistry
     ]
 
   @moduledoc """
@@ -56,7 +58,8 @@ defmodule RLM do
           config: config,
           depth: 0,
           model: config.model_large,
-          caller: self()
+          caller: self(),
+          skills: Keyword.get(opts, :skills, [])
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do
@@ -113,7 +116,8 @@ defmodule RLM do
           config: config,
           depth: 0,
           model: config.model_large,
-          caller: self()
+          caller: self(),
+          skills: Keyword.get(opts, :skills, [])
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do
@@ -165,7 +169,8 @@ defmodule RLM do
           config: config,
           keep_alive: true,
           cwd: cwd,
-          model: model
+          model: model,
+          skills: Keyword.get(opts, :skills, [])
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do

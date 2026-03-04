@@ -16,9 +16,15 @@ defmodule RLM.Prompt do
     end
   end
 
-  @spec build_system_message() :: map()
-  def build_system_message do
-    %{role: :system, content: system_prompt()}
+  @spec build_system_message(keyword()) :: map()
+  def build_system_message(opts \\ []) do
+    base = system_prompt()
+    skill_summaries = Keyword.get(opts, :skill_summaries, [])
+    catalog = build_skill_catalog(skill_summaries)
+
+    content = if catalog == "", do: base, else: base <> "\n" <> catalog
+
+    %{role: :system, content: content}
   end
 
   @spec build_user_message(String.t(), non_neg_integer(), non_neg_integer(), String.t()) :: map()
@@ -107,6 +113,54 @@ defmodule RLM.Prompt do
     """
   end
 
+  @doc """
+  Build the skill catalog section for the system prompt.
+  Lists available skill names and descriptions.
+  """
+  @spec build_skill_catalog([{String.t(), String.t()}]) :: String.t()
+  def build_skill_catalog([]), do: ""
+
+  def build_skill_catalog(summaries) do
+    listing =
+      Enum.map_join(summaries, "\n", fn {name, desc} ->
+        "- `#{name}` — #{desc}"
+      end)
+
+    """
+    ## Available Skills
+
+    Skills are multi-step workflows you can activate when the task calls for them.
+    To activate a skill, call `activate_skill("name")` in your code.
+    To see what skills are available, call `list_skills()`.
+
+    #{listing}
+
+    When activated, the skill's full instructions will be provided.
+    Follow them using your existing capabilities (lm_query, parallel_query, filesystem tools).
+    """
+  end
+
+  @doc """
+  Build the activation message injected when a skill is activated mid-run.
+  """
+  @spec build_skill_activation_message(RLM.Skill.t()) :: String.t()
+  def build_skill_activation_message(skill) do
+    """
+    [Skill Activated: #{skill.name}]
+
+    The following skill instructions have been loaded. Follow them to complete the task.
+
+    ---
+
+    #{skill.instructions}
+
+    ---
+
+    Use your existing capabilities (lm_query, parallel_query, filesystem tools, bash)
+    to execute these instructions. When the skill workflow is complete, set final_answer.
+    """
+  end
+
   defp format_bindings(bindings_info) when is_list(bindings_info) do
     Enum.map(bindings_info, fn
       {name, type, bytes, _preview} ->
@@ -143,6 +197,10 @@ defmodule RLM.Prompt do
 
     ## Concurrency
     Prefer `parallel_query` over sequential `lm_query` when processing multiple chunks.
+
+    ## Skills
+    - `list_skills()` — see available skills
+    - `activate_skill("name")` — load a skill's instructions into context
 
     ## Termination
     Set `final_answer = <your result>` when done. The REPL will detect this and return the answer.

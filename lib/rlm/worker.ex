@@ -50,7 +50,11 @@ defmodule RLM.Worker do
     :eval_sup,
     pending_subcalls: %{},
     # Maps monitor ref → query_id for direct query crash detection
-    direct_query_monitors: %{}
+    direct_query_monitors: %{},
+    # Discovered skills map: %{name => %RLM.Skill{}}
+    available_skills: %{},
+    # List of activated %RLM.Skill{} structs
+    active_skills: []
   ]
 
   # -- Public API --
@@ -83,9 +87,25 @@ defmodule RLM.Worker do
     run_pid = Keyword.get(opts, :run_pid)
     eval_sup = Keyword.get(opts, :eval_sup)
 
+    # Discover available skills (only for root workers, not subcalls)
+    {available_skills, skill_summaries} =
+      if depth == 0 do
+        paths = RLM.SkillRegistry.default_paths(config, cwd)
+        skills = RLM.SkillRegistry.discover(paths)
+        {skills, RLM.SkillRegistry.summaries(skills)}
+      else
+        {%{}, []}
+      end
+
+    # Pre-activate skills specified in opts
+    pre_activate = Keyword.get(opts, :skills, [])
+
+    {available_skills, active_skills, skill_msgs} =
+      activate_initial_skills(pre_activate, available_skills)
+
     if keep_alive do
       # Keep-alive mode: start idle, wait for send_message
-      system_msg = RLM.Prompt.build_system_message()
+      system_msg = RLM.Prompt.build_system_message(skill_summaries: skill_summaries)
 
       state = %__MODULE__{
         span_id: span_id,
@@ -93,7 +113,7 @@ defmodule RLM.Worker do
         run_id: run_id,
         depth: depth,
         iteration: 0,
-        history: [system_msg],
+        history: [system_msg | skill_msgs],
         bindings: [final_answer: nil, compacted_history: ""],
         model: model,
         config: config,
@@ -107,7 +127,9 @@ defmodule RLM.Worker do
         cwd: cwd,
         pending_from: nil,
         run_pid: run_pid,
-        eval_sup: eval_sup
+        eval_sup: eval_sup,
+        available_skills: available_skills,
+        active_skills: active_skills
       }
 
       emit_telemetry([:rlm, :node, :start], %{}, state, %{
@@ -128,7 +150,7 @@ defmodule RLM.Worker do
         compacted_history: ""
       ]
 
-      system_msg = RLM.Prompt.build_system_message()
+      system_msg = RLM.Prompt.build_system_message(skill_summaries: skill_summaries)
 
       user_msg =
         RLM.Prompt.build_user_message(query, context_bytes, context_lines, context_preview)
@@ -139,7 +161,7 @@ defmodule RLM.Worker do
         run_id: run_id,
         depth: depth,
         iteration: 0,
-        history: [system_msg, user_msg],
+        history: [system_msg, user_msg | skill_msgs],
         bindings: bindings,
         model: model,
         config: config,
@@ -153,7 +175,9 @@ defmodule RLM.Worker do
         cwd: cwd,
         pending_from: nil,
         run_pid: run_pid,
-        eval_sup: eval_sup
+        eval_sup: eval_sup,
+        available_skills: available_skills,
+        active_skills: active_skills
       }
 
       emit_telemetry([:rlm, :node, :start], %{}, state, %{
@@ -414,8 +438,41 @@ defmodule RLM.Worker do
        iteration: state.iteration,
        message_count: length(state.history),
        keep_alive: state.keep_alive,
-       cwd: state.cwd
+       cwd: state.cwd,
+       active_skills: Enum.map(state.active_skills, & &1.name)
      }, state}
+  end
+
+  def handle_call({:activate_skill, name}, _from, state) do
+    if name in Enum.map(state.active_skills, & &1.name) do
+      # Already active — idempotent
+      {:reply, {:ok, name}, state}
+    else
+      case RLM.SkillRegistry.activate(state.available_skills, name) do
+        {:ok, skill, updated_skills} ->
+          skill_msg = %{
+            role: :user,
+            content: RLM.Prompt.build_skill_activation_message(skill)
+          }
+
+          state = %{
+            state
+            | active_skills: [skill | state.active_skills],
+              available_skills: updated_skills,
+              history: state.history ++ [skill_msg]
+          }
+
+          {:reply, {:ok, name}, state}
+
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
+      end
+    end
+  end
+
+  def handle_call(:list_skills, _from, state) do
+    summaries = RLM.SkillRegistry.summaries(state.available_skills)
+    {:reply, summaries, state}
   end
 
   def handle_call({:direct_query, text, model_size, schema}, from, state) do
@@ -933,6 +990,28 @@ defmodule RLM.Worker do
 
   defp join_compacted("", new), do: new
   defp join_compacted(existing, new), do: existing <> "\n===\n" <> new
+
+  defp activate_initial_skills([], available_skills) do
+    {available_skills, [], []}
+  end
+
+  defp activate_initial_skills(skill_names, available_skills) do
+    Enum.reduce(skill_names, {available_skills, [], []}, fn name, {skills, active, msgs} ->
+      case RLM.SkillRegistry.activate(skills, name) do
+        {:ok, skill, updated_skills} ->
+          msg = %{
+            role: :user,
+            content: RLM.Prompt.build_skill_activation_message(skill)
+          }
+
+          {updated_skills, [skill | active], msgs ++ [msg]}
+
+        {:error, reason} ->
+          Logger.warning("Failed to pre-activate skill #{name}: #{reason}")
+          {skills, active, msgs}
+      end
+    end)
+  end
 
   defp emit_telemetry(event, measurements, state, extra_metadata) do
     base = %{

@@ -26,7 +26,8 @@ defmodule RLM.Config do
     :enable_otel,
     :enable_event_log,
     :event_log_capture_full_stdout,
-    :llm_module
+    :llm_module,
+    :skill_paths
   ]
 
   @type t :: %__MODULE__{}
@@ -57,7 +58,8 @@ defmodule RLM.Config do
       enable_otel: get(overrides, :enable_otel, false),
       enable_event_log: get(overrides, :enable_event_log, true),
       event_log_capture_full_stdout: get(overrides, :event_log_capture_full_stdout, false),
-      llm_module: get(overrides, :llm_module, RLM.LLM)
+      llm_module: get(overrides, :llm_module, RLM.LLM),
+      skill_paths: get(overrides, :skill_paths, [])
     }
   end
 
