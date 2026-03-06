@@ -21,9 +21,9 @@ All notable changes to this project are documented here.
 - `RLM.LLM` refactored to a pure behaviour module + shared utilities
   (`extract_structured/1`, `response_schema/0`); no longer contains an implementation.
 - `models` config field — `%{atom() => String.t()}` map of symbolic keys to
-  provider-prefixed model specs. Default: `%{large: "anthropic:claude-sonnet-4-6",
-  small: "anthropic:claude-haiku-4-5"}`. Pass custom maps for Ollama/OpenAI:
-  `models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"}`
+  model specs. Default: `%{large: "claude-sonnet-4-6", small: "claude-haiku-4-5"}`.
+  Bare names are auto-prefixed with `"anthropic:"` by `ReqLLM`. Pass custom maps
+  for Ollama/OpenAI: `models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"}`
 - `RLM.Config.resolve_model/2` — looks up a model key in the `models` map
 - `RLM.Config.context_window_for/2` — resolves context window size for a model key
   (legacy fields for `:large`/`:small`, default 128k for custom keys)
@@ -66,8 +66,31 @@ All notable changes to this project are documented here.
   then falls back to a live LLM module when the tape is exhausted
 - `:fallback` option on `RLM.replay/2` — `:error` (default) or `:live` to switch
   to live LLM calls when the tape runs out (e.g., because a patch caused extra iterations)
+- `examples/local_models.exs` — new example demonstrating Ollama/local model usage
+  with no API key required. Registered as `mix rlm.examples local_models`
+- `test/rlm/config_test.exs` — 16 new unit tests for `Config.load/1`,
+  `Config.resolve_model/2`, and `Config.context_window_for/2`
 - 17 tests covering recording, tape construction, replay LLM, replay orchestration,
   patching, fallback behavior, and the public API
+
+### Fixed
+
+- `RLM.LLM.ReqLLM.encode_object/1` now returns an explicit error instead of silently
+  falling back to an empty string when the LLM response contains no usable content
+- `RLM.LLM.ReqLLM.extract_usage/1` logs a warning when token usage extraction fails
+  (all fields nil despite non-empty response), preventing silent zero-cost reporting
+- `RLM.Replay.Tape.get_events/1` now catches `:noproc` exits specifically and logs
+  a warning for unexpected exit reasons, instead of broadly swallowing all exits
+- `RLM.Replay.FallbackLLM` now logs when switching from tape replay to live LLM calls
+- `RLM.Config.context_window_for/2` now logs a warning when using the 128k default
+  for custom model keys, making it easier to diagnose compaction behavior
+- `RLM.Replay` moduledoc corrected: fallback default is `RLM.LLM.ReqLLM` (not `RLM.LLM`)
+- `RLM.Worker` moduledoc updated to be provider-agnostic (no longer references "Claude's
+  output_config" specifically)
+- `CLAUDE.md` — removed stale `cost_per_1k_*` config fields; fixed `models` default to
+  match actual bare-name defaults; updated env var references to `ANTHROPIC_API_KEY`
+- All examples updated from `CLAUDE_API_KEY` to `ANTHROPIC_API_KEY`; smoke test checks
+  both env vars
 
 **Distributed Erlang node support**
 

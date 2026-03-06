@@ -9,11 +9,18 @@ defmodule RLM.Replay.FallbackLLM do
 
   @behaviour RLM.LLM
 
+  require Logger
+
   @impl true
   def chat(messages, model, config, opts \\ []) do
     case pop_entry() do
       nil ->
         fallback_module = Process.get(:rlm_replay_fallback_module, RLM.LLM.ReqLLM)
+
+        Logger.info(
+          "Replay tape exhausted, falling back to live LLM (#{inspect(fallback_module)})"
+        )
+
         fallback_module.chat(messages, model, config, opts)
 
       entry ->

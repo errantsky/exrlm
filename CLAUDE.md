@@ -86,10 +86,10 @@ mix test
 # Run tests with trace output
 mix test --trace
 
-# Run live API tests (requires CLAUDE_API_KEY env var)
+# Run live API tests (requires ANTHROPIC_API_KEY or CLAUDE_API_KEY env var)
 mix test --include live_api
 
-# Live smoke test (requires CLAUDE_API_KEY env var)
+# Live smoke test (requires ANTHROPIC_API_KEY or CLAUDE_API_KEY env var)
 mix rlm.smoke
 
 # Interactive shell
@@ -178,16 +178,16 @@ LLM responses use structured output (JSON schema) to constrain responses to
 `{"reasoning": "...", "code": "..."}` objects. Feedback messages after eval are also
 structured JSON.
 
-The `models` config field maps symbolic keys to provider-prefixed specs:
+The `models` config field maps symbolic keys to model specs:
 
 ```elixir
 RLM.run(context, query,
   models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"})
 ```
 
-Default models:
-- Large: `anthropic:claude-sonnet-4-6`
-- Small: `anthropic:claude-haiku-4-5`
+Default models (bare names; `ReqLLM` auto-prefixes with `"anthropic:"`):
+- Large: `claude-sonnet-4-6`
+- Small: `claude-haiku-4-5`
 
 ## Module Map
 
@@ -264,7 +264,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 |---|---|---|
 | `api_base_url` | `"https://api.anthropic.com"` | Anthropic API base URL |
 | `api_key` | `ANTHROPIC_API_KEY` env var | API key for LLM requests (falls back to `CLAUDE_API_KEY`) |
-| `models` | `%{large: "anthropic:claude-sonnet-4-6", small: "anthropic:claude-haiku-4-5"}` | Named model map; keys are atoms, values are `"provider:model"` specs |
+| `models` | `%{large: "claude-sonnet-4-6", small: "claude-haiku-4-5"}` | Named model map; keys are atoms, values are model specs. Bare names are auto-prefixed with `"anthropic:"` by `ReqLLM` |
 | `model_large` | `claude-sonnet-4-6` | Legacy; used to build default `models` map |
 | `model_small` | `claude-haiku-4-5` | Legacy; used to build default `models` map |
 | `max_iterations` | `25` | Per-worker LLM turn limit |
@@ -277,10 +277,6 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | `eval_timeout` | `300_000` | ms per eval (5 min) |
 | `llm_timeout` | `120_000` | ms per LLM request (2 min) |
 | `subcall_timeout` | `600_000` | ms per subcall (10 min) |
-| `cost_per_1k_prompt_tokens_large` | `0.003` | Cost tracking for large model input |
-| `cost_per_1k_prompt_tokens_small` | `0.0008` | Cost tracking for small model input |
-| `cost_per_1k_completion_tokens_large` | `0.015` | Cost tracking for large model output |
-| `cost_per_1k_completion_tokens_small` | `0.004` | Cost tracking for small model output |
 | `enable_otel` | `false` | Enable OpenTelemetry integration |
 | `enable_event_log` | `true` | Enable per-run EventLog trace agents |
 | `event_log_capture_full_stdout` | `false` | Store full stdout in traces (vs truncated) |
@@ -293,7 +289,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 - Worker/keep_alive tests run `async: false` since MockLLM uses global state
 - Tool tests and sandbox tests can run `async: true` (no global state)
 - Live API tests tagged with `@moduletag :live_api` and excluded by default
-- `mix test --include live_api` requires `CLAUDE_API_KEY` env var
+- `mix test --include live_api` requires `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY`) env var
 - Test support files in `test/support/`
 - Tool tests use a per-test temp directory (created in `setup`, cleaned in `on_exit`)
 - Worker concurrency/depth tests use `RLM.Test.Helpers.start_test_run/1` to create a Run, then spawn Workers via `RLM.Run.start_worker/2`
@@ -304,7 +300,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 - Workers use `restart: :temporary` — they terminate normally after completion
 - The `llm_module` config field enables dependency injection for testing
 - Bash tool uses `Task.async` + `Task.yield/2` (not `System.cmd` — it has no `:timeout` option)
-- `.env` file with `CLAUDE_API_KEY` should exist at project root but must not be committed
+- `.env` file with `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY`) should exist at project root but must not be committed
 - `RLM.run/3` monitors the Worker with `Process.monitor` so crashes return `{:error, reason}`
   rather than hanging indefinitely
 
@@ -327,6 +323,8 @@ The dashboard is a Phoenix 1.8 LiveView application. Key conventions:
 
 ## Orientation for Coding Agents
 
+### Getting Started
+
 When starting a task, read these files in order:
 
 1. **`CLAUDE.md`** (this file) — architecture, invariants, module map
@@ -334,13 +332,90 @@ When starting a task, read these files in order:
 3. The specific module(s) relevant to your task (see Module Map above)
 4. The corresponding test file to understand expected behaviour
 
-Key invariants **never to break**:
+### Key Invariants (Never Break These)
+
 - Raw input data must not enter any LLM context window (use `preview/2` or metadata only)
 - Workers are `:temporary` — do not change their restart strategy
 - The async-eval pattern in `RLM.Worker` is intentional; do not make eval synchronous
 - All session tests must use `async: false` (MockLLM is global ETS state)
+- Run → Worker communication is always `send/2`, never `GenServer.call` (deadlock prevention)
 
-Before committing, always run:
+### Key Contracts & Interfaces
+
+**LLM Behaviour** (`RLM.LLM`):
+```elixir
+@callback chat(messages :: [map()], model :: String.t(), config :: RLM.Config.t(), opts :: keyword()) ::
+  {:ok, json_string :: String.t(), usage :: usage()} | {:error, String.t()}
+```
+All LLM modules (`ReqLLM`, `Anthropic`, `MockLLM`, `Replay.LLM`, `Replay.FallbackLLM`) implement
+this same callback. The `json_string` return is always a JSON-encoded string, never a parsed map.
+
+**Usage type**: `%{prompt_tokens: integer | nil, completion_tokens: integer | nil, total_tokens: integer | nil, cache_creation_input_tokens: integer | nil, cache_read_input_tokens: integer | nil}`
+
+**Model resolution**: Use `RLM.Config.resolve_model(config, :large | :small | atom())` → `{:ok, "provider:model-name"}` or `{:error, reason}`. In Worker, use `resolve_model!/2` (raises on unknown keys).
+
+**Tool Behaviour** (`RLM.Tool`):
+```elixir
+@callback name() :: String.t()
+@callback description() :: String.t()
+@callback execute(map()) :: {:ok, String.t()} | {:error, String.t()}
+```
+
+### Dependency Injection Pattern
+
+The `llm_module` config field is the primary injection point:
+- **Production**: `RLM.LLM.ReqLLM` (default) — multi-provider via `req_llm`
+- **Testing**: `RLM.Test.MockLLM` — ETS-based response queue, set in `config/test.exs`
+- **Legacy**: `RLM.LLM.Anthropic` — direct Anthropic HTTP client
+- **Replay**: `RLM.Replay.LLM` / `RLM.Replay.FallbackLLM` — tape-based, set by `RLM.Replay`
+
+When adding a new LLM feature, implement it in the behaviour callback — the Worker
+calls `config.llm_module.chat(...)` and is provider-agnostic.
+
+### Testing Patterns
+
+**MockLLM usage** — queue expected responses before running Workers:
+```elixir
+RLM.Test.MockLLM.enqueue(%{
+  "reasoning" => "I'll count the lines",
+  "code" => ~s(final_answer = 4)
+})
+```
+MockLLM is global ETS state. Tests using it must be `async: false`.
+
+**Creating a test Run** — use `RLM.Test.Helpers.start_test_run/1`:
+```elixir
+{run_pid, run_id} = RLM.Test.Helpers.start_test_run(config)
+{:ok, worker_pid, span_id} = RLM.Run.start_worker(run_pid, worker_opts)
+```
+
+**Tool tests** — use per-test temp dirs (created in `setup`, cleaned in `on_exit`);
+these can run `async: true` since tools have no global state.
+
+### Common Modification Patterns
+
+**Adding a new config field:**
+1. Add to `defstruct` in `config.ex`
+2. Add to `load/1` with `get(overrides, :key, default)`
+3. Add row to CLAUDE.md Config Fields table
+4. Add to CHANGELOG.md
+
+**Adding a new tool:**
+1. Create `lib/rlm/tools/my_tool.ex` implementing `RLM.Tool`
+2. Add to `RLM.ToolRegistry.all/0`
+3. Add wrapper function to `RLM.Sandbox`
+4. Add to system prompt in `priv/system_prompt.md`
+5. Add row to CLAUDE.md Module Map (Filesystem Tools section)
+
+**Adding a new LLM behaviour implementation:**
+1. Create module with `@behaviour RLM.LLM`
+2. Implement `chat/4` returning `{:ok, json_string, usage}` or `{:error, string}`
+3. Users select it via `llm_module:` config override
+4. Add row to CLAUDE.md Module Map
+
+### Before Committing
+
+Always run:
 ```bash
 mix compile --warnings-as-errors
 mix test

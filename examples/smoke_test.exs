@@ -1,9 +1,9 @@
 # examples/smoke_test.exs
 #
-# Live smoke test for the RLM engine. Requires CLAUDE_API_KEY.
+# Live smoke test for the RLM engine. Requires ANTHROPIC_API_KEY (or CLAUDE_API_KEY).
 #
 # Usage:
-#   export CLAUDE_API_KEY=sk-ant-...
+#   export ANTHROPIC_API_KEY=sk-ant-...
 #   mix run examples/smoke_test.exs
 #
 # Or via the Mix task:
@@ -152,9 +152,11 @@ defmodule RLM.SmokeTest do
   # ---------------------------------------------------------------------------
 
   defp check_api_key! do
-    case System.get_env("CLAUDE_API_KEY") do
+    key = System.get_env("ANTHROPIC_API_KEY") || System.get_env("CLAUDE_API_KEY")
+
+    case key do
       nil ->
-        IO.puts("\n  ERROR: CLAUDE_API_KEY not set. Export it before running.\n")
+        IO.puts("\n  ERROR: ANTHROPIC_API_KEY not set. Export it before running.\n")
         System.halt(1)
 
       key ->

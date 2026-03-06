@@ -52,14 +52,26 @@ defmodule RLM.Replay.Tape do
     end
   end
 
-  # EventLog.get_events/1 raises an exit when no Agent exists for the run_id.
-  # Catch that and fall back to TraceStore.
+  # EventLog.get_events/1 raises an exit when no Agent exists for the run_id
+  # (e.g., swept by the GC). Catch that and fall back to TraceStore.
   defp get_events(run_id) do
     case RLM.EventLog.get_events(run_id) do
       [] -> RLM.EventLog.get_events_from_store(run_id)
       events -> events
     end
   catch
-    :exit, _ -> RLM.EventLog.get_events_from_store(run_id)
+    :exit, {:noproc, _} ->
+      # Agent was swept — expected, fall back to persisted store
+      RLM.EventLog.get_events_from_store(run_id)
+
+    :exit, reason ->
+      require Logger
+
+      Logger.warning(
+        "EventLog.get_events failed for run #{run_id}: #{inspect(reason)}, " <>
+          "falling back to TraceStore"
+      )
+
+      RLM.EventLog.get_events_from_store(run_id)
   end
 end

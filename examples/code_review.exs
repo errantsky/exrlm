@@ -11,7 +11,7 @@
 # - Filesystem tool usage visible in code blocks
 #
 # Usage:
-#   export CLAUDE_API_KEY=sk-ant-...
+#   export ANTHROPIC_API_KEY=sk-ant-...
 #   mix run examples/code_review.exs
 #
 # Or via the Mix task:

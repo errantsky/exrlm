@@ -11,7 +11,7 @@
 # - Mix of direct queries and full subcalls visible as different node types
 #
 # Usage:
-#   export CLAUDE_API_KEY=sk-ant-...
+#   export ANTHROPIC_API_KEY=sk-ant-...
 #   mix run examples/research_synthesis.exs
 #
 # Or via the Mix task:
@@ -215,7 +215,12 @@ defmodule RLM.Examples.ResearchSynthesis do
 
     if narrative = result["narrative"] do
       IO.puts("    Narrative preview:")
-      narrative |> String.slice(0, 400) |> String.split("\n") |> Enum.each(&IO.puts("      #{&1}"))
+
+      narrative
+      |> String.slice(0, 400)
+      |> String.split("\n")
+      |> Enum.each(&IO.puts("      #{&1}"))
+
       IO.puts("      ...")
     end
   end

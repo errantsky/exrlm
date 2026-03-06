@@ -9,7 +9,7 @@
 # - Bindings growing across iterations
 #
 # Usage:
-#   export CLAUDE_API_KEY=sk-ant-...
+#   export ANTHROPIC_API_KEY=sk-ant-...
 #   mix run examples/map_reduce_analysis.exs
 #
 # Or via the Mix task:
