@@ -13,7 +13,7 @@ defmodule RLM.Replay.FallbackLLM do
   def chat(messages, model, config, opts \\ []) do
     case pop_entry() do
       nil ->
-        fallback_module = Process.get(:rlm_replay_fallback_module, RLM.LLM)
+        fallback_module = Process.get(:rlm_replay_fallback_module, RLM.LLM.ReqLLM)
         fallback_module.chat(messages, model, config, opts)
 
       entry ->
