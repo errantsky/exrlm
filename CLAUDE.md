@@ -167,10 +167,20 @@ A `Process.monitor` on the Worker ensures crashes surface as errors rather than 
 
 ### LLM Client
 The default backend is `RLM.LLM.ReqLLM`, which delegates to the `req_llm` package
-and supports any provider: Anthropic, OpenAI, Ollama (local), Gemini, Groq, etc.
-Model specs use the `"provider:model-name"` convention (e.g., `"anthropic:claude-sonnet-4-6"`,
-`"ollama:qwen3.5:35b"`). Bare names without a prefix are treated as Anthropic for
-backward compatibility. Requires `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY` as fallback).
+and supports Anthropic, OpenAI, Gemini, Groq, and other providers in `req_llm`'s catalog.
+Model specs use the `"provider:model-name"` convention (e.g., `"anthropic:claude-sonnet-4-6"`).
+Bare names without a prefix are treated as Anthropic for backward compatibility.
+Requires `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY` as fallback).
+
+For local Ollama models, use `RLM.LLM.Ollama` — a lightweight adapter that talks
+directly to Ollama's OpenAI-compatible `/v1/chat/completions` endpoint via `Req`.
+No external LLM library needed. Works with any model Ollama serves:
+
+```elixir
+RLM.run(context, query,
+  llm_module: RLM.LLM.Ollama,
+  models: %{large: "qwen3.5:9b", small: "qwen3.5:9b"})
+```
 
 The legacy hand-rolled Anthropic client is preserved as `RLM.LLM.Anthropic` and can
 be selected via `llm_module: RLM.LLM.Anthropic`.
@@ -178,13 +188,6 @@ be selected via `llm_module: RLM.LLM.Anthropic`.
 LLM responses use structured output (JSON schema) to constrain responses to
 `{"reasoning": "...", "code": "..."}` objects. Feedback messages after eval are also
 structured JSON.
-
-The `models` config field maps symbolic keys to model specs:
-
-```elixir
-RLM.run(context, query,
-  models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"})
-```
 
 Default models (bare names; `ReqLLM` auto-prefixes with `"anthropic:"`):
 - Large: `claude-sonnet-4-6`
@@ -205,6 +208,7 @@ Default models (bare names; `ReqLLM` auto-prefixes with `"anthropic:"`):
 | `RLM.LLM` | LLM behaviour + shared utilities (`extract_structured/1`, `response_schema/0`) |
 | `RLM.LLM.ReqLLM` | Multi-provider LLM backend via `req_llm` (default) |
 | `RLM.LLM.Anthropic` | Direct Anthropic Messages API client (legacy fallback) |
+| `RLM.LLM.Ollama` | Direct Ollama backend via Req; local models without external LLM library |
 | `RLM.Prompt` | System prompt loading + structured JSON feedback message formatting |
 | `RLM.Helpers` | `chunks/2`, `grep/2`, `preview/2`, `list_bindings/0` |
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
@@ -285,7 +289,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | `enable_event_log` | `true` | Enable per-run EventLog trace agents |
 | `event_log_capture_full_stdout` | `false` | Store full stdout in traces (vs truncated) |
 | `enable_replay_recording` | `false` | Record full LLM responses for deterministic replay |
-| `llm_module` | `RLM.LLM.ReqLLM` | Default LLM backend; swap to `RLM.LLM.Anthropic` or `RLM.Test.MockLLM` |
+| `llm_module` | `RLM.LLM.ReqLLM` | Default LLM backend; swap to `RLM.LLM.Ollama`, `RLM.LLM.Anthropic`, or `RLM.Test.MockLLM` |
 | `skill_paths` | `[]` | Additional directories to scan for Agent Skills |
 
 ## Testing Conventions
@@ -352,8 +356,8 @@ When starting a task, read these files in order:
 @callback chat(messages :: [map()], model :: String.t(), config :: RLM.Config.t(), opts :: keyword()) ::
   {:ok, json_string :: String.t(), usage :: usage()} | {:error, String.t()}
 ```
-All LLM modules (`ReqLLM`, `Anthropic`, `MockLLM`, `Replay.LLM`, `Replay.FallbackLLM`) implement
-this same callback. The `json_string` return is always a JSON-encoded string, never a parsed map.
+All LLM modules (`ReqLLM`, `Anthropic`, `Ollama`, `MockLLM`, `Replay.LLM`, `Replay.FallbackLLM`)
+implement this same callback. The `json_string` return is always a JSON-encoded string, never a parsed map.
 
 **Usage type**: `%{prompt_tokens: integer | nil, completion_tokens: integer | nil, total_tokens: integer | nil, cache_creation_input_tokens: integer | nil, cache_read_input_tokens: integer | nil}`
 
@@ -370,6 +374,7 @@ this same callback. The `json_string` return is always a JSON-encoded string, ne
 
 The `llm_module` config field is the primary injection point:
 - **Production**: `RLM.LLM.ReqLLM` (default) — multi-provider via `req_llm`
+- **Local models**: `RLM.LLM.Ollama` — direct Ollama via Req, no external LLM library
 - **Testing**: `RLM.Test.MockLLM` — ETS-based response queue, set in `config/test.exs`
 - **Legacy**: `RLM.LLM.Anthropic` — direct Anthropic HTTP client
 - **Replay**: `RLM.Replay.LLM` / `RLM.Replay.FallbackLLM` — tape-based, set by `RLM.Replay`

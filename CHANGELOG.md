@@ -33,13 +33,28 @@ All notable changes to this project are documented here.
 - 15 tests for `RLM.SkillRegistry` (discovery, precedence, reload, errors)
 - 4 integration tests verifying end-to-end skill flow through `RLM.run/3` and `start_session/1`
 
+**Ollama LLM backend**
+
+- `RLM.LLM.Ollama` — lightweight adapter for local Ollama models. Talks directly to
+  Ollama's OpenAI-compatible `/v1/chat/completions` endpoint via `Req`. No external
+  LLM library needed — works with any model Ollama serves. Supports structured output
+  via `response_format` with `json_schema`. Base URL configurable via `OLLAMA_HOST`
+  env var or `config :rlm, :ollama_base_url`. Usage:
+  ```elixir
+  RLM.run(context, query,
+    llm_module: RLM.LLM.Ollama,
+    models: %{large: "qwen3.5:9b", small: "qwen3.5:9b"})
+  ```
+- `examples/local_models.exs` updated to use `RLM.LLM.Ollama` instead of the
+  `"ollama:model"` req_llm format (which is not supported by req_llm's provider catalog)
+
 **Multi-provider LLM support via req_llm**
 
 - `RLM.LLM.ReqLLM` — new default LLM backend that delegates to `req_llm` v1.6,
-  supporting Anthropic, OpenAI, Ollama (local models), Google Gemini, Groq, and any
-  other provider that `req_llm` supports. Model specs use the `"provider:model-name"`
-  convention (e.g., `"anthropic:claude-sonnet-4-6"`, `"ollama:qwen3.5:35b"`). Bare
-  model names without a provider prefix are treated as Anthropic for backward compat.
+  supporting Anthropic, OpenAI, Google Gemini, Groq, and any other provider in
+  `req_llm`'s catalog. Model specs use the `"provider:model-name"` convention
+  (e.g., `"anthropic:claude-sonnet-4-6"`). Bare model names without a provider
+  prefix are treated as Anthropic for backward compat.
 - `RLM.LLM.Anthropic` — the previous hand-rolled Anthropic Messages API client,
   preserved as a fallback for users who need direct Anthropic-specific control.
   Select via `llm_module: RLM.LLM.Anthropic`.

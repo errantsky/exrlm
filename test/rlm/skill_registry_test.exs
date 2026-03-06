@@ -32,7 +32,7 @@ defmodule RLM.SkillRegistryTest do
 
   defp start_registry(paths) do
     name = :"skill_registry_#{:erlang.unique_integer([:positive])}"
-    opts = [skill_paths: paths, name: name]
+    opts = [skill_paths: paths, name: name, skip_default_paths: true]
     start_supervised!({SkillRegistry, opts})
   end
 

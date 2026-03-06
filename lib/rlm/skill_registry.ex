@@ -85,7 +85,8 @@ defmodule RLM.SkillRegistry do
   @impl true
   def init(opts) do
     extra_paths = Keyword.get(opts, :skill_paths, [])
-    paths = build_paths(extra_paths)
+    skip_defaults = Keyword.get(opts, :skip_default_paths, false)
+    paths = if skip_defaults, do: extra_paths, else: build_paths(extra_paths)
     {skills, errors} = discover(paths)
 
     if map_size(skills) > 0 do

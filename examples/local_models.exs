@@ -17,7 +17,8 @@
 #   mix rlm.examples local_models
 #
 # Configuration options shown:
-#   - models: %{large: "ollama:model", small: "ollama:model"}
+#   - llm_module: RLM.LLM.Ollama (direct Ollama backend, no req_llm)
+#   - models: %{large: "model-name", small: "model-name"} (bare Ollama model names)
 #   - Using the same model for both large and small
 #   - Using different models for parent vs subcall workers
 #   - Overriding max_iterations for faster local runs
@@ -27,7 +28,8 @@ defmodule RLM.Examples.LocalModels do
 
   # Change these to match the models you have pulled locally.
   # Run `ollama list` to see available models.
-  @default_model "ollama:qwen3:8b"
+  # Use bare Ollama model names (no "ollama:" prefix needed).
+  @default_model "qwen3:8b"
 
   def run do
     check_ollama!()
@@ -35,6 +37,7 @@ defmodule RLM.Examples.LocalModels do
     model = System.get_env("RLM_LOCAL_MODEL", @default_model)
     IO.puts("\nRLM Local Models Example")
     IO.puts("========================")
+    IO.puts("Using RLM.LLM.Ollama backend")
     IO.puts("Model: #{model}")
     IO.puts("")
 
@@ -70,10 +73,11 @@ defmodule RLM.Examples.LocalModels do
   # ---------------------------------------------------------------------------
 
   defp test_basic_run(model) do
-    # Simplest usage: override the models map to use a local model
+    # Simplest usage: RLM.LLM.Ollama talks directly to the local Ollama server
     case RLM.run(
            "Elixir, Rust, Python",
            "Count the programming languages. Return the count as an integer.",
+           llm_module: RLM.LLM.Ollama,
            models: %{large: model, small: model},
            max_iterations: 10
          ) do
@@ -94,6 +98,7 @@ defmodule RLM.Examples.LocalModels do
            "apple, banana, cherry",
            "First store the number of items in a variable called count. " <>
              "Then set final_answer to count * 100.",
+           llm_module: RLM.LLM.Ollama,
            models: %{large: model, small: model},
            max_iterations: 10
          ) do
@@ -113,16 +118,18 @@ defmodule RLM.Examples.LocalModels do
     # In practice, you might use a larger model for the parent worker
     # and a smaller one for subcalls:
     #
+    #   llm_module: RLM.LLM.Ollama,
     #   models: %{
-    #     large: "ollama:qwen3:32b",
-    #     small: "ollama:qwen3:8b",
-    #     fast:  "ollama:qwen3:1.7b"
+    #     large: "qwen3:32b",
+    #     small: "qwen3:8b",
+    #     fast:  "qwen3:1.7b"
     #   }
     #
     # For this test, we use the same model for both to keep it simple.
     case RLM.run(
            "Hello",
            "Set final_answer to the string \"hello from local model\"",
+           llm_module: RLM.LLM.Ollama,
            models: %{large: model, small: model},
            max_iterations: 5
          ) do
