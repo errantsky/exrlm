@@ -14,6 +14,7 @@ defmodule RLM do
       Replay,
       Replay.Tape,
       Replay.LLM,
+      Replay.FallbackLLM,
       Telemetry,
       Telemetry.PubSub,
       Tool,
@@ -225,7 +226,10 @@ defmodule RLM do
   ## Options
 
     * `:patch` — `%{iteration => code}` map to replace code at specific iterations
-    * `:config` — config overrides for the replay run
+    * `:fallback` — `:error` (default) or `:live` to switch to live LLM calls
+      when the tape runs out (e.g., because a patch caused extra iterations)
+    * `:config` — config overrides for the replay run (set `llm_module` here
+      to control which module handles live fallback calls)
 
   Returns `{:ok, answer, replay_run_id}` or `{:error, reason}`.
   """

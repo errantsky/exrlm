@@ -29,8 +29,12 @@ All notable changes to this project are documented here.
   workers — enables replay to recover the original inputs
 - `:replay_patches` field on `RLM.Worker` struct — applied before eval to substitute
   code at specific iterations during replay
-- 14 tests covering recording, tape construction, replay LLM, replay orchestration,
-  patching, and the public API
+- `RLM.Replay.FallbackLLM` — LLM behaviour impl that tries tape entries first,
+  then falls back to a live LLM module when the tape is exhausted
+- `:fallback` option on `RLM.replay/2` — `:error` (default) or `:live` to switch
+  to live LLM calls when the tape runs out (e.g., because a patch caused extra iterations)
+- 17 tests covering recording, tape construction, replay LLM, replay orchestration,
+  patching, fallback behavior, and the public API
 
 **Distributed Erlang node support**
 

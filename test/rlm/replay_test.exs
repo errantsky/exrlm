@@ -333,6 +333,81 @@ defmodule RLM.ReplayTest do
     end
   end
 
+  # ── Fallback ─────────────────────────────────────────────────────────
+
+  describe "replay with fallback: :live" do
+    test "falls back to live LLM when tape is exhausted by a patch" do
+      # Record a 1-iteration run
+      MockLLM.program_responses([
+        MockLLM.mock_response(~s(final_answer = "original"))
+      ])
+
+      {:ok, "original", run_id} =
+        RLM.run("ctx", "task",
+          llm_module: MockLLM,
+          enable_replay_recording: true
+        )
+
+      Process.sleep(200)
+
+      # Patch iteration 0 to NOT set final_answer → tape exhausts after 1 entry
+      # The fallback MockLLM provides the response for iteration 1
+      MockLLM.program_responses([
+        MockLLM.mock_response(~s(final_answer = "from_fallback"))
+      ])
+
+      assert {:ok, "from_fallback", _} =
+               RLM.Replay.replay(run_id,
+                 patch: %{0 => "x = 42"},
+                 fallback: :live,
+                 config: [llm_module: MockLLM]
+               )
+    end
+
+    test "tape entries are consumed before falling back" do
+      # Record a 2-iteration run
+      MockLLM.program_responses([
+        MockLLM.mock_response("x = 10"),
+        MockLLM.mock_response(~s(final_answer = "got \#{x}"))
+      ])
+
+      {:ok, "got 10", run_id} =
+        RLM.run("ctx", "task",
+          llm_module: MockLLM,
+          enable_replay_recording: true
+        )
+
+      Process.sleep(200)
+
+      # Straight replay with fallback: :live — tape has enough entries,
+      # so fallback is never used. No need to program MockLLM responses.
+      assert {:ok, "got 10", _} =
+               RLM.Replay.replay(run_id,
+                 fallback: :live,
+                 config: [llm_module: MockLLM]
+               )
+    end
+
+    test "fallback: :error (default) returns error when tape exhausted" do
+      MockLLM.program_responses([
+        MockLLM.mock_response(~s(final_answer = "original"))
+      ])
+
+      {:ok, "original", run_id} =
+        RLM.run("ctx", "task",
+          llm_module: MockLLM,
+          enable_replay_recording: true
+        )
+
+      Process.sleep(200)
+
+      # Patch removes final_answer, causing iteration 1 to need an LLM response
+      # With default fallback: :error, this should fail
+      assert {:error, _reason} =
+               RLM.Replay.replay(run_id, patch: %{0 => "x = 42"})
+    end
+  end
+
   # ── Phase 4: Public API ─────────────────────────────────────────────
 
   describe "RLM.replay/2 public API" do

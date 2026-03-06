@@ -87,9 +87,14 @@ defmodule RLM.Worker do
 
     replay_tape = Keyword.get(opts, :replay_tape)
     replay_patches = Keyword.get(opts, :replay_patches, %{})
+    replay_fallback_module = Keyword.get(opts, :replay_fallback_module)
 
     if replay_tape do
-      RLM.Replay.LLM.load_tape(replay_tape)
+      if replay_fallback_module do
+        RLM.Replay.FallbackLLM.load_tape(replay_tape, replay_fallback_module)
+      else
+        RLM.Replay.LLM.load_tape(replay_tape)
+      end
     end
 
     if keep_alive do

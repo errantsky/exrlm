@@ -160,6 +160,13 @@ optimization (replay re-evaluates all code without making LLM calls).
 {:ok, new_answer, _} = RLM.replay(run_id,
   patch: %{0 => ~s(final_answer = "patched result")}
 )
+
+# Step 4: Patch + fallback — if the patch causes extra iterations,
+# fall back to live LLM calls instead of erroring
+{:ok, answer, _} = RLM.replay(run_id,
+  patch: %{0 => "x = 42"},
+  fallback: :live
+)
 ```
 
 ### Sandbox API

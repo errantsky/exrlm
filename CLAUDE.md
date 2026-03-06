@@ -64,7 +64,7 @@ rlm/
 
 Enforced at compile time via the `boundary` library:
 
-- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Replay, Replay.Tape, Replay.LLM, Telemetry, Tool, ToolRegistry.
+- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Replay, Replay.Tape, Replay.LLM, Replay.FallbackLLM, Telemetry, Tool, ToolRegistry.
 - **`RLMWeb`** — Phoenix web layer. Depends on `RLM`. Exports: Endpoint.
 - **`RLM.Application`** — Top-level. Depends on both `RLM` and `RLMWeb`. Starts the unified supervision tree.
 
@@ -205,6 +205,7 @@ Default models:
 | `RLM.Replay` | Replay orchestrator: `replay/2` replays a recorded run with optional code patches |
 | `RLM.Replay.Tape` | Tape struct + `from_events/1` builder; ordered sequence of recorded LLM responses |
 | `RLM.Replay.LLM` | LLM behaviour impl that returns responses from a tape (process-dict based) |
+| `RLM.Replay.FallbackLLM` | LLM behaviour impl that tries tape first, then falls back to a live LLM module |
 | `RLM.Application` | OTP application; starts unified supervision tree (core + web) |
 
 ### Filesystem Tools
