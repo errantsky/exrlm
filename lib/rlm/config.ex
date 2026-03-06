@@ -9,32 +9,31 @@ defmodule RLM.Config do
 
       %RLM.Config{
         models: %{
-          large: "anthropic:claude-sonnet-4-6",
-          small: "anthropic:claude-haiku-4-5"
+          large: "claude-sonnet-4-6",
+          small: "claude-haiku-4-5"
         }
       }
 
   Model specs follow the `req_llm` naming convention: `"provider:model-name"`.
   For backward compatibility, bare model names without a provider prefix
-  are treated as Anthropic models.
+  are treated as Anthropic models by `RLM.LLM.ReqLLM` (which prepends
+  `"anthropic:"` automatically).
 
   ## Supported Providers
 
-  Any provider supported by `req_llm`: Anthropic, OpenAI, Ollama (via vLLM),
+  Any provider supported by `req_llm`: Anthropic, OpenAI, Ollama (local models),
   Google Gemini, Groq, and more. For local Ollama:
 
       RLM.run("data", "query",
         models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"})
   """
 
-  require Logger
-
   @default_context_window 128_000
 
   defstruct [
     :api_base_url,
     :api_key,
-    # Legacy model fields — prefer `models` map
+    # Used to build default `models` map; prefer passing `models` directly
     :model_large,
     :model_small,
     :models,
@@ -127,10 +126,20 @@ defmodule RLM.Config do
   1. Legacy `context_window_tokens_large/small` fields (for `:large`/`:small` keys)
   2. Default of #{@default_context_window} tokens for unknown models
   """
+  require Logger
+
   @spec context_window_for(t(), atom()) :: non_neg_integer()
   def context_window_for(%__MODULE__{} = config, :large), do: config.context_window_tokens_large
   def context_window_for(%__MODULE__{} = config, :small), do: config.context_window_tokens_small
-  def context_window_for(%__MODULE__{}, _key), do: @default_context_window
+
+  def context_window_for(%__MODULE__{}, key) do
+    Logger.warning(
+      "No context window configured for model key #{inspect(key)}, " <>
+        "using default of #{@default_context_window} tokens"
+    )
+
+    @default_context_window
+  end
 
   defp resolve_api_key do
     case System.get_env("ANTHROPIC_API_KEY") do

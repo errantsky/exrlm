@@ -2,13 +2,13 @@ defmodule RLM.LLM.Anthropic do
   @moduledoc """
   Hand-rolled Anthropic Messages API client.
 
-  Preserved as a fallback for users who need direct control over
-  Anthropic-specific features (prompt caching, etc.). The default
-  backend is `RLM.LLM.ReqLLM`.
+  Preserved for users who prefer a dependency-free Anthropic-only client
+  or need to customize Anthropic API request bodies directly (e.g., custom
+  headers, non-standard API versions). The default backend is `RLM.LLM.ReqLLM`.
 
-  Select this via config:
+  Select this at call time:
 
-      RLM.Config.load(llm_module: RLM.LLM.Anthropic)
+      RLM.run(context, query, llm_module: RLM.LLM.Anthropic)
   """
 
   @behaviour RLM.LLM

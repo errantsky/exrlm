@@ -29,7 +29,7 @@ defmodule RLM.LLM do
   ## Arguments
 
     * `messages` — list of message maps with `:role` and `:content` fields
-    * `model` — provider-prefixed model spec (e.g., `"anthropic:claude-sonnet-4-6"`)
+    * `model` — model spec, optionally provider-prefixed (e.g., `"anthropic:claude-sonnet-4-6"` or bare `"claude-sonnet-4-6"`). Implementations should handle both formats.
     * `config` — `RLM.Config.t()` struct
     * `opts` — keyword list; supports `:schema` for structured output
 

@@ -3,7 +3,7 @@ defmodule RLM.LLM.ReqLLM do
   Multi-provider LLM backend using the `req_llm` package.
 
   Supports any provider that `req_llm` supports: Anthropic, OpenAI,
-  Ollama (via vLLM), Google Gemini, Groq, and more. Model specs follow
+  Ollama (local models), Google Gemini, Groq, and more. Model specs follow
   the `"provider:model-name"` convention.
 
   For backward compatibility, bare model names without a provider prefix
@@ -28,9 +28,14 @@ defmodule RLM.LLM.ReqLLM do
 
     case ReqLLM.generate_object(model_spec, context, schema, req_opts) do
       {:ok, response} ->
-        content = encode_object(response)
-        usage = extract_usage(response)
-        {:ok, content, usage}
+        case encode_object(response) do
+          {:error, :no_content} ->
+            {:error, "LLM response contained no usable content (no structured object or text)"}
+
+          content when is_binary(content) ->
+            usage = extract_usage(response)
+            {:ok, content, usage}
+        end
 
       {:error, reason} ->
         {:error, format_error(reason)}
@@ -109,15 +114,21 @@ defmodule RLM.LLM.ReqLLM do
   # the existing chat/4 contract (Worker expects a JSON string).
   defp encode_object(response) do
     case ReqLLM.Response.object(response) do
-      obj when is_map(obj) -> Jason.encode!(obj)
-      _ -> ReqLLM.Response.text(response) || ""
+      obj when is_map(obj) ->
+        Jason.encode!(obj)
+
+      _ ->
+        case ReqLLM.Response.text(response) do
+          text when is_binary(text) and text != "" -> text
+          _ -> {:error, :no_content}
+        end
     end
   end
 
   defp extract_usage(response) do
     raw = ReqLLM.Response.usage(response) || %{}
 
-    %{
+    usage = %{
       prompt_tokens: Map.get(raw, :input_tokens),
       completion_tokens: Map.get(raw, :output_tokens),
       total_tokens: Map.get(raw, :total_tokens),
@@ -128,6 +139,16 @@ defmodule RLM.LLM.ReqLLM do
       cache_read_input_tokens:
         Map.get(raw, :cache_read_input_tokens) || Map.get(raw, :cached_tokens)
     }
+
+    if raw != %{} and is_nil(usage.prompt_tokens) and is_nil(usage.completion_tokens) do
+      require Logger
+
+      Logger.warning(
+        "Could not extract token usage from LLM response. Raw usage keys: #{inspect(Map.keys(raw))}"
+      )
+    end
+
+    usage
   end
 
   defp format_error(%{__exception__: true} = error), do: Exception.message(error)

@@ -11,7 +11,7 @@
 # Uses the public GitHub API (no auth required, 60 requests/hour limit).
 #
 # Usage:
-#   export CLAUDE_API_KEY=sk-ant-...
+#   export ANTHROPIC_API_KEY=sk-ant-...
 #   mix run examples/web_fetch.exs
 #
 # Or via the Mix task:

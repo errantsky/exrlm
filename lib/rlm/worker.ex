@@ -16,7 +16,7 @@ defmodule RLM.Worker do
   ## Structured Output
 
   LLM responses are JSON objects with `reasoning` and `code` fields,
-  constrained via Claude's `output_config` JSON schema. Feedback messages
+  constrained via a JSON schema (provider-specific structured output). Feedback messages
   after eval are also structured JSON.
   """
   use GenServer, restart: :temporary

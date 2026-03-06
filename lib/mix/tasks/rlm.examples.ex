@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.Rlm.Examples do
   use Boundary, classify_to: RLM
-  @shortdoc "Run RLM example scenarios against the live Anthropic API"
+  @shortdoc "Run RLM example scenarios against live LLM providers"
   @moduledoc """
   Runs RLM example scenarios that exercise multi-iteration, subcall depth,
   parallel queries, schema-mode extraction, and filesystem tools.
@@ -8,17 +8,18 @@ defmodule Mix.Tasks.Rlm.Examples do
   These produce rich execution traces viewable in the web dashboard
   (`mix phx.server` → http://localhost:4000).
 
-  Requires the `CLAUDE_API_KEY` environment variable to be set.
+  Cloud examples require `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY`).
+  The `local_models` example uses Ollama and requires no API key.
 
   ## Usage
 
-      # Run all examples
+      # Run all cloud examples
       mix rlm.examples
 
       # Run a specific example
       mix rlm.examples map_reduce
       mix rlm.examples code_review
-      mix rlm.examples research_synthesis
+      mix rlm.examples local_models
 
       # List available examples
       mix rlm.examples --list
@@ -45,6 +46,11 @@ defmodule Mix.Tasks.Rlm.Examples do
       "examples/web_fetch.exs",
       "RLM.Examples.WebFetch",
       "Web Fetch & JSON Processing — curl + jq via bash tool"
+    },
+    "local_models" => {
+      "examples/local_models.exs",
+      "RLM.Examples.LocalModels",
+      "Local Models — Ollama/vLLM usage (no API key required)"
     }
   }
 
@@ -131,9 +137,11 @@ defmodule Mix.Tasks.Rlm.Examples do
   end
 
   defp check_api_key! do
-    case System.get_env("CLAUDE_API_KEY") do
+    key = System.get_env("ANTHROPIC_API_KEY") || System.get_env("CLAUDE_API_KEY")
+
+    case key do
       nil ->
-        IO.puts("\n  ERROR: CLAUDE_API_KEY not set. Export it before running.\n")
+        IO.puts("\n  ERROR: ANTHROPIC_API_KEY not set. Export it before running.\n")
         System.halt(1)
 
       key ->

@@ -15,7 +15,7 @@ defmodule RLM.Replay do
       - `:live` — switch to live LLM calls for remaining iterations
     * `:config` — config overrides applied to the replay run. When using
       `fallback: :live`, set `llm_module` here to control which module
-      handles the live calls (defaults to `RLM.LLM`).
+      handles the live calls (defaults to `RLM.LLM.ReqLLM`).
   """
 
   @spec replay(String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
