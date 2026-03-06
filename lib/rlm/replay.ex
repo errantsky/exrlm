@@ -63,7 +63,7 @@ defmodule RLM.Replay do
             query: query,
             config: config,
             depth: 0,
-            model: config.model_large,
+            model_key: :large,
             caller: self(),
             replay_tape: tape,
             replay_patches: patches,

@@ -37,8 +37,9 @@ defmodule RLM.MixProject do
 
   defp deps do
     [
-      # HTTP client
+      # HTTP / LLM client
       {:req, "~> 0.5"},
+      {:req_llm, "~> 1.6"},
       {:jason, "~> 1.4"},
 
       # Telemetry

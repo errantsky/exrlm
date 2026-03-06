@@ -9,8 +9,9 @@ I wanted to take further, and the design philosophy behind
 [pi](https://github.com/badlogic/pi-mono/) — a coding agent that keeps things simple and
 transparent. This is very much a learning project, but it works and it's been fun to build.
 
-A single Phoenix application: an AI execution engine where Claude writes Elixir code that
+A single Phoenix application: an AI execution engine where LLMs write Elixir code that
 runs in a persistent REPL, with recursive sub-agent spawning and built-in filesystem tools.
+Supports multiple LLM providers via `req_llm`: Anthropic, OpenAI, Ollama (local), Gemini, and more.
 
 **One engine, two modes:**
 1. **One-shot** — `RLM.run/3` processes data and returns a result
@@ -81,7 +82,7 @@ Three invariants the engine enforces:
 Requires Elixir ≥ 1.19 / OTP 27 and an [Anthropic API key](https://console.anthropic.com/).
 
 ```bash
-export CLAUDE_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...   # or CLAUDE_API_KEY as fallback
 mix deps.get && mix compile
 mix test        # excludes live API tests
 iex -S mix      # interactive shell
@@ -136,11 +137,17 @@ watch(session)     # attach a live telemetry stream
 ### Configuration overrides
 
 ```elixir
+# Use custom Anthropic models
 {:ok, result, run_id} = RLM.run(context, query,
   max_iterations: 10,
   max_depth: 3,
-  model_large: "claude-opus-4-6",
+  models: %{large: "anthropic:claude-opus-4-6", small: "anthropic:claude-haiku-4-5"},
   eval_timeout: 60_000
+)
+
+# Use local Ollama models (no API key needed)
+{:ok, result, run_id} = RLM.run(context, query,
+  models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"}
 )
 ```
 
@@ -356,9 +363,9 @@ RLM_COOKIE=secret   # shared secret for node authentication
 
 RLM executes LLM-generated Elixir code via `Code.eval_string` with full access to the
 host filesystem, network, and shell. **Do not expose RLM to untrusted users or untrusted
-LLM providers.** It is designed for local development, trusted API backends (Anthropic),
-and controlled environments. There is no sandboxing beyond process-level isolation and
-configurable timeouts.
+LLM providers.** It is designed for local development, trusted API backends (Anthropic,
+OpenAI, local Ollama), and controlled environments. There is no sandboxing beyond
+process-level isolation and configurable timeouts.
 
 ---
 
