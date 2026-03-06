@@ -109,8 +109,14 @@ defmodule RLM.Config do
   @spec resolve_model(t(), atom()) :: {:ok, String.t()} | {:error, String.t()}
   def resolve_model(%__MODULE__{models: models}, key) when is_atom(key) do
     case Map.fetch(models, key) do
-      {:ok, spec} when is_binary(spec) -> {:ok, spec}
-      :error -> {:error, "Unknown model key: #{key}"}
+      {:ok, spec} when is_binary(spec) ->
+        {:ok, spec}
+
+      {:ok, other} ->
+        {:error, "Model key #{key} has invalid spec: #{inspect(other)} (expected a string)"}
+
+      :error ->
+        {:error, "Unknown model key: #{key}"}
     end
   end
 

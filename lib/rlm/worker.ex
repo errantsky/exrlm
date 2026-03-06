@@ -960,8 +960,13 @@ defmodule RLM.Worker do
 
   defp resolve_model!(config, key) do
     case RLM.Config.resolve_model(config, key) do
-      {:ok, spec} -> spec
-      {:error, _} -> Map.get(config.models, :large, "claude-sonnet-4-6")
+      {:ok, spec} ->
+        spec
+
+      {:error, reason} ->
+        raise ArgumentError,
+              "Cannot resolve model key #{inspect(key)}: #{reason}. " <>
+                "Available keys: #{inspect(Map.keys(config.models))}"
     end
   end
 

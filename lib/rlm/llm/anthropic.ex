@@ -16,6 +16,7 @@ defmodule RLM.LLM.Anthropic do
   @impl true
   def chat(messages, model, config, opts \\ []) do
     url = String.trim_trailing(config.api_base_url, "/") <> "/v1/messages"
+    model = strip_provider_prefix(model)
 
     {system_text, user_messages} = extract_system(messages)
 
@@ -70,6 +71,10 @@ defmodule RLM.LLM.Anthropic do
         {:error, "API request failed: #{inspect(reason)}"}
     end
   end
+
+  # Strip "anthropic:" prefix if present (models map stores provider-prefixed specs)
+  defp strip_provider_prefix("anthropic:" <> bare), do: bare
+  defp strip_provider_prefix(model), do: model
 
   defp extract_system(messages) do
     case Enum.split_with(messages, fn m -> m.role == :system end) do

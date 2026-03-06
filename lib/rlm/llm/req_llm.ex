@@ -62,6 +62,7 @@ defmodule RLM.LLM.ReqLLM do
         case msg.role do
           :user -> ReqLLM.Context.user(msg.content)
           :assistant -> ReqLLM.Context.assistant(msg.content)
+          other -> raise ArgumentError, "unsupported message role #{inspect(other)}"
         end
       end)
 
@@ -120,8 +121,12 @@ defmodule RLM.LLM.ReqLLM do
       prompt_tokens: Map.get(raw, :input_tokens),
       completion_tokens: Map.get(raw, :output_tokens),
       total_tokens: Map.get(raw, :total_tokens),
-      cache_creation_input_tokens: Map.get(raw, :cache_creation_input_tokens),
-      cache_read_input_tokens: Map.get(raw, :cache_read_input_tokens)
+      # Anthropic provider includes :cache_creation_input_tokens;
+      # other providers use the normalized :cache_creation_tokens key
+      cache_creation_input_tokens:
+        Map.get(raw, :cache_creation_input_tokens) || Map.get(raw, :cache_creation_tokens),
+      cache_read_input_tokens:
+        Map.get(raw, :cache_read_input_tokens) || Map.get(raw, :cached_tokens)
     }
   end
 
