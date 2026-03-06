@@ -51,7 +51,8 @@ defmodule RLM.Config do
     :enable_event_log,
     :event_log_capture_full_stdout,
     :enable_replay_recording,
-    :llm_module
+    :llm_module,
+    :skill_paths
   ]
 
   @type t :: %__MODULE__{}
@@ -86,7 +87,8 @@ defmodule RLM.Config do
       enable_event_log: get(overrides, :enable_event_log, true),
       event_log_capture_full_stdout: get(overrides, :event_log_capture_full_stdout, false),
       enable_replay_recording: get(overrides, :enable_replay_recording, false),
-      llm_module: get(overrides, :llm_module, RLM.LLM.ReqLLM)
+      llm_module: get(overrides, :llm_module, RLM.LLM.ReqLLM),
+      skill_paths: get(overrides, :skill_paths, [])
     }
   end
 

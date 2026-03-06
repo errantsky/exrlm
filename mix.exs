@@ -42,6 +42,9 @@ defmodule RLM.MixProject do
       {:req_llm, "~> 1.6"},
       {:jason, "~> 1.4"},
 
+      # YAML parsing (for Agent Skills SKILL.md frontmatter)
+      {:yaml_elixir, "~> 2.12"},
+
       # Telemetry
       {:telemetry, "~> 1.2"},
       {:telemetry_metrics, "~> 1.0"},
@@ -129,6 +132,11 @@ defmodule RLM.MixProject do
           RLM.IEx,
           RLM.Node,
           RLM.Node.Info
+        ],
+        "Agent Skills": [
+          RLM.Skill,
+          RLM.Skill.Prompt,
+          RLM.SkillRegistry
         ],
         "Filesystem Tools": [
           RLM.Tool,

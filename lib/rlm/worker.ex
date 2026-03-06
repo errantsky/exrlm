@@ -99,9 +99,13 @@ defmodule RLM.Worker do
       end
     end
 
+    skill_catalog = Keyword.get(opts, :skill_catalog, [])
+    activated_skills = Keyword.get(opts, :activated_skills, [])
+
     if keep_alive do
       # Keep-alive mode: start idle, wait for send_message
-      system_msg = RLM.Prompt.build_system_message()
+      system_msg = RLM.Prompt.build_system_message(skill_catalog: skill_catalog)
+      skill_msgs = RLM.Skill.Prompt.activation_messages(activated_skills)
 
       state = %__MODULE__{
         span_id: span_id,
@@ -109,7 +113,7 @@ defmodule RLM.Worker do
         run_id: run_id,
         depth: depth,
         iteration: 0,
-        history: [system_msg],
+        history: [system_msg] ++ skill_msgs,
         bindings: [final_answer: nil, compacted_history: ""],
         model: model,
         model_key: model_key,
@@ -145,7 +149,8 @@ defmodule RLM.Worker do
         compacted_history: ""
       ]
 
-      system_msg = RLM.Prompt.build_system_message()
+      system_msg = RLM.Prompt.build_system_message(skill_catalog: skill_catalog)
+      skill_msgs = RLM.Skill.Prompt.activation_messages(activated_skills)
 
       user_msg =
         RLM.Prompt.build_user_message(query, context_bytes, context_lines, context_preview)
@@ -156,7 +161,7 @@ defmodule RLM.Worker do
         run_id: run_id,
         depth: depth,
         iteration: 0,
-        history: [system_msg, user_msg],
+        history: [system_msg] ++ skill_msgs ++ [user_msg],
         bindings: bindings,
         model: model,
         model_key: model_key,

@@ -18,6 +18,7 @@ defmodule RLM.Application do
       {RLM.Telemetry, []},
       {RLM.TraceStore, []},
       {RLM.EventLog.Sweeper, []},
+      {RLM.SkillRegistry, skill_paths: Application.get_env(:rlm, :skill_paths, [])},
       # Web dashboard
       RLMWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:rlm, :dns_cluster_query) || :ignore},

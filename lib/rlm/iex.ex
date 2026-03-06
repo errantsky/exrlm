@@ -195,6 +195,57 @@ defmodule RLM.IEx do
   end
 
   # ---------------------------------------------------------------------------
+  # Skills
+  # ---------------------------------------------------------------------------
+
+  @doc "List all discovered skills (name + description)."
+  @spec skills() :: :ok
+  def skills do
+    catalog = RLM.SkillRegistry.catalog()
+
+    if catalog == [] do
+      IO.puts("No skills discovered. Add skills to .rlm/skills/ or ~/.rlm/skills/")
+    else
+      IO.puts("Discovered #{length(catalog)} skill(s):\n")
+
+      Enum.each(catalog, fn %{name: name, description: desc} ->
+        IO.puts("  #{name} — #{desc}")
+      end)
+    end
+
+    :ok
+  end
+
+  @doc "Show details for a specific skill by name."
+  @spec skill(String.t()) :: :ok
+  def skill(name) do
+    case RLM.SkillRegistry.get(name) do
+      {:ok, skill} ->
+        IO.puts("""
+        Name:        #{skill.name}
+        Description: #{skill.description}
+        Path:        #{skill.path}
+        Directory:   #{skill.dir}
+        License:     #{skill.license || "(none)"}
+        Body:        #{String.length(skill.body)} chars
+        """)
+
+      :error ->
+        IO.puts("[Error] Skill '#{name}' not found")
+    end
+
+    :ok
+  end
+
+  @doc "Hot-reload skills from disk."
+  @spec reload_skills() :: :ok
+  def reload_skills do
+    RLM.SkillRegistry.reload()
+    IO.puts("Skills reloaded.")
+    :ok
+  end
+
+  # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
 

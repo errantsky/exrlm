@@ -29,6 +29,7 @@ Supports multiple LLM providers via `req_llm`: Anthropic, OpenAI, Ollama (local)
   - [IEx helpers](#iex-helpers)
   - [Configuration overrides](#configuration-overrides)
   - [Deterministic replay](#deterministic-replay)
+  - [Agent Skills](#agent-skills)
   - [Sandbox API](#sandbox-api)
 - [Architecture](#architecture)
   - [OTP supervision tree](#otp-supervision-tree)
@@ -176,6 +177,28 @@ optimization (replay re-evaluates all code without making LLM calls).
 )
 ```
 
+### Agent Skills
+
+RLM supports the [Agent Skills specification](https://agentskills.io) for extensible
+instruction packages. Skills are directories containing a `SKILL.md` file with YAML
+frontmatter and markdown instructions. They use progressive disclosure: only
+name+description are loaded at startup, full instructions are injected on activation.
+
+```elixir
+# Skills are discovered from ~/.rlm/skills/, .rlm/skills/, and configured paths.
+# Pre-activate a skill by name — its full instructions are injected into the worker history:
+{:ok, answer, run_id} = RLM.run(context, query, skills: ["visual-explainer"])
+
+# Or start a session with skills:
+{:ok, sid} = RLM.start_session(skills: ["dialectic"], cwd: ".")
+
+# IEx helpers for skill management:
+import RLM.IEx
+skills()                # list all discovered skills
+skill("visual-explainer")  # show details for a specific skill
+reload_skills()         # hot-reload skills from disk
+```
+
 ### Sandbox API
 
 Functions available inside the LLM's eval'd code:
@@ -240,6 +263,7 @@ graph LR
     SUP --> TEL
     SUP --> TRACE
     SUP --> SWEEP
+    SUP --> SKILLS["RLM.SkillRegistry · agent skills"]
 
     subgraph Web["Web Layer"]
         direction TB

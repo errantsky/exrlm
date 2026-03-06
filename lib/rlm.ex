@@ -18,7 +18,10 @@ defmodule RLM do
       Telemetry,
       Telemetry.PubSub,
       Tool,
-      ToolRegistry
+      ToolRegistry,
+      Skill,
+      Skill.Prompt,
+      SkillRegistry
     ]
 
   @moduledoc """
@@ -48,6 +51,8 @@ defmodule RLM do
     # Generous overall timeout: two full eval cycles worth
     total_timeout = config.eval_timeout * 2
 
+    {skill_catalog, activated_skills} = resolve_skills(opts)
+
     run_opts = [run_id: run_id, config: config]
 
     case DynamicSupervisor.start_child(RLM.RunSup, {RLM.Run, run_opts}) do
@@ -60,7 +65,9 @@ defmodule RLM do
           config: config,
           depth: 0,
           model_key: :large,
-          caller: self()
+          caller: self(),
+          skill_catalog: skill_catalog,
+          activated_skills: activated_skills
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do
@@ -105,6 +112,8 @@ defmodule RLM do
     span_id = RLM.Span.generate_id()
     run_id = RLM.Span.generate_run_id()
 
+    {skill_catalog, activated_skills} = resolve_skills(opts)
+
     run_opts = [run_id: run_id, config: config]
 
     case DynamicSupervisor.start_child(RLM.RunSup, {RLM.Run, run_opts}) do
@@ -117,7 +126,9 @@ defmodule RLM do
           config: config,
           depth: 0,
           model_key: :large,
-          caller: self()
+          caller: self(),
+          skill_catalog: skill_catalog,
+          activated_skills: activated_skills
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do
@@ -147,6 +158,7 @@ defmodule RLM do
   Options:
     - `:cwd` — working directory for tools (default: current dir)
     - `:model_key` — model key from config.models map (default: `:large`)
+    - `:skills` — list of skill names to pre-activate (default: `[]`)
     - Plus any `RLM.Config` overrides
 
   Returns `{:ok, session_id}`.
@@ -159,6 +171,8 @@ defmodule RLM do
     cwd = Keyword.get(opts, :cwd, File.cwd!())
     model_key = Keyword.get(opts, :model_key, :large)
 
+    {skill_catalog, activated_skills} = resolve_skills(opts)
+
     run_opts = [run_id: run_id, config: config, keep_alive: true]
 
     case DynamicSupervisor.start_child(RLM.RunSup, {RLM.Run, run_opts}) do
@@ -169,7 +183,9 @@ defmodule RLM do
           config: config,
           keep_alive: true,
           cwd: cwd,
-          model_key: model_key
+          model_key: model_key,
+          skill_catalog: skill_catalog,
+          activated_skills: activated_skills
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do
@@ -249,6 +265,32 @@ defmodule RLM do
     end
   rescue
     _ -> :ok
+  end
+
+  # ---------------------------------------------------------------------------
+  # Skill resolution
+  # ---------------------------------------------------------------------------
+
+  defp resolve_skills(opts) do
+    skill_names = Keyword.get(opts, :skills, [])
+
+    catalog =
+      try do
+        RLM.SkillRegistry.catalog()
+      catch
+        :exit, _ -> []
+      end
+
+    activated =
+      Enum.reduce(skill_names, [], fn name, acc ->
+        case RLM.SkillRegistry.get(name) do
+          {:ok, skill} -> [skill | acc]
+          :error -> acc
+        end
+      end)
+      |> Enum.reverse()
+
+    {catalog, activated}
   end
 
   defp via(session_id) do

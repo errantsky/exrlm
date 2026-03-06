@@ -21,6 +21,24 @@ defmodule RLM.Prompt do
     %{role: :system, content: system_prompt()}
   end
 
+  @doc """
+  Build a system message with optional skill catalog appended.
+
+  ## Options
+
+    * `:skill_catalog` — list of `%{name, description, path}` entries.
+      When non-empty, an "Available Skills" section is appended to the
+      system prompt telling the model how to activate skills.
+  """
+  @spec build_system_message(keyword()) :: map()
+  def build_system_message(opts) when is_list(opts) do
+    skill_catalog = Keyword.get(opts, :skill_catalog, [])
+    base = system_prompt()
+    skill_section = RLM.Skill.Prompt.catalog_section(skill_catalog)
+
+    %{role: :system, content: base <> skill_section}
+  end
+
   @spec build_user_message(String.t(), non_neg_integer(), non_neg_integer(), String.t()) :: map()
   def build_user_message(query, context_bytes, context_lines, context_preview) do
     content = """

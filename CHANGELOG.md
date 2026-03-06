@@ -8,6 +8,31 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Agent Skills system**
+
+- `RLM.Skill` — SKILL.md parser conforming to the [Agent Skills specification](https://agentskills.io).
+  Parses YAML frontmatter + markdown body, validates skill names (1-64 chars, lowercase+hyphens),
+  and extracts optional fields (license, compatibility, metadata, allowed-tools). Lenient validation:
+  warns on name/directory mismatch, only fails on missing required fields or unparseable YAML.
+- `RLM.Skill.Prompt` — pure functions for progressive disclosure prompt building:
+  - `catalog_section/1` — builds an "Available Skills" system prompt section (~100 tokens per skill)
+  - `activation_messages/1` — builds tier-2 activation messages with full skill body for pre-activated skills
+- `RLM.SkillRegistry` — GenServer for skill discovery, caching, and hot-reload. Scans multiple
+  directories in precedence order (user-level → extra paths → project-level, last wins for name
+  collisions). Public API: `catalog/0`, `get/1`, `names/0`, `reload/0`, `reload/1`, `errors/0`.
+  No filesystem watcher — explicit reload via `RLM.SkillRegistry.reload()` or `RLM.IEx.reload_skills()`.
+- `RLM.IEx.skills/0`, `skill/1`, `reload_skills/0` — IEx convenience helpers for skill management
+- `skill_paths` config field — additional directories to scan for skills (default: `[]`)
+- `:skills` option on `RLM.run/3` and `RLM.start_session/1` — list of skill names to pre-activate
+  (full body injected into worker history before the task message)
+- Discovery paths: `~/.rlm/skills/`, `~/.agents/skills/`, configured `skill_paths`,
+  `<cwd>/.rlm/skills/`, `<cwd>/.agents/skills/`
+- `yaml_elixir` dependency for YAML frontmatter parsing
+- 22 tests for `RLM.Skill` (parsing, validation, edge cases)
+- 7 tests for `RLM.Skill.Prompt` (catalog section, activation messages)
+- 15 tests for `RLM.SkillRegistry` (discovery, precedence, reload, errors)
+- 4 integration tests verifying end-to-end skill flow through `RLM.run/3` and `start_session/1`
+
 **Multi-provider LLM support via req_llm**
 
 - `RLM.LLM.ReqLLM` — new default LLM backend that delegates to `req_llm` v1.6,

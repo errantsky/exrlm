@@ -40,6 +40,10 @@ erl_crash.dump
 priv/traces.dets
 trace.jsonl
 
+# Agent Skills (local-only, not committed)
+.rlm/skills/
+.agents/skills/
+
 # Local-only notes and scratch scripts (kept uncommitted intentionally)
 DEMO_RUN_NOTES.md
 test.exs
