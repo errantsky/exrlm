@@ -10,19 +10,37 @@ defmodule RLM.Replay do
     * `:patch` — `%{iteration => code}` map. At the specified iteration, the
       patched code replaces the LLM's code before eval. The LLM response is
       still consumed from the tape (to maintain iteration alignment).
-    * `:config` — config overrides applied to the replay run
+    * `:fallback` — what to do when the tape runs out:
+      - `:error` (default) — return an error
+      - `:live` — switch to live LLM calls for remaining iterations
+    * `:config` — config overrides applied to the replay run. When using
+      `fallback: :live`, set `llm_module` here to control which module
+      handles the live calls (defaults to `RLM.LLM`).
   """
 
   @spec replay(String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
   def replay(run_id, opts \\ []) do
     patches = Keyword.get(opts, :patch, %{})
     config_overrides = Keyword.get(opts, :config, [])
+    fallback = Keyword.get(opts, :fallback, :error)
 
     with {:ok, tape} <- RLM.Replay.Tape.from_events(run_id) do
+      # Resolve the LLM module: tape-only or tape-with-fallback
+      {llm_module, fallback_module} =
+        case fallback do
+          :live ->
+            # The fallback module comes from config overrides, or the default
+            user_config = RLM.Config.load(config_overrides)
+            {RLM.Replay.FallbackLLM, user_config.llm_module}
+
+          :error ->
+            {RLM.Replay.LLM, nil}
+        end
+
       config =
         RLM.Config.load(
           Keyword.merge(config_overrides,
-            llm_module: RLM.Replay.LLM,
+            llm_module: llm_module,
             enable_replay_recording: false
           )
         )
@@ -48,7 +66,8 @@ defmodule RLM.Replay do
             model: config.model_large,
             caller: self(),
             replay_tape: tape,
-            replay_patches: patches
+            replay_patches: patches,
+            replay_fallback_module: fallback_module
           ]
 
           case RLM.Run.start_worker(run_pid, worker_opts) do
