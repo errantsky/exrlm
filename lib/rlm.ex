@@ -11,6 +11,9 @@ defmodule RLM do
       Span,
       IEx,
       Node,
+      Replay,
+      Replay.Tape,
+      Replay.LLM,
       Telemetry,
       Telemetry.PubSub,
       Tool,
@@ -207,6 +210,28 @@ defmodule RLM do
     {:ok, GenServer.call(via(session_id), :status)}
   catch
     :exit, _ -> {:error, :not_found}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Replay API
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Replay a previously recorded run.
+
+  Requires the original run to have been executed with `enable_replay_recording: true`.
+  The replay re-executes all eval'd code using the recorded LLM responses.
+
+  ## Options
+
+    * `:patch` — `%{iteration => code}` map to replace code at specific iterations
+    * `:config` — config overrides for the replay run
+
+  Returns `{:ok, answer, replay_run_id}` or `{:error, reason}`.
+  """
+  @spec replay(String.t(), keyword()) :: {:ok, any(), String.t()} | {:error, any()}
+  def replay(run_id, opts \\ []) do
+    RLM.Replay.replay(run_id, opts)
   end
 
   # ---------------------------------------------------------------------------

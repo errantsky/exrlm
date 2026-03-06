@@ -21,6 +21,7 @@ defmodule RLM.Telemetry do
     [:rlm, :subcall, :result],
     [:rlm, :direct_query, :start],
     [:rlm, :direct_query, :stop],
+    [:rlm, :llm, :response, :recorded],
     [:rlm, :compaction, :run],
     [:rlm, :turn, :complete]
   ]

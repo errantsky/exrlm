@@ -50,7 +50,9 @@ defmodule RLM.Worker do
     :eval_sup,
     pending_subcalls: %{},
     # Maps monitor ref → query_id for direct query crash detection
-    direct_query_monitors: %{}
+    direct_query_monitors: %{},
+    # Replay: code patches by iteration number (empty map = no patches)
+    replay_patches: %{}
   ]
 
   # -- Public API --
@@ -82,6 +84,13 @@ defmodule RLM.Worker do
     cwd = Keyword.get(opts, :cwd, File.cwd!())
     run_pid = Keyword.get(opts, :run_pid)
     eval_sup = Keyword.get(opts, :eval_sup)
+
+    replay_tape = Keyword.get(opts, :replay_tape)
+    replay_patches = Keyword.get(opts, :replay_patches, %{})
+
+    if replay_tape do
+      RLM.Replay.LLM.load_tape(replay_tape)
+    end
 
     if keep_alive do
       # Keep-alive mode: start idle, wait for send_message
@@ -153,12 +162,15 @@ defmodule RLM.Worker do
         cwd: cwd,
         pending_from: nil,
         run_pid: run_pid,
-        eval_sup: eval_sup
+        eval_sup: eval_sup,
+        replay_patches: replay_patches
       }
 
       emit_telemetry([:rlm, :node, :start], %{}, state, %{
         context_bytes: context_bytes,
-        query_preview: String.slice(query, 0, 200)
+        query_preview: String.slice(query, 0, 200),
+        original_context: if(depth == 0, do: context),
+        original_query: if(depth == 0, do: query)
       })
 
       send(self(), :iterate)
@@ -191,6 +203,15 @@ defmodule RLM.Worker do
         {:ok, response, usage} ->
           llm_duration = System.monotonic_time(:millisecond) - llm_start
 
+          # Record the full LLM response for replay (gated by config flag)
+          if state.config.enable_replay_recording do
+            emit_telemetry([:rlm, :llm, :response, :recorded], %{}, state, %{
+              iteration: state.iteration,
+              response: response,
+              usage: usage
+            })
+          end
+
           # Step 2: Parse structured JSON response
           case RLM.LLM.extract_structured(response) do
             {:ok, %{reasoning: reasoning, code: code}} ->
@@ -209,6 +230,9 @@ defmodule RLM.Worker do
                   reasoning_preview: String.slice(reasoning, 0, 500)
                 }
               )
+
+              # Apply replay patches if any
+              code = Map.get(state.replay_patches, state.iteration, code)
 
               if code != "" do
                 start_async_eval(

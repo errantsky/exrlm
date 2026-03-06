@@ -13,6 +13,8 @@ defmodule RLM.Telemetry.EventLogHandler do
       depth: metadata.depth,
       model: metadata.model,
       context_bytes: metadata[:context_bytes],
+      original_context: metadata[:original_context],
+      original_query: metadata[:original_query],
       timestamp_us: System.system_time(:microsecond)
     }
 
@@ -57,6 +59,20 @@ defmodule RLM.Telemetry.EventLogHandler do
       cache_creation_input_tokens: metadata[:cache_creation_input_tokens],
       cache_read_input_tokens: metadata[:cache_read_input_tokens],
       llm_duration_ms: metadata[:llm_duration_ms],
+      timestamp_us: System.system_time(:microsecond)
+    }
+
+    RLM.EventLog.append(metadata.run_id, event)
+    RLM.TraceStore.put_event(metadata.run_id, event)
+  end
+
+  def handle_event([:rlm, :llm, :response, :recorded], _measurements, metadata, _config) do
+    event = %{
+      type: :llm_response,
+      span_id: metadata.span_id,
+      iteration: metadata[:iteration],
+      response: metadata[:response],
+      usage: metadata[:usage],
       timestamp_us: System.system_time(:microsecond)
     }
 
