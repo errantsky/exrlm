@@ -64,7 +64,7 @@ rlm/
 
 Enforced at compile time via the `boundary` library:
 
-- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Telemetry, Tool, ToolRegistry.
+- **`RLM`** — Core engine. Zero web dependencies. Exports: Config, Run, Worker, EventLog, TraceStore, Helpers, Span, IEx, Node, Replay, Replay.Tape, Replay.LLM, Telemetry, Tool, ToolRegistry.
 - **`RLMWeb`** — Phoenix web layer. Depends on `RLM`. Exports: Endpoint.
 - **`RLM.Application`** — Top-level. Depends on both `RLM` and `RLMWeb`. Starts the unified supervision tree.
 
@@ -180,7 +180,7 @@ Default models:
 
 | Module | Purpose |
 |---|---|
-| `RLM` | Public API: `run/3`, `start_session/1`, `send_message/3`, `history/1`, `status/1` |
+| `RLM` | Public API: `run/3`, `replay/2`, `start_session/1`, `send_message/3`, `history/1`, `status/1` |
 | `RLM.Run` | Per-run coordinator; owns worker DynSup + eval TaskSup, ETS worker tree, crash propagation |
 | `RLM.Config` | Config struct; loads from app env + keyword overrides |
 | `RLM.Worker` | GenServer per execution node; iterate loop + keep_alive mode; delegates spawning to Run |
@@ -202,6 +202,9 @@ Default models:
 | `RLM.Telemetry.Logger` | Structured logging handler |
 | `RLM.Telemetry.PubSub` | Phoenix.PubSub broadcast handler |
 | `RLM.Telemetry.EventLogHandler` | Routes telemetry events to EventLog Agent AND TraceStore |
+| `RLM.Replay` | Replay orchestrator: `replay/2` replays a recorded run with optional code patches |
+| `RLM.Replay.Tape` | Tape struct + `from_events/1` builder; ordered sequence of recorded LLM responses |
+| `RLM.Replay.LLM` | LLM behaviour impl that returns responses from a tape (process-dict based) |
 | `RLM.Application` | OTP application; starts unified supervision tree (core + web) |
 
 ### Filesystem Tools
@@ -262,6 +265,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | `enable_otel` | `false` | Enable OpenTelemetry integration |
 | `enable_event_log` | `true` | Enable per-run EventLog trace agents |
 | `event_log_capture_full_stdout` | `false` | Store full stdout in traces (vs truncated) |
+| `enable_replay_recording` | `false` | Record full LLM responses for deterministic replay |
 | `llm_module` | `RLM.LLM` | Swappable for `RLM.Test.MockLLM` |
 
 ## Testing Conventions

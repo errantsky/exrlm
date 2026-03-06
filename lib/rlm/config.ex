@@ -26,6 +26,7 @@ defmodule RLM.Config do
     :enable_otel,
     :enable_event_log,
     :event_log_capture_full_stdout,
+    :enable_replay_recording,
     :llm_module
   ]
 
@@ -57,6 +58,7 @@ defmodule RLM.Config do
       enable_otel: get(overrides, :enable_otel, false),
       enable_event_log: get(overrides, :enable_event_log, true),
       event_log_capture_full_stdout: get(overrides, :event_log_capture_full_stdout, false),
+      enable_replay_recording: get(overrides, :enable_replay_recording, false),
       llm_module: get(overrides, :llm_module, RLM.LLM)
     }
   end

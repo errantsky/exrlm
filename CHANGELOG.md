@@ -8,6 +8,30 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Deterministic replay**
+
+- `RLM.Replay` — replay orchestrator that re-executes a previously recorded run using
+  the original LLM responses. Replays re-evaluate all code but skip live LLM calls,
+  enabling debugging, regression testing, and model comparison. Supports:
+  - `:patch` option — `%{iteration => code}` map to replace code at specific iterations
+    while maintaining tape alignment (LLM response is still consumed)
+  - `:config` option — config overrides for the replay run
+- `RLM.Replay.Tape` — struct representing an ordered sequence of recorded LLM responses,
+  with `from_events/1` builder that sources from EventLog Agent or TraceStore fallback
+- `RLM.Replay.LLM` — `RLM.LLM` behaviour implementation that returns responses from a
+  tape via process dictionary (matching the existing process-dict pattern in `RLM.Eval`)
+- `RLM.replay/2` — public API delegation to `RLM.Replay.replay/2`
+- `enable_replay_recording` config flag (default: `false`) — when enabled, records the
+  full raw LLM response text for each iteration as `:llm_response` events in the trace
+- `[:rlm, :llm, :response, :recorded]` telemetry event — emitted by Worker after each
+  successful LLM call when recording is enabled
+- `original_context` and `original_query` fields in `:node_start` events for depth-0
+  workers — enables replay to recover the original inputs
+- `:replay_patches` field on `RLM.Worker` struct — applied before eval to substitute
+  code at specific iterations during replay
+- 14 tests covering recording, tape construction, replay LLM, replay orchestration,
+  patching, and the public API
+
 **Distributed Erlang node support**
 
 - `RLM.Node` — lightweight wrapper for OTP distribution with three public functions:

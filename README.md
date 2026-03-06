@@ -27,6 +27,7 @@ runs in a persistent REPL, with recursive sub-agent spawning and built-in filesy
   - [Interactive sessions](#interactive-sessions)
   - [IEx helpers](#iex-helpers)
   - [Configuration overrides](#configuration-overrides)
+  - [Deterministic replay](#deterministic-replay)
   - [Sandbox API](#sandbox-api)
 - [Architecture](#architecture)
   - [OTP supervision tree](#otp-supervision-tree)
@@ -140,6 +141,24 @@ watch(session)     # attach a live telemetry stream
   max_depth: 3,
   model_large: "claude-opus-4-6",
   eval_timeout: 60_000
+)
+```
+
+### Deterministic replay
+
+Record a run and replay it later — useful for debugging, regression testing, and cost
+optimization (replay re-evaluates all code without making LLM calls).
+
+```elixir
+# Step 1: Record a run (enable_replay_recording captures full LLM responses)
+{:ok, answer, run_id} = RLM.run(context, query, enable_replay_recording: true)
+
+# Step 2: Replay — same code runs, same result, no LLM calls
+{:ok, same_answer, replay_run_id} = RLM.replay(run_id)
+
+# Step 3: Replay with a patch — try different code at a specific iteration
+{:ok, new_answer, _} = RLM.replay(run_id,
+  patch: %{0 => ~s(final_answer = "patched result")}
 )
 ```
 
