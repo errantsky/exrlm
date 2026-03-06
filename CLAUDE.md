@@ -13,7 +13,10 @@ rlm/
 │   │   ├── run.ex                # Per-run coordinator GenServer
 │   │   ├── worker.ex             # RLM GenServer (iterate loop + keep_alive)
 │   │   ├── eval.ex               # Sandboxed Code.eval_string
-│   │   ├── llm.ex                # Anthropic Messages API client
+│   │   ├── llm.ex                # LLM behaviour + shared utilities
+│   │   ├── llm/
+│   │   │   ├── req_llm.ex        # Multi-provider backend via req_llm (default)
+│   │   │   └── anthropic.ex      # Direct Anthropic API client (legacy fallback)
 │   │   ├── helpers.ex            # chunks/2, grep/2, preview/2, list_bindings/0
 │   │   ├── sandbox.ex            # Eval sandbox: helpers + LLM calls + tool wrappers
 │   │   ├── prompt.ex             # System prompt + message formatting
@@ -162,17 +165,29 @@ retrieve the execution trace via `RLM.EventLog`. On failure it returns `{:error,
 A `Process.monitor` on the Worker ensures crashes surface as errors rather than hangs.
 
 ### LLM Client
-Uses the Anthropic Messages API (not OpenAI format). System messages are
-extracted and sent as the top-level `system` field. Requires `CLAUDE_API_KEY` env var.
+The default backend is `RLM.LLM.ReqLLM`, which delegates to the `req_llm` package
+and supports any provider: Anthropic, OpenAI, Ollama (local), Gemini, Groq, etc.
+Model specs use the `"provider:model-name"` convention (e.g., `"anthropic:claude-sonnet-4-6"`,
+`"ollama:qwen3.5:35b"`). Bare names without a prefix are treated as Anthropic for
+backward compatibility. Requires `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY` as fallback).
 
-LLM responses use structured output (`output_config` with `json_schema`) to constrain
-responses to `{"reasoning": "...", "code": "..."}` JSON objects. This eliminates regex-based
-code extraction and provides clean separation of reasoning from executable code. Feedback
-messages after eval are also structured JSON.
+The legacy hand-rolled Anthropic client is preserved as `RLM.LLM.Anthropic` and can
+be selected via `llm_module: RLM.LLM.Anthropic`.
+
+LLM responses use structured output (JSON schema) to constrain responses to
+`{"reasoning": "...", "code": "..."}` objects. Feedback messages after eval are also
+structured JSON.
+
+The `models` config field maps symbolic keys to provider-prefixed specs:
+
+```elixir
+RLM.run(context, query,
+  models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"})
+```
 
 Default models:
-- Large: `claude-sonnet-4-6`
-- Small: `claude-haiku-4-5`
+- Large: `anthropic:claude-sonnet-4-6`
+- Small: `anthropic:claude-haiku-4-5`
 
 ## Module Map
 
@@ -186,7 +201,9 @@ Default models:
 | `RLM.Worker` | GenServer per execution node; iterate loop + keep_alive mode; delegates spawning to Run |
 | `RLM.Eval` | Sandboxed `Code.eval_string` with async IO capture + cwd injection |
 | `RLM.Sandbox` | Functions injected into eval'd code (helpers + LLM calls + tool wrappers) |
-| `RLM.LLM` | Anthropic Messages API client with structured output (`extract_structured/1`) |
+| `RLM.LLM` | LLM behaviour + shared utilities (`extract_structured/1`, `response_schema/0`) |
+| `RLM.LLM.ReqLLM` | Multi-provider LLM backend via `req_llm` (default) |
+| `RLM.LLM.Anthropic` | Direct Anthropic Messages API client (legacy fallback) |
 | `RLM.Prompt` | System prompt loading + structured JSON feedback message formatting |
 | `RLM.Helpers` | `chunks/2`, `grep/2`, `preview/2`, `list_bindings/0` |
 | `RLM.Truncate` | Head+tail string truncation for stdout overflow |
@@ -246,9 +263,10 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | Field | Default | Notes |
 |---|---|---|
 | `api_base_url` | `"https://api.anthropic.com"` | Anthropic API base URL |
-| `api_key` | `CLAUDE_API_KEY` env var | API key for LLM requests |
-| `model_large` | `claude-sonnet-4-6` | Used for parent workers |
-| `model_small` | `claude-haiku-4-5` | Used for subcalls |
+| `api_key` | `ANTHROPIC_API_KEY` env var | API key for LLM requests (falls back to `CLAUDE_API_KEY`) |
+| `models` | `%{large: "anthropic:claude-sonnet-4-6", small: "anthropic:claude-haiku-4-5"}` | Named model map; keys are atoms, values are `"provider:model"` specs |
+| `model_large` | `claude-sonnet-4-6` | Legacy; used to build default `models` map |
+| `model_small` | `claude-haiku-4-5` | Legacy; used to build default `models` map |
 | `max_iterations` | `25` | Per-worker LLM turn limit |
 | `max_depth` | `5` | Recursive subcall depth limit |
 | `max_concurrent_subcalls` | `10` | Parallel subcall limit per worker |
@@ -267,7 +285,7 @@ Read-only Phoenix LiveView dashboard. Serves on `http://localhost:4000`.
 | `enable_event_log` | `true` | Enable per-run EventLog trace agents |
 | `event_log_capture_full_stdout` | `false` | Store full stdout in traces (vs truncated) |
 | `enable_replay_recording` | `false` | Record full LLM responses for deterministic replay |
-| `llm_module` | `RLM.LLM` | Swappable for `RLM.Test.MockLLM` |
+| `llm_module` | `RLM.LLM.ReqLLM` | Default LLM backend; swap to `RLM.LLM.Anthropic` or `RLM.Test.MockLLM` |
 
 ## Testing Conventions
 

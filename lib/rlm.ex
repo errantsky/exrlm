@@ -59,7 +59,7 @@ defmodule RLM do
           query: query,
           config: config,
           depth: 0,
-          model: config.model_large,
+          model_key: :large,
           caller: self()
         ]
 
@@ -116,7 +116,7 @@ defmodule RLM do
           query: query,
           config: config,
           depth: 0,
-          model: config.model_large,
+          model_key: :large,
           caller: self()
         ]
 
@@ -146,7 +146,7 @@ defmodule RLM do
 
   Options:
     - `:cwd` — working directory for tools (default: current dir)
-    - `:model` — override the model (default: config.model_large)
+    - `:model_key` — model key from config.models map (default: `:large`)
     - Plus any `RLM.Config` overrides
 
   Returns `{:ok, session_id}`.
@@ -157,7 +157,7 @@ defmodule RLM do
     session_id = RLM.Span.generate_id()
     run_id = RLM.Span.generate_run_id()
     cwd = Keyword.get(opts, :cwd, File.cwd!())
-    model = Keyword.get(opts, :model, config.model_large)
+    model_key = Keyword.get(opts, :model_key, :large)
 
     run_opts = [run_id: run_id, config: config, keep_alive: true]
 
@@ -169,7 +169,7 @@ defmodule RLM do
           config: config,
           keep_alive: true,
           cwd: cwd,
-          model: model
+          model_key: model_key
         ]
 
         case RLM.Run.start_worker(run_pid, worker_opts) do

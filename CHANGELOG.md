@@ -8,6 +8,39 @@ All notable changes to this project are documented here.
 
 ### Added
 
+**Multi-provider LLM support via req_llm**
+
+- `RLM.LLM.ReqLLM` — new default LLM backend that delegates to `req_llm` v1.6,
+  supporting Anthropic, OpenAI, Ollama (local models), Google Gemini, Groq, and any
+  other provider that `req_llm` supports. Model specs use the `"provider:model-name"`
+  convention (e.g., `"anthropic:claude-sonnet-4-6"`, `"ollama:qwen3.5:35b"`). Bare
+  model names without a provider prefix are treated as Anthropic for backward compat.
+- `RLM.LLM.Anthropic` — the previous hand-rolled Anthropic Messages API client,
+  preserved as a fallback for users who need direct Anthropic-specific control.
+  Select via `llm_module: RLM.LLM.Anthropic`.
+- `RLM.LLM` refactored to a pure behaviour module + shared utilities
+  (`extract_structured/1`, `response_schema/0`); no longer contains an implementation.
+- `models` config field — `%{atom() => String.t()}` map of symbolic keys to
+  provider-prefixed model specs. Default: `%{large: "anthropic:claude-sonnet-4-6",
+  small: "anthropic:claude-haiku-4-5"}`. Pass custom maps for Ollama/OpenAI:
+  `models: %{large: "ollama:qwen3.5:35b", small: "ollama:qwen3.5:9b"}`
+- `RLM.Config.resolve_model/2` — looks up a model key in the `models` map
+- `RLM.Config.context_window_for/2` — resolves context window size for a model key
+  (legacy fields for `:large`/`:small`, default 128k for custom keys)
+- `model_key` option on Workers — replaces inline `config.model_large`/`config.model_small`
+  lookups with named model map resolution
+
+### Changed
+
+- Default `llm_module` changed from `RLM.LLM` (which was the implementation) to
+  `RLM.LLM.ReqLLM` (the new multi-provider adapter)
+- API key resolution now checks `ANTHROPIC_API_KEY` first, falls back to `CLAUDE_API_KEY`
+- `RLM.Worker` uses `model_key` (`:large`, `:small`, or custom atom) to resolve model
+  specs via `Config.resolve_model/2` instead of reading `config.model_large`/`model_small`
+- `RLM.run/3`, `RLM.run_async/3`, `RLM.start_session/1`, `RLM.Replay.replay/2` pass
+  `model_key:` instead of `model:` in worker opts
+- `req_llm` (`~> 1.6`) added as a dependency
+
 **Deterministic replay**
 
 - `RLM.Replay` — replay orchestrator that re-executes a previously recorded run using

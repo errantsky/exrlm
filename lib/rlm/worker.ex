@@ -41,6 +41,7 @@ defmodule RLM.Worker do
     # Tracks in-flight eval context (includes task_ref for supervised eval)
     :eval_context,
     # keep_alive mode fields
+    :model_key,
     :keep_alive,
     :cwd,
     :pending_from,
@@ -77,7 +78,8 @@ defmodule RLM.Worker do
     context = Keyword.get(opts, :context, "")
     query = Keyword.get(opts, :query, context)
     depth = Keyword.get(opts, :depth, 0)
-    model = Keyword.get(opts, :model, config.model_large)
+    model_key = Keyword.get(opts, :model_key, :large)
+    model = Keyword.get_lazy(opts, :model, fn -> resolve_model!(config, model_key) end)
     parent_span_id = Keyword.get(opts, :parent_span_id)
     caller = Keyword.get(opts, :caller)
     keep_alive = Keyword.get(opts, :keep_alive, false)
@@ -110,6 +112,7 @@ defmodule RLM.Worker do
         history: [system_msg],
         bindings: [final_answer: nil, compacted_history: ""],
         model: model,
+        model_key: model_key,
         config: config,
         status: :idle,
         result: nil,
@@ -156,6 +159,7 @@ defmodule RLM.Worker do
         history: [system_msg, user_msg],
         bindings: bindings,
         model: model,
+        model_key: model_key,
         config: config,
         status: :running,
         result: nil,
@@ -448,10 +452,7 @@ defmodule RLM.Worker do
   end
 
   def handle_call({:direct_query, text, model_size, schema}, from, state) do
-    model =
-      if model_size == :large,
-        do: state.config.model_large,
-        else: state.config.model_small
+    model = resolve_model!(state.config, model_size)
 
     if map_size(state.pending_subcalls) >= state.config.max_concurrent_subcalls do
       {:reply,
@@ -497,10 +498,7 @@ defmodule RLM.Worker do
   end
 
   def handle_call({:spawn_subcall, text, model_size}, from, state) do
-    model =
-      if model_size == :large,
-        do: state.config.model_large,
-        else: state.config.model_small
+    model = resolve_model!(state.config, model_size)
 
     cond do
       state.depth >= state.config.max_depth ->
@@ -526,6 +524,7 @@ defmodule RLM.Worker do
           context: text,
           query: text,
           model: model,
+          model_key: model_size,
           config: state.config,
           depth: state.depth + 1,
           parent_span_id: state.span_id,
@@ -947,11 +946,7 @@ defmodule RLM.Worker do
   end
 
   defp context_window_for_model(state) do
-    if state.model == state.config.model_large do
-      state.config.context_window_tokens_large
-    else
-      state.config.context_window_tokens_small
-    end
+    RLM.Config.context_window_for(state.config, state.model_key)
   end
 
   defp serialize_history(messages) do
@@ -962,6 +957,13 @@ defmodule RLM.Worker do
 
   defp join_compacted("", new), do: new
   defp join_compacted(existing, new), do: existing <> "\n===\n" <> new
+
+  defp resolve_model!(config, key) do
+    case RLM.Config.resolve_model(config, key) do
+      {:ok, spec} -> spec
+      {:error, _} -> Map.get(config.models, :large, "claude-sonnet-4-6")
+    end
+  end
 
   defp emit_telemetry(event, measurements, state, extra_metadata) do
     base = %{

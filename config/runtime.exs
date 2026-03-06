@@ -35,12 +35,15 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  # CLAUDE_API_KEY is required in prod for LLM calls.
-  System.get_env("CLAUDE_API_KEY") ||
+  # An API key is required in prod for LLM calls.
+  # ANTHROPIC_API_KEY is preferred; CLAUDE_API_KEY is accepted as a fallback.
+  unless System.get_env("ANTHROPIC_API_KEY") || System.get_env("CLAUDE_API_KEY") do
     raise """
-    environment variable CLAUDE_API_KEY is missing.
+    environment variable ANTHROPIC_API_KEY is missing.
     Set it to your Anthropic API key to enable LLM functionality.
+    (CLAUDE_API_KEY is also accepted as a fallback.)
     """
+  end
 
   host = System.get_env("PHX_HOST") || "example.com"
 

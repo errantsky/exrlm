@@ -26,7 +26,7 @@ defmodule RLM.IEx do
   Start a new interactive session. Returns the `session_id`.
 
   Options:
-    - `:model` — override the model (default: config.model_large)
+    - `:model_key` — model key from config.models map (default: `:large`)
     - `:cwd`   — working directory for tools (default: current dir)
   """
   @spec start(keyword()) :: String.t()
