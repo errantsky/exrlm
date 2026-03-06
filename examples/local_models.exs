@@ -35,11 +35,10 @@ defmodule RLM.Examples.LocalModels do
     check_ollama!()
 
     model = System.get_env("RLM_LOCAL_MODEL", @default_model)
-    IO.puts("\nRLM Local Models Example")
-    IO.puts("========================")
-    IO.puts("Using RLM.LLM.Ollama backend")
-    IO.puts("Model: #{model}")
-    IO.puts("")
+    IO.puts("\n  Local Models Example")
+    IO.puts("  ====================")
+    IO.puts("  Using RLM.LLM.Ollama backend")
+    IO.puts("  Model: #{model}\n")
 
     results =
       [
@@ -48,24 +47,29 @@ defmodule RLM.Examples.LocalModels do
         {&test_custom_model_map/1, "Custom model map"}
       ]
       |> Enum.map(fn {test_fn, name} ->
-        IO.write("  Running: #{name}... ")
+        IO.write("    #{name}... ")
 
         case test_fn.(model) do
-          {:ok, detail} ->
+          {:ok, detail, run_id} ->
             IO.puts("PASS — #{detail}")
-            {name, :pass}
+            {name, :pass, run_id}
 
           {:error, reason} ->
             IO.puts("FAIL — #{reason}")
-            {name, :fail}
+            {name, :fail, nil}
         end
       end)
 
-    passes = Enum.count(results, fn {_, s} -> s == :pass end)
-    fails = Enum.count(results, fn {_, s} -> s == :fail end)
-    IO.puts("\n#{passes} passed, #{fails} failed out of #{length(results)} tests")
+    passes = Enum.count(results, fn {_, s, _} -> s == :pass end)
+    fails = Enum.count(results, fn {_, s, _} -> s == :fail end)
+    IO.puts("\n  #{passes} passed, #{fails} failed out of #{length(results)} tests")
 
-    if fails > 0, do: System.halt(1)
+    if fails == 0 do
+      {_, _, run_id} = List.last(results)
+      {:ok, run_id}
+    else
+      {:error, "#{fails} of #{length(results)} local model tests failed"}
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -81,11 +85,11 @@ defmodule RLM.Examples.LocalModels do
            models: %{large: model, small: model},
            max_iterations: 10
          ) do
-      {:ok, 3, _run_id} ->
-        {:ok, "counted 3 languages"}
+      {:ok, 3, run_id} ->
+        {:ok, "counted 3 languages", run_id}
 
-      {:ok, other, _} ->
-        {:error, "expected 3, got #{inspect(other)}"}
+      {:ok, other, run_id} ->
+        {:error, "expected 3, got #{inspect(other)} (run: #{run_id})"}
 
       {:error, reason} ->
         {:error, inspect(reason)}
@@ -102,11 +106,11 @@ defmodule RLM.Examples.LocalModels do
            models: %{large: model, small: model},
            max_iterations: 10
          ) do
-      {:ok, 300, _run_id} ->
-        {:ok, "3 * 100 = 300"}
+      {:ok, 300, run_id} ->
+        {:ok, "3 * 100 = 300", run_id}
 
-      {:ok, other, _} ->
-        {:error, "expected 300, got #{inspect(other)}"}
+      {:ok, other, run_id} ->
+        {:error, "expected 300, got #{inspect(other)} (run: #{run_id})"}
 
       {:error, reason} ->
         {:error, inspect(reason)}
@@ -133,11 +137,11 @@ defmodule RLM.Examples.LocalModels do
            models: %{large: model, small: model},
            max_iterations: 5
          ) do
-      {:ok, result, _run_id} when is_binary(result) ->
-        {:ok, "got: #{String.slice(result, 0, 50)}"}
+      {:ok, result, run_id} when is_binary(result) ->
+        {:ok, "got: #{String.slice(result, 0, 50)}", run_id}
 
-      {:ok, other, _} ->
-        {:error, "expected string, got #{inspect(other)}"}
+      {:ok, other, run_id} ->
+        {:error, "expected string, got #{inspect(other)} (run: #{run_id})"}
 
       {:error, reason} ->
         {:error, inspect(reason)}

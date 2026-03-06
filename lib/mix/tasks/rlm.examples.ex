@@ -26,31 +26,44 @@ defmodule Mix.Tasks.Rlm.Examples do
   """
   use Mix.Task
 
+  # Each entry: {file, module_string, description, backend}
+  # backend is :cloud (needs ANTHROPIC_API_KEY) or :local (needs Ollama)
   @examples %{
     "map_reduce" => {
       "examples/map_reduce_analysis.exs",
       "RLM.Examples.MapReduceAnalysis",
-      "Map-Reduce Text Analysis — parallel chunk analysis + synthesis"
+      "Map-Reduce Text Analysis — parallel chunk analysis + synthesis",
+      :cloud
     },
     "code_review" => {
       "examples/code_review.exs",
       "RLM.Examples.CodeReview",
-      "Recursive Code Review — file tools + parallel schema analysis"
+      "Recursive Code Review — file tools + parallel schema analysis",
+      :cloud
     },
     "research_synthesis" => {
       "examples/research_synthesis.exs",
       "RLM.Examples.ResearchSynthesis",
-      "Multi-Source Research Synthesis — schema extraction + cross-reference"
+      "Multi-Source Research Synthesis — schema extraction + cross-reference",
+      :cloud
     },
     "web_fetch" => {
       "examples/web_fetch.exs",
       "RLM.Examples.WebFetch",
-      "Web Fetch & JSON Processing — curl + jq via bash tool"
+      "Web Fetch & JSON Processing — curl + jq via bash tool",
+      :cloud
     },
     "local_models" => {
       "examples/local_models.exs",
       "RLM.Examples.LocalModels",
-      "Local Models — Ollama/vLLM usage (no API key required)"
+      "Local Models — Ollama usage (no API key required)",
+      :local
+    },
+    "skills_ollama" => {
+      "examples/skills_ollama.exs",
+      "RLM.Examples.SkillsOllama",
+      "Agent Skills + Ollama — skill activation with local models",
+      :local
     }
   }
 
@@ -76,23 +89,29 @@ defmodule Mix.Tasks.Rlm.Examples do
 
     @examples
     |> Enum.sort()
-    |> Enum.each(fn {name, {_file, _mod, desc}} ->
+    |> Enum.each(fn {name, {_file, _mod, desc, _backend}} ->
       IO.puts("  #{String.pad_trailing(name, 22)} #{desc}")
     end)
 
     IO.puts("\nUsage: mix rlm.examples [name ...]")
-    IO.puts("       mix rlm.examples              (runs all)\n")
+    IO.puts("       mix rlm.examples              (runs all cloud examples)")
+    IO.puts("       mix rlm.examples local_models  (local Ollama examples)\n")
   end
 
   defp run_all do
     check_api_key!()
 
-    IO.puts("\nRLM Examples — Full Suite")
-    IO.puts("=========================")
-    IO.puts("Running all #{map_size(@examples)} examples...\n")
+    cloud_examples = Enum.filter(@examples, fn {_, {_, _, _, backend}} -> backend == :cloud end)
+
+    IO.puts("\nRLM Examples — Cloud Suite")
+    IO.puts("==========================")
+
+    IO.puts(
+      "Running #{length(cloud_examples)} cloud examples (use 'mix rlm.examples local_models' for Ollama)...\n"
+    )
 
     results =
-      @examples
+      cloud_examples
       |> Enum.sort()
       |> Enum.map(fn {name, _} -> {name, run_example(name)} end)
 
@@ -106,8 +125,9 @@ defmodule Mix.Tasks.Rlm.Examples do
         IO.puts("  Run 'mix rlm.examples --list' to see available examples.\n")
         :unknown
 
-      {file, mod_string, _desc} ->
-        check_api_key!()
+      {file, mod_string, _desc, backend} ->
+        if backend == :cloud, do: check_api_key!()
+
         script = resolve_script(file)
 
         if File.exists?(script) do
