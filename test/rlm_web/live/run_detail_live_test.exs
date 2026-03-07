@@ -141,4 +141,76 @@ defmodule RLMWeb.RunDetailLiveTest do
     assert html =~ "result = :hello"
     assert html =~ "hello output"
   end
+
+  test "keep-alive span status updates via PubSub turn_complete", %{
+    conn: conn,
+    run_id: run_id,
+    span_id: span_id
+  } do
+    TraceStore.put_event(run_id, %{
+      type: :node_start,
+      span_id: span_id,
+      parent_span_id: nil,
+      depth: 0,
+      model: "m",
+      timestamp_us: System.monotonic_time(:microsecond)
+    })
+
+    _ = :sys.get_state(RLM.TraceStore)
+
+    {:ok, lv, html} = live(conn, ~p"/runs/#{run_id}")
+    assert html =~ "animate-pulse"
+
+    # Keep-alive sessions emit turn:complete instead of node:stop
+    Phoenix.PubSub.broadcast(RLM.PubSub, "rlm:run:#{run_id}", %{
+      event: [:rlm, :turn, :complete],
+      metadata: %{
+        run_id: run_id,
+        span_id: span_id,
+        depth: 0,
+        status: :ok,
+        result_preview: "done",
+        model: "m"
+      },
+      measurements: %{duration_ms: 3000, total_iterations: 2},
+      timestamp: System.monotonic_time(:microsecond)
+    })
+
+    html = render(lv)
+    assert html =~ "bg-success"
+  end
+
+  test "keep-alive span loads with correct status from TraceStore turn_complete", %{
+    conn: conn,
+    run_id: run_id,
+    span_id: span_id
+  } do
+    ts = System.monotonic_time(:microsecond)
+
+    TraceStore.put_event(run_id, %{
+      type: :node_start,
+      span_id: span_id,
+      parent_span_id: nil,
+      depth: 0,
+      model: "claude-test",
+      timestamp_us: ts
+    })
+
+    TraceStore.put_event(run_id, %{
+      type: :turn_complete,
+      span_id: span_id,
+      depth: 0,
+      status: :ok,
+      result_preview: "answer",
+      duration_ms: 2000,
+      total_iterations: 2,
+      timestamp_us: ts + 1
+    })
+
+    _ = :sys.get_state(RLM.TraceStore)
+
+    {:ok, _lv, html} = live(conn, ~p"/runs/#{run_id}")
+    assert html =~ "span:" <> String.slice(span_id, 0, 6)
+    assert html =~ "bg-success"
+  end
 end

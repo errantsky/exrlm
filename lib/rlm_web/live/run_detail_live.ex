@@ -81,6 +81,21 @@ defmodule RLMWeb.RunDetailLive do
     {:noreply, assign(socket, spans: spans)}
   end
 
+  def handle_info(%{event: [:rlm, :turn, :complete], metadata: meta, measurements: meas}, socket) do
+    # Keep-alive sessions emit turn:complete instead of node:stop
+    spans =
+      Map.update(socket.assigns.spans, meta.span_id, %{}, fn node ->
+        Map.merge(node, %{
+          status: meta.status,
+          result_preview: meta[:result_preview],
+          duration_ms: meas[:duration_ms],
+          total_iterations: meas[:total_iterations]
+        })
+      end)
+
+    {:noreply, assign(socket, spans: spans)}
+  end
+
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   # --- Events ---
@@ -165,6 +180,17 @@ defmodule RLMWeb.RunDetailLive do
     Map.update(tree, event.span_id, %{}, fn node ->
       Map.merge(node, %{
         status: event[:status],
+        duration_ms: event[:duration_ms],
+        total_iterations: event[:total_iterations]
+      })
+    end)
+  end
+
+  defp rebuild_tree(%{type: :turn_complete} = event, tree) do
+    Map.update(tree, event.span_id, %{}, fn node ->
+      Map.merge(node, %{
+        status: event[:status],
+        result_preview: event[:result_preview],
         duration_ms: event[:duration_ms],
         total_iterations: event[:total_iterations]
       })

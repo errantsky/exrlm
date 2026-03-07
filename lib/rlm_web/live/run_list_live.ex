@@ -48,6 +48,20 @@ defmodule RLMWeb.RunListLive do
     end
   end
 
+  def handle_info(%{event: [:rlm, :turn, :complete], metadata: meta, measurements: meas}, socket) do
+    # Keep-alive sessions emit turn:complete instead of node:stop
+    if meta[:depth] == 0 do
+      runs =
+        Map.update(socket.assigns.runs, meta.run_id, %{}, fn run ->
+          %{run | status: meta.status, duration_ms: meas[:duration_ms]}
+        end)
+
+      {:noreply, assign(socket, runs: runs)}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info(%{event: [:rlm, :iteration, :stop], metadata: meta}, socket) do
     runs =
       Map.update(socket.assigns.runs, meta.run_id, %{}, fn run ->
@@ -70,10 +84,18 @@ defmodule RLMWeb.RunListLive do
           e[:type] == :node_start and is_nil(e[:parent_span_id])
         end)
 
+      # One-shot runs emit :node_stop; keep-alive sessions emit :turn_complete.
+      # Use node_stop if present, otherwise fall back to the latest turn_complete.
       root_stop =
         Enum.find(events, fn e ->
           e[:type] == :node_stop and e[:depth] == 0
         end)
+
+      final_event =
+        root_stop ||
+          events
+          |> Enum.filter(&(&1[:type] == :turn_complete and &1[:depth] == 0))
+          |> Enum.max_by(& &1[:timestamp_us], fn -> nil end)
 
       iter_count = Enum.count(events, &(&1[:type] == :iteration_stop))
 
@@ -81,10 +103,10 @@ defmodule RLMWeb.RunListLive do
         Map.put(acc, run_id, %{
           run_id: run_id,
           started_at: root_start[:timestamp_us],
-          status: if(root_stop, do: root_stop[:status], else: :running),
+          status: if(final_event, do: final_event[:status], else: :running),
           depth: 0,
           iteration_count: iter_count,
-          duration_ms: root_stop && root_stop[:duration_ms]
+          duration_ms: final_event && final_event[:duration_ms]
         })
       else
         acc

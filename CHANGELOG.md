@@ -6,6 +6,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Dashboard now correctly displays keep-alive session status. Previously, interactive
+  sessions (via `RLM.IEx.start/1` + `chat/3`) were permanently stuck at `:running`
+  because the dashboard only handled `:node_stop` events, not `:turn_complete` events
+  emitted by keep-alive Workers. Both `RunListLive` and `RunDetailLive` now handle
+  `turn:complete` for live PubSub updates and TraceStore page loads.
+
 ### Added
 
 **Agent Skills system**
